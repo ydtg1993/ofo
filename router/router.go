@@ -1,0 +1,161 @@
+package router
+
+import (
+	"database/sql"
+	"html/template"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"ofo/config"
+	"ofo/handlers"
+	"ofo/middleware"
+	"ofo/models"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Setup 配置并返回完整的 Gin 引擎。
+// 包含：模板函数、中间件链、静态资源、公开路由、管理后台路由、404 处理。
+// baseDir: 项目根目录的绝对路径，用于解析模板和静态资源。
+func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
+
+	r := gin.New()
+
+	// ==========================================
+	// 全局中间件链（按执行顺序排列）
+	// ==========================================
+	r.Use(
+		middleware.RequestID(),                // 1. UUID 注入
+		gin.Recovery(),                        // 2. Panic 恢复
+		middleware.Logger(),                   // 3. 请求日志
+		middleware.Timeout(30*time.Second),    // 4. 超时控制
+		middleware.SecurityHeaders(),          // 5. 安全响应头
+		middleware.CORS(),                     // 6. 跨域支持
+		middleware.RateLimit(50, time.Second), // 7. IP 限流
+	)
+
+	// ==========================================
+	// 模板引擎配置
+	// ==========================================
+	r.SetFuncMap(templateFuncMap())
+	r.LoadHTMLGlob(filepath.Join(baseDir, "templates", "*.html"))
+
+	// ==========================================
+	// 静态资源（CSS / JS / 图片）
+	// ==========================================
+	r.Static("/static", filepath.Join(baseDir, "static"))
+	r.GET("/favicon.ico", func(c *gin.Context) { c.Status(204) })
+
+	// ==========================================
+	// 公开路由
+	// ==========================================
+	{
+		r.GET("/", h.Home)                   // 首页（分页文章列表）
+		r.GET("/post/:slug", h.Post)         // 文章详情
+		r.GET("/category/:slug", h.Category) // 分类筛选
+		r.GET("/tag/:slug", h.Tag)           // 标签筛选
+		r.GET("/about", h.About)             // 关于页面
+		r.GET("/rss.xml", h.RSS)             // RSS 订阅
+		r.GET("/feed.xml", h.RSS)            // RSS 别名
+	}
+
+	// ==========================================
+	// 管理后台路由 (/admin)
+	// ==========================================
+	adminGroup(r, cfg, h)
+
+	// ==========================================
+	// 404 兜底
+	// ==========================================
+	r.NoRoute(func(c *gin.Context) {
+		// 静态资源走系统 404
+		if strings.HasPrefix(c.Request.URL.Path, "/static/") {
+			c.Status(404)
+			return
+		}
+		c.HTML(404, "layout.html", handlers.PageData{
+			Title: "404 — 页面未找到",
+			Cfg:   cfg,
+			Is404: true,
+		})
+	})
+
+	return r
+}
+
+// ==========================================
+// 管理后台路由组
+// ==========================================
+func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
+	admin := r.Group("/admin")
+
+	// 无需认证
+	admin.GET("/login", h.AdminLoginPage)
+	admin.POST("/login", h.AdminLogin)
+
+	// 需要认证
+	protected := admin.Group("")
+	protected.Use(middleware.AdminAuth(cfg.AdminPassword))
+	{
+		protected.GET("/", h.AdminDashboard)                            // 仪表盘
+		protected.GET("/posts/new", h.AdminNewPost)                     // 新建文章
+		protected.POST("/posts", h.AdminCreatePost)                     // 保存文章
+		protected.GET("/posts/:id/edit", h.AdminEditPost)               // 编辑文章
+		protected.POST("/posts/:id", h.AdminUpdatePost)                 // 更新文章
+		protected.POST("/posts/:id/delete", h.AdminDeletePost)          // 删除文章
+		protected.GET("/categories", h.AdminCategories)                 // 分类管理
+		protected.POST("/categories", h.AdminCreateCategory)            // 新建分类
+		protected.POST("/categories/:id", h.AdminUpdateCategory)        // 更新分类
+		protected.POST("/categories/:id/delete", h.AdminDeleteCategory) // 删除分类
+		protected.POST("/upload", h.AdminUpload)                        // 文件上传
+		protected.GET("/logout", h.AdminLogout)                         // 退出登录
+	}
+}
+
+// ==========================================
+// 模板函数注册
+// ==========================================
+func templateFuncMap() template.FuncMap {
+	return template.FuncMap{
+		// 日期格式化
+		"formatDate": func(t time.Time) string {
+			return t.Format("January 2, 2006")
+		},
+		"formatDateShort": func(t time.Time) string {
+			return t.Format("2006-01-02")
+		},
+		// HTML 安全输出
+		"safeHTML": func(s string) template.HTML {
+			return template.HTML(s)
+		},
+		// 文本截断
+		"truncate": func(s string, n int) string {
+			if len(s) <= n {
+				return s
+			}
+			return s[:n] + "..."
+		},
+		// int64 → int 转换（模板 eq 比较用）
+		"toInt": func(i int64) int { return int(i) },
+		"isVideoURL": func(url string) bool {
+			lower := strings.ToLower(url)
+			return strings.Contains(lower, ".mp4") || strings.Contains(lower, ".webm") ||
+				strings.Contains(lower, ".ogg") || strings.Contains(lower, ".mov") ||
+				strings.Contains(lower, "/video/")
+		},
+		// 根据 category ID 查名称
+		"catName": func(catID sql.NullInt64, categories []models.Category) string {
+			if !catID.Valid {
+				return "—"
+			}
+			for _, c := range categories {
+				if int64(c.ID) == catID.Int64 {
+					return c.Name
+				}
+			}
+			return "—"
+		},
+	}
+}

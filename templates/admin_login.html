@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台登录 — {{.Cfg.Title}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <main class="container" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
+        <div class="neo-box" style="width:100%;max-width:400px;">
+            <h1 style="text-align:center;margin-bottom:1.5rem;">后台登录</h1>
+            {{if .Error}}
+            <div class="admin-flash admin-flash--error">{{.Error}}</div>
+            {{end}}
+            <form method="POST" action="/admin/login">
+                <div class="form-group">
+                    <label for="password" class="form-label">管理员密码</label>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="请输入管理员密码" required autofocus>
+                </div>
+                <button type="submit" class="btn" style="width:100%;">登录</button>
+            </form>
+            <p style="text-align:center;margin-top:1.5rem;font-size:0.85rem;">
+                <a href="/">&larr; 返回首页</a>
+            </p>
+        </div>
+    </main>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

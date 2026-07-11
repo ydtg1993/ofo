@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <meta name="description" content="{{.Description}}">
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="container navbar__inner">
+            <a href="/" class="navbar__brand">{{.Cfg.Title}}</a>
+            <button class="navbar__toggle" id="nav-toggle" aria-label="切换导航菜单">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="navbar__links" id="nav-links">
+                <li><a href="/" class="{{if eq .CurrentPath "/"}}active{{end}}">首页</a></li>
+                <li><a href="/about" class="{{if eq .CurrentPath "/about"}}active{{end}}">关于</a></li>
+                <li><a href="/rss.xml" title="RSS 订阅">RSS</a></li>
+                <li>
+                    <button class="theme-toggle" id="theme-toggle" aria-label="切换深色模式" title="切换主题">
+                        <span class="theme-toggle__icon">&#9788;</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="container main-content">
+{{if .Is404}}
+        <!-- 404 页面 -->
+        <div class="neo-box" style="text-align:center;padding:4rem 2rem;">
+            <h1 style="font-size:4rem;margin-bottom:0;">404</h1>
+            <p style="font-size:1.25rem;margin-bottom:2rem;">页面未找到 — 它可能被外星人偷走了 👽</p>
+            <a href="/" class="btn">&larr; 返回首页</a>
+        </div>
+
+{{else if .IsAbout}}
+        <!-- 关于页面 -->
+        <div class="neo-box about-page">
+            <h1>关于本站</h1>
+            <p>欢迎来到 <strong>{{.Cfg.Title}}</strong> —— 一个分享搞笑图片、趣味短片、奇闻趣事的个人网站。</p>
+
+            <h2>我是谁？</h2>
+            <p>我是 {{.Cfg.Author}}，喜欢在网上搜集各种好玩、好笑、有趣的内容，然后把它们整理分享出来。</p>
+
+            <h2>这里有什么？</h2>
+            <ul>
+                <li><strong>搞笑图片</strong> —— 让人笑到肚子疼的神图</li>
+                <li><strong>趣味短片</strong> —— 各种有趣好玩的视频</li>
+                <li><strong>个人文章</strong> —— 生活中的趣事和感悟</li>
+                <li><strong>网络精选</strong> —— 从各个角落搜集来的宝藏内容</li>
+            </ul>
+
+            <h2>免责声明</h2>
+            <p>本站内容均为个人从网络搜集分享，版权归原作者所有。如有侵权，请联系删除。</p>
+
+            <div class="about-stack">
+                <span class="tag">搞笑</span>
+                <span class="tag">趣图</span>
+                <span class="tag">短片</span>
+                <span class="tag">分享</span>
+            </div>
+
+            <h2>联系我</h2>
+            <p>有好的内容想分享？发现侵权内容？欢迎通过邮件联系我。</p>
+        </div>
+
+{{else if .Post}}
+        <!-- 文章详情页 -->
+        <article class="post-full">
+            <header class="post-full__header">
+                <h1 class="post-full__title">{{.Post.Title}}</h1>
+                <div class="post-full__meta">
+                    <span class="post-full__date">{{.Post.CreatedAt | formatDate}}</span>
+                    {{if .PostCategoryName}}
+                    <span>&middot;</span>
+                    <a href="/category/{{.PostCategorySlug}}" class="post-full__category">{{.PostCategoryName}}</a>
+                    {{end}}
+                </div>
+            </header>
+            <div class="neo-box post-full__body">
+                {{.Post.ContentHTML | safeHTML}}
+            </div>
+            {{if .PostTags}}
+            <div class="post-full__tags">
+                {{range .PostTags}}
+                <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                {{end}}
+            </div>
+            {{end}}
+            <footer class="post-full__footer">
+                <a href="/" class="btn">&larr; 全部文章</a>
+            </footer>
+        </article>
+
+{{else}}
+        <!-- 文章列表（首页、分类、标签） -->
+        <div class="home-layout">
+            <section class="post-list">
+                {{if .Pagination}}
+                <div class="post-list__header">
+                    <h1>
+                    {{if .FilterName}}
+                        {{.FilterName}}
+                    {{else}}
+                        最新内容
+                    {{end}}
+                    </h1>
+                    {{if .Pagination.TotalPages}}
+                    <span class="post-list__count">共 {{.Pagination.TotalPosts}} 篇</span>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{range .Posts}}
+                <article class="post-card neo-box{{if .ThumbnailURL}} post-card--has-thumb{{end}}">
+                    {{if .ThumbnailURL}}
+                    <div class="post-card__thumb">
+                        <img src="{{.ThumbnailURL}}" alt="{{.Title}}" loading="lazy">
+                        {{if isVideoURL .ThumbnailURL}}
+                        <span class="post-card__play-icon">▶</span>
+                        {{end}}
+                    </div>
+                    {{end}}
+                    <div class="post-card__body">
+                    <h2 class="post-card__title">
+                        <a href="/post/{{.Slug}}">{{.Title}}</a>
+                    </h2>
+                    <div class="post-card__meta">
+                        <time datetime="{{.CreatedAt | formatDateShort}}">{{.CreatedAt | formatDate}}</time>
+                        {{if .CategoryName}}
+                        <span>&middot;</span>
+                        <a href="/category/{{.CategorySlug}}" class="post-card__category">{{.CategoryName}}</a>
+                        {{end}}
+                    </div>
+                    <p class="post-card__excerpt">{{.Excerpt}}</p>
+                    {{if .Tags}}
+                    <div class="post-card__tags">
+                        {{range .Tags}}
+                        <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                        {{end}}
+                    </div>
+                    {{end}}
+                    </div>
+                </article>
+                {{else}}
+                <div class="neo-box" style="text-align:center;padding:3rem;">
+                    <p style="font-size:1.25rem;">暂无内容，敬请期待！</p>
+                </div>
+                {{end}}
+
+                <!-- 分页 -->
+                {{if .Pagination}}{{if gt .Pagination.TotalPages 1}}
+                <nav class="pagination">
+                    {{if .Pagination.HasPrev}}
+                    <a href="?page={{.Pagination.PrevPage}}" class="btn btn--small">&larr; 上一页</a>
+                    {{else}}
+                    <span class="btn btn--small btn--disabled">&larr; 上一页</span>
+                    {{end}}
+
+                    <span class="pagination__info">第 {{.Pagination.CurrentPage}} / {{.Pagination.TotalPages}} 页</span>
+
+                    {{if .Pagination.HasNext}}
+                    <a href="?page={{.Pagination.NextPage}}" class="btn btn--small">下一页 &rarr;</a>
+                    {{else}}
+                    <span class="btn btn--small btn--disabled">下一页 &rarr;</span>
+                    {{end}}
+                </nav>
+                {{end}}{{end}}
+            </section>
+
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                {{if .Categories}}
+                <div class="sidebar__section neo-box">
+                    <h3 class="sidebar__title">分类</h3>
+                    <ul class="sidebar__list">
+                        {{range .Categories}}{{if gt .Count 0}}
+                        <li><a href="/category/{{.Slug}}">{{.Name}} <span class="count">{{.Count}}</span></a></li>
+                        {{end}}{{end}}
+                    </ul>
+                </div>
+                {{end}}
+
+                {{if .Tags}}
+                <div class="sidebar__section neo-box">
+                    <h3 class="sidebar__title">标签</h3>
+                    <div class="tag-cloud">
+                        {{range .Tags}}{{if gt .Count 0}}
+                        <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                        {{end}}{{end}}
+                    </div>
+                </div>
+                {{end}}
+            </aside>
+        </div>
+{{end}}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container footer__inner">
+            <div class="footer__brand">
+                <strong>{{.Cfg.Title}}</strong>
+                <p>搞笑图片 · 趣味短片 · 个人分享 —— 内容来源于网络</p>
+            </div>
+            <div class="footer__links">
+                <a href="/">首页</a>
+                <a href="/about">关于</a>
+                <a href="/rss.xml">RSS</a>
+            </div>
+            <div class="footer__copy">
+                <p>本站内容均来源于网络，仅供个人分享交流。Powered by Go &amp; Gin。</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
