@@ -856,82 +856,7 @@ li { margin-bottom: 0.35rem; }
     border-top: 2px solid var(--border-color);
 }
 
-@media (max-width: 768px) {
-    .form-row {
-        flex-direction: column;
-        gap: 0;
-    }
-    .admin-table__actions {
-        flex-direction: column;
-    }
-}
-
-/* ---- Responsive ---- */
-@media (max-width: 768px) {
-    html { font-size: 15px; }
-
-    .container {
-        padding: 0 1rem;
-    }
-
-    .navbar__inner {
-        flex-wrap: wrap;
-    }
-
-    .navbar__toggle {
-        display: flex;
-    }
-
-    .navbar__links {
-        display: none;
-        flex-direction: column;
-        width: 100%;
-        gap: 0.75rem;
-        padding: 1rem 0;
-        border-top: 2px solid var(--border-color);
-        margin-top: 0.5rem;
-    }
-
-    .navbar__links.open {
-        display: flex;
-    }
-
-    .navbar__links a {
-        font-size: 1rem;
-    }
-
-    .home-layout {
-        grid-template-columns: 1fr;
-    }
-
-    .sidebar {
-        order: -1;
-    }
-
-    .post-full__title {
-        font-size: 1.8rem;
-    }
-
-    .footer__inner {
-        grid-template-columns: 1fr;
-    }
-
-    .pagination {
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-}
-
-@media (max-width: 480px) {
-    h1 { font-size: 1.75rem; }
-    h2 { font-size: 1.35rem; }
-
-    .post-card__title { font-size: 1.25rem; }
-
-    .neo-box { padding: 1rem; }
-
-    .post-list__header h1 { font-size: 1.5rem; }
-}
+/* 旧响应式已合并至上方三档策略区域 */
 
 /* ---- Code Copy Button ---- */
 .code-copy-btn {
@@ -1083,8 +1008,9 @@ pre:hover .code-copy-btn,
 
 .post-card__thumb {
     flex-shrink: 0;
-    width: 220px;
-    height: 150px;
+    width: 320px;
+    height: auto;
+    max-height: 480px;
     overflow: hidden;
     border: 2px solid var(--border-color);
     border-radius: var(--radius);
@@ -1099,21 +1025,11 @@ pre:hover .code-copy-btn,
     display: block;
 }
 
-.post-card__play-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 48px;
-    height: 48px;
-    background: rgba(0, 0, 0, 0.7);
-    color: #fff;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
-    pointer-events: none;
+.post-card__thumb video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .post-card__body {
@@ -1135,7 +1051,36 @@ pre:hover .code-copy-btn,
     padding: 0.4rem 0.6rem !important;
 }
 
-@media (max-width: 768px) {
+/* ============================================================
+   Responsive — 三档策略：电脑 / 平板 / 手机
+   ============================================================ */
+
+/* ---- 平板 (640px – 1023px) ---- */
+@media (min-width: 641px) and (max-width: 1023px) {
+    .home-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    .sidebar {
+        order: -1;
+    }
+    .sidebar__section {
+        display: inline-block;
+        vertical-align: top;
+        width: calc(50% - 0.75rem);
+        margin-right: 1.5rem;
+    }
+    .sidebar__section:last-child {
+        margin-right: 0;
+    }
+    .post-card--has-thumb {
+        gap: 1rem;
+    }
+    .post-card__thumb {
+        width: 320px;
+        height: auto;
+        max-height: 480px;
+    }
     .editor-layout {
         grid-template-columns: 1fr;
     }
@@ -1146,13 +1091,107 @@ pre:hover .code-copy-btn,
     .editor-left {
         order: 1;
     }
+    .container {
+        max-width: 100%;
+        padding: 0 1.25rem;
+    }
+}
+
+/* ---- 手机 (< 640px) ---- */
+@media (max-width: 640px) {
+    html { font-size: 15px; }
+
+    .container {
+        padding: 0 1rem;
+    }
+
+    .home-layout {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    .sidebar {
+        order: -1;
+    }
+
+    /* 卡片竖排：缩略图在上，文字在下 */
     .post-card--has-thumb {
         flex-direction: column;
+        gap: 0.75rem;
     }
     .post-card__thumb {
         width: 100%;
         height: 200px;
     }
+    .post-card--has-thumb .post-card__title {
+        font-size: 1.15rem;
+    }
+
+    /* 导航 */
+    .navbar__inner {
+        flex-wrap: wrap;
+    }
+    .navbar__toggle {
+        display: flex;
+    }
+    .navbar__links {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        gap: 0.75rem;
+        padding: 1rem 0;
+        border-top: 2px solid var(--border-color);
+        margin-top: 0.5rem;
+    }
+    .navbar__links.open {
+        display: flex;
+    }
+    .navbar__links a {
+        font-size: 1rem;
+    }
+
+    /* 编辑器全宽 */
+    .editor-layout {
+        grid-template-columns: 1fr;
+    }
+    .editor-right {
+        position: static;
+        order: 2;
+    }
+    .editor-left {
+        order: 1;
+    }
+
+    /* 分页 */
+    .pagination {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* 详情页 */
+    .post-full__title {
+        font-size: 1.5rem;
+    }
+
+    /* 页脚 */
+    .footer__inner {
+        grid-template-columns: 1fr;
+    }
+
+    /* 管理后台表格 */
+    .admin-table__actions {
+        flex-direction: column;
+    }
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    h1 { font-size: 1.75rem; }
+    h2 { font-size: 1.35rem; }
+    .post-card__title { font-size: 1.25rem; }
+    .neo-box { padding: 1rem; }
+    .post-list__header h1 { font-size: 1.5rem; }
+    .post-full__title { font-size: 1.8rem; }
 }
 
 /* ---- Lazy Load Posts ---- */

@@ -166,6 +166,17 @@
             html = escapeHtmlForPreview(md);
         }
 
+        // Shared elements
+        var catEl = document.getElementById('category_id');
+        var catName = catEl && catEl.selectedIndex >= 0 ? catEl.options[catEl.selectedIndex].text : '';
+        if (catName === '— 无 —') catName = '';
+
+        var tagsEl = document.getElementById('tags');
+        var tagNames = [];
+        if (tagsEl && tagsEl.value.trim()) {
+            tagNames = tagsEl.value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+        }
+
         // Extract first image for card preview
         var firstImg = extractFirstImage(html);
         var displayThumb = thumbURL || firstImg || '';
@@ -173,31 +184,56 @@
             displayThumb.indexOf('.ogg') > -1 || displayThumb.indexOf('.mov') > -1);
 
         if (mode === 'card') {
-            // Card preview
-            var excerpt = stripHtml(html).substring(0, 150) + '...';
+            // 主页卡片预览 — 结构与 layout.html 严格一致
+            // 摘要：优先读手动填写的，否则自动提取
+            var excerptEl = document.getElementById('excerpt');
+            var excerpt = '';
+            if (excerptEl && excerptEl.value.trim()) {
+                excerpt = excerptEl.value.trim();
+            } else {
+                excerpt = stripHtml(html).substring(0, 150) + '...';
+            }
+
             var thumbBlock = '';
             if (displayThumb) {
-                thumbBlock = '<div class="post-card__thumb">' +
-                    '<img src="' + displayThumb + '" alt="' + title + '">' +
-                    (isVideo ? '<span class="post-card__play-icon">▶</span>' : '') +
-                    '</div>';
+                thumbBlock = '\n                    <div class="post-card__thumb">\n' +
+                    '                        <img src="' + displayThumb + '" alt="' + title + '" loading="lazy">\n' +
+                    (isVideo ? '                        <span class="post-card__play-icon">▶</span>\n' : '') +
+                    '                    </div>\n';
             }
+
+            var tagsBlock = '';
+            if (tagNames.length > 0) {
+                tagsBlock = '\n                    <div class="post-card__tags">\n' +
+                    tagNames.map(function(t) {
+                        return '                        <a href="/tag/' + encodeURIComponent(t) + '" class="tag">' + t + '</a>';
+                    }).join('\n') +
+                    '\n                    </div>\n';
+            }
+
+            var catBlock = '';
+            if (catName) {
+                catBlock = '\n                        <span>·</span>\n' +
+                    '                        <a href="#" class="post-card__category">' + catName + '</a>';
+            }
+
             previewContent.innerHTML =
                 '<article class="post-card neo-box' + (displayThumb ? ' post-card--has-thumb' : '') + '">' +
                 thumbBlock +
-                '<div class="post-card__body">' +
-                '<h2 class="post-card__title"><a href="#">' + title + '</a></h2>' +
-                '<div class="post-card__meta"><time>预览日期</time></div>' +
-                '<p class="post-card__excerpt">' + excerpt + '</p>' +
-                '</div></article>';
+                '                    <div class="post-card__body">\n' +
+                '                    <h2 class="post-card__title">\n' +
+                '                        <a href="#">' + title + '</a>\n' +
+                '                    </h2>\n' +
+                '                    <div class="post-card__meta">\n' +
+                '                        <time datetime="' + new Date().toISOString().slice(0, 10) + '">预览日期</time>' +
+                catBlock +
+                '\n                    </div>\n' +
+                '                    <p class="post-card__excerpt">' + excerpt + '</p>' +
+                tagsBlock +
+                '\n                    </div>\n' +
+                '                </article>';
         } else {
             // Detail preview
-            var tagsEl = document.getElementById('tags');
-            var catEl = document.getElementById('category_id');
-            var tagsText = tagsEl ? tagsEl.value : '';
-            var catName = catEl && catEl.selectedIndex >= 0 ? catEl.options[catEl.selectedIndex].text : '';
-            if (catName === '— 无 —') catName = '';
-
             var metaHtml = '<div class="post-full__meta">' +
                 '<span class="post-full__date">预览日期</span>';
             if (catName) {
