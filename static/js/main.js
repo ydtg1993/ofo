@@ -84,6 +84,45 @@
         // Initial preview
         updatePreview();
 
+        // --- Lazy Load Posts ---
+        var POSTS_PER_BATCH = 10;
+        var allPosts = document.querySelectorAll('.lazy-post');
+        var loadMoreWrap = document.getElementById('load-more-wrap');
+        var loadMoreBtn = document.getElementById('load-more-btn');
+        var loadMoreRemaining = document.getElementById('load-more-remaining');
+        var visibleCount = POSTS_PER_BATCH;
+
+        function updateLoadMore() {
+            var hiddenPosts = document.querySelectorAll('.lazy-post.post-card--hidden');
+            if (hiddenPosts.length === 0) {
+                if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+            } else {
+                if (loadMoreWrap) loadMoreWrap.style.display = 'block';
+                if (loadMoreRemaining) {
+                    loadMoreRemaining.textContent = '（还有 ' + hiddenPosts.length + ' 篇）';
+                }
+            }
+        }
+
+        // Initially show only first batch
+        allPosts.forEach(function (post, i) {
+            if (i < POSTS_PER_BATCH) {
+                post.classList.remove('post-card--hidden');
+            }
+        });
+        updateLoadMore();
+
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', function () {
+                var hidden = document.querySelectorAll('.lazy-post.post-card--hidden');
+                var toShow = Math.min(POSTS_PER_BATCH, hidden.length);
+                for (var i = 0; i < toShow; i++) {
+                    hidden[i].classList.remove('post-card--hidden');
+                }
+                updateLoadMore();
+            });
+        }
+
         // --- File Upload ---
         var fileInput = document.getElementById('file-upload');
         if (fileInput) {

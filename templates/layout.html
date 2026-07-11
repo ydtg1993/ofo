@@ -84,7 +84,7 @@
                 </div>
             </header>
             <div class="neo-box post-full__body">
-                {{.Post.ContentHTML | safeHTML}}
+                {{.Post.ContentHTML}}
             </div>
             {{if .PostTags}}
             <div class="post-full__tags">
@@ -102,7 +102,6 @@
         <!-- 文章列表（首页、分类、标签） -->
         <div class="home-layout">
             <section class="post-list">
-                {{if .Pagination}}
                 <div class="post-list__header">
                     <h1>
                     {{if .FilterName}}
@@ -111,37 +110,34 @@
                         最新内容
                     {{end}}
                     </h1>
-                    {{if .Pagination.TotalPages}}
-                    <span class="post-list__count">共 {{.Pagination.TotalPosts}} 篇</span>
-                    {{end}}
+                    <span class="post-list__count">共 <span id="post-total">{{len .Posts}}</span> 篇</span>
                 </div>
-                {{end}}
 
-                {{range .Posts}}
-                <article class="post-card neo-box{{if .ThumbnailURL}} post-card--has-thumb{{end}}">
-                    {{if .ThumbnailURL}}
+                {{range $i, $post := .Posts}}
+                <article class="post-card neo-box{{if $post.ThumbnailURL}} post-card--has-thumb{{end}} lazy-post{{if ge $i 10}} post-card--hidden{{end}}" data-post-index="{{$i}}">
+                    {{if $post.ThumbnailURL}}
                     <div class="post-card__thumb">
-                        <img src="{{.ThumbnailURL}}" alt="{{.Title}}" loading="lazy">
-                        {{if isVideoURL .ThumbnailURL}}
+                        <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
+                        {{if isVideoURL $post.ThumbnailURL}}
                         <span class="post-card__play-icon">▶</span>
                         {{end}}
                     </div>
                     {{end}}
                     <div class="post-card__body">
                     <h2 class="post-card__title">
-                        <a href="/post/{{.Slug}}">{{.Title}}</a>
+                        <a href="/post/{{$post.Slug}}">{{$post.Title}}</a>
                     </h2>
                     <div class="post-card__meta">
-                        <time datetime="{{.CreatedAt | formatDateShort}}">{{.CreatedAt | formatDate}}</time>
-                        {{if .CategoryName}}
+                        <time datetime="{{$post.CreatedAt | formatDateShort}}">{{$post.CreatedAt | formatDate}}</time>
+                        {{if $post.CategoryName}}
                         <span>&middot;</span>
-                        <a href="/category/{{.CategorySlug}}" class="post-card__category">{{.CategoryName}}</a>
+                        <a href="/category/{{$post.CategorySlug}}" class="post-card__category">{{$post.CategoryName}}</a>
                         {{end}}
                     </div>
-                    <p class="post-card__excerpt">{{.Excerpt}}</p>
-                    {{if .Tags}}
+                    <p class="post-card__excerpt">{{$post.Excerpt}}</p>
+                    {{if $post.Tags}}
                     <div class="post-card__tags">
-                        {{range .Tags}}
+                        {{range $post.Tags}}
                         <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
                         {{end}}
                     </div>
@@ -154,24 +150,10 @@
                 </div>
                 {{end}}
 
-                <!-- 分页 -->
-                {{if .Pagination}}{{if gt .Pagination.TotalPages 1}}
-                <nav class="pagination">
-                    {{if .Pagination.HasPrev}}
-                    <a href="?page={{.Pagination.PrevPage}}" class="btn btn--small">&larr; 上一页</a>
-                    {{else}}
-                    <span class="btn btn--small btn--disabled">&larr; 上一页</span>
-                    {{end}}
-
-                    <span class="pagination__info">第 {{.Pagination.CurrentPage}} / {{.Pagination.TotalPages}} 页</span>
-
-                    {{if .Pagination.HasNext}}
-                    <a href="?page={{.Pagination.NextPage}}" class="btn btn--small">下一页 &rarr;</a>
-                    {{else}}
-                    <span class="btn btn--small btn--disabled">下一页 &rarr;</span>
-                    {{end}}
-                </nav>
-                {{end}}{{end}}
+                <!-- 加载更多 -->
+                <div id="load-more-wrap" class="load-more-wrap" style="display:none;">
+                    <button id="load-more-btn" class="btn load-more-btn">加载更多 <span id="load-more-remaining"></span></button>
+                </div>
             </section>
 
             <!-- 侧边栏 -->

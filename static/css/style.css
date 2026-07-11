@@ -1155,6 +1155,27 @@ pre:hover .code-copy-btn,
     }
 }
 
+/* ---- Lazy Load Posts ---- */
+.post-card--hidden {
+    display: none;
+}
+
+.load-more-wrap {
+    text-align: center;
+    padding: 1.5rem 0;
+}
+
+.load-more-btn {
+    font-size: 1rem;
+    padding: 0.75rem 2.5rem;
+}
+
+.load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* ---- Print ---- */
 @media print {
     .navbar, .footer, .sidebar, .pagination, .post-full__footer,
