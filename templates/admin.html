@@ -246,11 +246,25 @@
         </div>
     </div>
 
+    <!-- 发布时间 -->
+    <div class="form-group">
+        <label for="created_at" class="form-label">发布时间</label>
+        <input type="date" id="created_at" name="created_at" class="form-input" style="max-width:220px;"
+            value="{{if .Post}}{{.Post.CreatedAt | formatDateShort}}{{end}}">
+    </div>
+
     <div class="form-group">
         <label for="tags" class="form-label">标签</label>
         <input type="text" id="tags" name="tags" class="form-input"
             value="{{if .Tags}}{{range $i, $t := .Tags}}{{if $i}}, {{end}}{{$t.Name}}{{end}}{{end}}"
             placeholder="用逗号分隔，如：搞笑, 表情包, 趣图">
+    </div>
+
+    <!-- 摘要（手动编辑，留空则自动提取） -->
+    <div class="form-group">
+        <label for="excerpt" class="form-label">主页摘要（可选，留空则自动从正文提取前 200 字）</label>
+        <textarea id="excerpt" name="excerpt" class="form-textarea" rows="3" style="font-family:var(--font-body);"
+            placeholder="手动编写主页卡片显示的摘要…">{{if .Post}}{{.Post.Excerpt}}{{end}}</textarea>
     </div>
 
     <!-- 编辑器工具栏 -->

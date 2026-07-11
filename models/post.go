@@ -2,9 +2,10 @@ package models
 
 import (
 	"database/sql"
-	"html/template"
+	"fmt"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Post represents a full blog post from the database.
@@ -14,7 +15,7 @@ type Post struct {
 	Slug         string
 	Excerpt      string
 	ContentMD    string
-	ContentHTML  template.HTML
+	ContentHTML  string
 	CategoryID   sql.NullInt64
 	IsPublished  bool
 	ThumbnailURL string
@@ -367,16 +368,16 @@ func (m *PostModel) GetByID(id int) (*Post, error) {
 }
 
 // Create inserts a new post and returns its ID.
-func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, tagNames []string) (int64, error) {
+func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, createdAt time.Time, tagNames []string) (int64, error) {
 	pubInt := 0
 	if published {
 		pubInt = 1
 	}
 
 	result, err := m.DB.Exec(`
-		INSERT INTO posts (title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL)
+		INSERT INTO posts (title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, createdAt)
 	if err != nil {
 		return 0, err
 	}
@@ -401,16 +402,16 @@ func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbna
 }
 
 // Update modifies an existing post.
-func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, tagNames []string) error {
+func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, createdAt time.Time, tagNames []string) error {
 	pubInt := 0
 	if published {
 		pubInt = 1
 	}
 
 	_, err := m.DB.Exec(`
-		UPDATE posts SET title=?, slug=?, excerpt=?, content_md=?, content_html=?, category_id=?, is_published=?, thumbnail_url=?, updated_at=CURRENT_TIMESTAMP
+		UPDATE posts SET title=?, slug=?, excerpt=?, content_md=?, content_html=?, category_id=?, is_published=?, thumbnail_url=?, created_at=?, updated_at=CURRENT_TIMESTAMP
 		WHERE id=?
-	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, id)
+	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, createdAt, id)
 	if err != nil {
 		return err
 	}
@@ -543,17 +544,17 @@ func ExtractThumbnail(html string) string {
 func slugify(s string) string {
 	result := ""
 	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			if r >= 'A' && r <= 'Z' {
-				result += string(r + 32)
-			} else {
-				result += string(r)
-			}
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			result += strings.ToLower(string(r))
 		} else if r == ' ' || r == '-' || r == '_' {
 			if len(result) > 0 && result[len(result)-1] != '-' {
 				result += "-"
 			}
 		}
 	}
-	return strings.TrimRight(result, "-")
+	slug := strings.TrimRight(result, "-")
+	if slug == "" {
+		slug = fmt.Sprintf("tag-%d", time.Now().Unix())
+	}
+	return slug
 }

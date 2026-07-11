@@ -84,7 +84,7 @@
                 </div>
             </header>
             <div class="neo-box post-full__body">
-                {{.Post.ContentHTML}}
+                {{.Post.ContentHTML | safeHTML}}
             </div>
             {{if .PostTags}}
             <div class="post-full__tags">

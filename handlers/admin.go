@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
+	"unicode"
 
 	"ofo/middleware"
 	"ofo/models"
@@ -29,8 +33,21 @@ func sanitizePolicy() *bluemonday.Policy {
 
 // renderMarkdown converts markdown to sanitized HTML.
 func renderMarkdown(md string) string {
+	// 预处理：确保块引用、标题、列表前有空行（非标准 markdown 的宽松模式）
+	md = normalizeMarkdown(md)
 	unsafe := blackfriday.Run([]byte(md))
 	return string(sanitizePolicy().SanitizeBytes(unsafe))
+}
+
+// normalizeMarkdown 预处理 markdown，让非空行前的 > / # / - 能正确解析。
+var reBlockNeedsBlank = regexp.MustCompile(`(?m)^([^\n>#\-\s].+)\n(> |#{1,6} |\d+\. |\- )`)
+
+func normalizeMarkdown(md string) string {
+	// 统一换行符：\r\n (Windows) / \r (old Mac) → \n
+	md = strings.ReplaceAll(md, "\r\n", "\n")
+	md = strings.ReplaceAll(md, "\r", "\n")
+	// 在块级元素前补空行（如果前一非空行不是空行或另一个块元素）
+	return reBlockNeedsBlank.ReplaceAllString(md, "$1\n\n$2")
 }
 
 // AdminPageData holds data for admin template rendering.
@@ -161,7 +178,10 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 	contentHTML := renderMarkdown(contentMD)
 
 	// Excerpt
-	excerpt := extractExcerptStr(contentMD, 200)
+	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
+	if excerpt == "" {
+		excerpt = extractExcerptStr(contentMD, 200)
+	}
 
 	// Auto-extract thumbnail if not manually set
 	if thumbnailURL == "" {
@@ -177,7 +197,10 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 
 	tagNames := parseTags(tagStr)
 
-	_, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, tagNames)
+	// 发布时间（默认当天）
+	createdAt := parseDate(c.PostForm("created_at"))
+
+	_, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames)
 	if err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin.html", AdminPageData{
@@ -217,7 +240,10 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 	}
 
 	contentHTML := renderMarkdown(contentMD)
-	excerpt := extractExcerptStr(contentMD, 200)
+	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
+	if excerpt == "" {
+		excerpt = extractExcerptStr(contentMD, 200)
+	}
 
 	// Auto-extract thumbnail if not manually set
 	if thumbnailURL == "" {
@@ -233,7 +259,10 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 
 	tagNames := parseTags(tagStr)
 
-	if err := h.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, tagNames); err != nil {
+	// 发布时间（默认当天）
+	createdAt := parseDate(c.PostForm("created_at"))
+
+	if err := h.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames); err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		tags, _ := h.PostModel.TagsForPost(id)
 		post, _ := h.PostModel.GetByID(id)
@@ -417,16 +446,21 @@ func (h *Handler) adminDashboardWithSuccess(c *gin.Context, msg string) {
 
 func slugifyStr(s string) string {
 	result := ""
-	for _, r := range strings.ToLower(s) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			result += string(r)
-		} else if r == ' ' || r == '-' {
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			result += strings.ToLower(string(r))
+		} else if r == ' ' || r == '-' || r == '_' {
 			if len(result) > 0 && result[len(result)-1] != '-' {
 				result += "-"
 			}
 		}
 	}
-	return strings.Trim(result, "-")
+	slug := strings.Trim(result, "-")
+	// 兜底：纯中文等标题 slugify 后为空时，用时间戳
+	if slug == "" {
+		slug = fmt.Sprintf("post-%d", time.Now().Unix())
+	}
+	return slug
 }
 
 func extractExcerptStr(md string, maxLen int) string {
@@ -470,4 +504,15 @@ func parseTags(tagStr string) []string {
 		}
 	}
 	return tags
+}
+
+// parseDate parses a form date string, defaults to today.
+func parseDate(s string) time.Time {
+	s = strings.TrimSpace(s)
+	if s != "" {
+		if t, err := time.Parse("2006-01-02", s); err == nil {
+			return t
+		}
+	}
+	return time.Now()
 }
