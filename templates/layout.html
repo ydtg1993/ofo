@@ -118,7 +118,10 @@
                     {{if $post.ThumbnailURL}}
                     <div class="post-card__thumb">
                         {{if isVideoURL $post.ThumbnailURL}}
-                        <video src="{{$post.ThumbnailURL}}" controls preload="metadata"></video>
+                        <div class="video-player" onclick="toggleVideoPlayer(this)">
+                            <video src="{{$post.ThumbnailURL}}" preload="metadata"></video>
+                            <div class="video-player__play"></div>
+                        </div>
                         {{else}}
                         <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
                         {{end}}

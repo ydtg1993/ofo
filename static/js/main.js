@@ -184,8 +184,7 @@
             displayThumb.indexOf('.ogg') > -1 || displayThumb.indexOf('.mov') > -1);
 
         if (mode === 'card') {
-            // 主页卡片预览 — 结构与 layout.html 严格一致
-            // 摘要：优先读手动填写的，否则自动提取
+            // 主页卡片预览 — 与 layout.html 结构一致
             var excerptEl = document.getElementById('excerpt');
             var excerpt = '';
             if (excerptEl && excerptEl.value.trim()) {
@@ -194,44 +193,49 @@
                 excerpt = stripHtml(html).substring(0, 150) + '...';
             }
 
-            var thumbBlock = '';
+            var thumbHTML = '';
             if (displayThumb) {
-                thumbBlock = '\n                    <div class="post-card__thumb">\n' +
-                    '                        <img src="' + displayThumb + '" alt="' + title + '" loading="lazy">\n' +
-                    (isVideo ? '                        <span class="post-card__play-icon">▶</span>\n' : '') +
-                    '                    </div>\n';
+                if (isVideo) {
+                    thumbHTML = '<div class="video-player" onclick="toggleVideoPlayer(this)"><video src="' + displayThumb + '" preload="metadata"></video><div class="video-player__play"></div></div>';
+                } else {
+                    thumbHTML = '<img src="' + displayThumb + '" alt="' + title + '" loading="lazy">';
+                }
             }
 
-            var tagsBlock = '';
+            var tagsHTML = '';
             if (tagNames.length > 0) {
-                tagsBlock = '\n                    <div class="post-card__tags">\n' +
-                    tagNames.map(function(t) {
-                        return '                        <a href="/tag/' + encodeURIComponent(t) + '" class="tag">' + t + '</a>';
-                    }).join('\n') +
-                    '\n                    </div>\n';
+                tagsHTML = tagNames.map(function(t) {
+                    return '<a href="/tag/' + encodeURIComponent(t) + '" class="tag">' + t + '</a>';
+                }).join('\n');
             }
 
-            var catBlock = '';
+            var html = '';
+            html += '<article class="post-card neo-box' + (displayThumb ? ' post-card--has-thumb' : '') + '">\n';
+            if (displayThumb) {
+                html += '  <div class="post-card__thumb">\n';
+                html += '    ' + thumbHTML + '\n';
+                html += '  </div>\n';
+            }
+            html += '  <div class="post-card__body">\n';
+            html += '    <h2 class="post-card__title">\n';
+            html += '      <a href="#">' + title + '</a>\n';
+            html += '    </h2>\n';
+            html += '    <div class="post-card__meta">\n';
+            html += '      <time datetime="' + new Date().toISOString().slice(0, 10) + '">预览日期</time>\n';
             if (catName) {
-                catBlock = '\n                        <span>·</span>\n' +
-                    '                        <a href="#" class="post-card__category">' + catName + '</a>';
+                html += '      <span>·</span>\n';
+                html += '      <a href="#" class="post-card__category">' + catName + '</a>\n';
             }
-
-            previewContent.innerHTML =
-                '<article class="post-card neo-box' + (displayThumb ? ' post-card--has-thumb' : '') + '">' +
-                thumbBlock +
-                '                    <div class="post-card__body">\n' +
-                '                    <h2 class="post-card__title">\n' +
-                '                        <a href="#">' + title + '</a>\n' +
-                '                    </h2>\n' +
-                '                    <div class="post-card__meta">\n' +
-                '                        <time datetime="' + new Date().toISOString().slice(0, 10) + '">预览日期</time>' +
-                catBlock +
-                '\n                    </div>\n' +
-                '                    <p class="post-card__excerpt">' + excerpt + '</p>' +
-                tagsBlock +
-                '\n                    </div>\n' +
-                '                </article>';
+            html += '    </div>\n';
+            html += '    <p class="post-card__excerpt">' + excerpt + '</p>\n';
+            if (tagsHTML) {
+                html += '    <div class="post-card__tags">\n';
+                html += '      ' + tagsHTML + '\n';
+                html += '    </div>\n';
+            }
+            html += '  </div>\n';
+            html += '</article>';
+            previewContent.innerHTML = html;
         } else {
             // Detail preview
             var metaHtml = '<div class="post-full__meta">' +
@@ -348,3 +352,16 @@
         return '';
     }
 })();
+
+// 全局视频播放器切换（模板 onclick 调用）
+function toggleVideoPlayer(container) {
+    var video = container.querySelector('video');
+    if (!video) return;
+    if (video.paused) {
+        video.play();
+        container.classList.add('playing');
+    } else {
+        video.pause();
+        container.classList.remove('playing');
+    }
+}
