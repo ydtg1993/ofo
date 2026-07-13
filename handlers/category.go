@@ -52,14 +52,16 @@ func (h *Handler) Category(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "layout.html", PageData{
-		Title:       "Category: " + categoryName + " — " + h.Cfg.Title,
-		Description: "Posts in category " + categoryName,
-		Cfg:         h.Cfg,
-		Categories:  categories,
-		Tags:        tags,
-		Posts:       posts,
-		Pagination:  pagination,
-		FilterName:  categoryName,
-		CurrentPath: "/category/" + slug,
+		Title:        "Category: " + categoryName + " — " + h.Cfg.Title,
+		Description:  "Posts in category " + categoryName,
+		Keywords:     categoryName + "," + h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL + "/category/" + slug,
+		Cfg:          h.Cfg,
+		Categories:   categories,
+		Tags:         tags,
+		Posts:        posts,
+		Pagination:   pagination,
+		FilterName:   categoryName,
+		CurrentPath:  "/category/" + slug,
 	})
 }

@@ -20,12 +20,15 @@ func (h *Handler) Home(c *gin.Context) {
 	tags, _ := h.PostModel.AllTags()
 
 	c.HTML(http.StatusOK, "layout.html", PageData{
-		Title:       h.Cfg.Title,
-		Description: "搞笑图片、趣味短片、奇闻趣事 —— 内容来源于网络，快乐来源于分享。",
-		Cfg:         h.Cfg,
-		Categories:  categories,
-		Tags:        tags,
-		Posts:       posts,
-		CurrentPath: "/",
+		Title:        h.Cfg.Title,
+		Description:  "搞笑图片、趣味短片、奇闻趣事 —— 内容来源于网络，快乐来源于分享。",
+		Keywords:     h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL,
+		Cfg:          h.Cfg,
+		Categories:   categories,
+		Tags:         tags,
+		Posts:        posts,
+		CurrentPath:  "/",
+		IsHome:       true,
 	})
 }

@@ -207,11 +207,11 @@ li { margin-bottom: 0.35rem; }
     text-transform: uppercase;
     letter-spacing: -0.03em;
     text-decoration: none;
-    color: var(--text-primary);
+    color: #000000;
 }
 
 .navbar__brand:hover {
-    color: var(--text-primary);
+    color: #000000;
     text-decoration: none;
 }
 
@@ -230,7 +230,7 @@ li { margin-bottom: 0.35rem; }
     display: block;
     width: 22px;
     height: 3px;
-    background: var(--text-primary);
+    background: #000000;
 }
 
 .navbar__links {
@@ -245,7 +245,7 @@ li { margin-bottom: 0.35rem; }
     font-weight: 700;
     font-size: 0.95rem;
     text-decoration: none;
-    color: var(--text-primary);
+    color: #000000;
     padding: 0.25rem 0;
     border-bottom: 3px solid transparent;
     transition: border-color 0.15s ease;
@@ -253,15 +253,15 @@ li { margin-bottom: 0.35rem; }
 
 .navbar__links a:hover,
 .navbar__links a.active {
-    border-bottom-color: var(--text-primary);
-    color: var(--text-primary);
+    border-bottom-color: #000000;
+    color: #000000;
 }
 
 /* Theme Toggle */
 .theme-toggle {
     background: var(--bg-secondary);
     border: 2px solid var(--border-color);
-    color: var(--text-primary);
+    color: #000000;
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0.3rem 0.6rem;
@@ -581,6 +581,42 @@ li { margin-bottom: 0.35rem; }
 
 .post-full__footer {
     margin-top: 2rem;
+}
+
+/* ---- Breadcrumb ---- */
+.breadcrumb {
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+.breadcrumb ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+.breadcrumb li {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+}
+.breadcrumb li:not(:last-child)::after {
+    content: "/";
+    margin-left: 0.35rem;
+    color: var(--text-muted);
+}
+.breadcrumb li a {
+    color: var(--accent-2);
+    text-decoration: none;
+}
+.breadcrumb li a:hover {
+    text-decoration: underline;
+}
+.breadcrumb li[aria-current="page"] {
+    color: var(--text-primary);
+    font-weight: 600;
 }
 
 /* ---- About Page ---- */

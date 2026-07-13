@@ -33,4 +33,9 @@ type PageData struct {
 	PostTags         []models.Tag
 	// Category/Tag filter name
 	FilterName string
+	// SEO fields
+	Keywords     string
+	CanonicalURL string
+	OGImage      string
+	IsHome       bool
 }

@@ -59,6 +59,8 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		r.GET("/about", h.About)             // 关于页面
 		r.GET("/rss.xml", h.RSS)             // RSS 订阅
 		r.GET("/feed.xml", h.RSS)            // RSS 别名
+		r.GET("/robots.txt", h.RobotsTXT)    // 搜索引擎爬虫规则
+		r.GET("/sitemap.xml", h.SitemapXML)  // 站点地图
 	}
 
 	// ==========================================
@@ -76,9 +78,12 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 			return
 		}
 		c.HTML(404, "layout.html", handlers.PageData{
-			Title: "404 — 页面未找到",
-			Cfg:   cfg,
-			Is404: true,
+			Title:        "404 — 页面未找到",
+			Description:  "页面未找到",
+			Keywords:     cfg.Keywords,
+			CanonicalURL: cfg.BaseURL + c.Request.URL.Path,
+			Cfg:          cfg,
+			Is404:        true,
 		})
 	})
 

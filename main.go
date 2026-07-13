@@ -20,6 +20,9 @@ func main() {
 	}
 	log.Printf("Base directory: %s", baseDir)
 
+	// ---- 加载 .env 文件（如果存在）----
+	config.LoadDotenv(baseDir)
+
 	// ---- 配置 ----
 	cfg := config.Load()
 

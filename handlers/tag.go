@@ -52,14 +52,16 @@ func (h *Handler) Tag(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "layout.html", PageData{
-		Title:       "Tag: " + tagName + " — " + h.Cfg.Title,
-		Description: "Posts tagged with " + tagName,
-		Cfg:         h.Cfg,
-		Categories:  categories,
-		Tags:        tags,
-		Posts:       posts,
-		Pagination:  pagination,
-		FilterName:  tagName,
-		CurrentPath: "/tag/" + slug,
+		Title:        "Tag: " + tagName + " — " + h.Cfg.Title,
+		Description:  "Posts tagged with " + tagName,
+		Keywords:     tagName + "," + h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL + "/tag/" + slug,
+		Cfg:          h.Cfg,
+		Categories:   categories,
+		Tags:         tags,
+		Posts:        posts,
+		Pagination:   pagination,
+		FilterName:   tagName,
+		CurrentPath:  "/tag/" + slug,
 	})
 }

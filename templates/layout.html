@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}}</title>
     <meta name="description" content="{{.Description}}">
+    <meta name="keywords" content="{{.Keywords}}">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="{{.Cfg.Author}}">
+    {{if .Cfg.BaiduVerify}}<meta name="baidu-site-verification" content="{{.Cfg.BaiduVerify}}">{{end}}
+    {{if .Cfg.Verify360}}<meta name="360-site-verification" content="{{.Cfg.Verify360}}">{{end}}
+    {{if .Cfg.SogouVerify}}<meta name="sogou-site-verification" content="{{.Cfg.SogouVerify}}">{{end}}
+    <!-- Open Graph -->
+    <meta property="og:title" content="{{.Title}}">
+    <meta property="og:description" content="{{.Description}}">
+    <meta property="og:url" content="{{.CanonicalURL}}">
+    <meta property="og:site_name" content="{{.Cfg.Title}}">
+    <meta property="og:locale" content="zh_CN">
+    {{if .OGImage}}<meta property="og:image" content="{{.OGImage}}">{{end}}
+    {{if .IsHome}}<meta property="og:type" content="website">{{else}}<meta property="og:type" content="article">{{end}}
+    <!-- Canonical -->
+    <link rel="canonical" href="{{.CanonicalURL}}">
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -73,6 +89,17 @@
 {{else if .Post}}
         <!-- 文章详情页 -->
         <article class="post-full">
+            <!-- 面包屑导航 -->
+            <nav class="breadcrumb" aria-label="面包屑导航">
+                <ol>
+                    <li><a href="/">首页</a></li>
+                    {{if .PostCategoryName}}
+                    <li><a href="/category/{{.PostCategorySlug}}">{{.PostCategoryName}}</a></li>
+                    {{end}}
+                    <li aria-current="page">{{.Post.Title}}</li>
+                </ol>
+            </nav>
+
             <header class="post-full__header">
                 <h1 class="post-full__title">{{.Post.Title}}</h1>
                 <div class="post-full__meta">
@@ -205,6 +232,110 @@
             </div>
         </div>
     </footer>
+
+    <!-- JSON-LD 结构化数据 -->
+    <script type="application/ld+json">
+    {{if .IsHome}}
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "{{.Cfg.Title}}",
+      "url": "{{.Cfg.BaseURL}}",
+      "description": "{{.Description}}",
+      "author": {
+        "@type": "Person",
+        "name": "{{.Cfg.Author}}"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "{{.Cfg.BaseURL}}/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    {{else if .Post}}
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "{{.Post.Title}}",
+      "description": "{{.Post.Excerpt}}",
+      "author": {
+        "@type": "Person",
+        "name": "{{.Cfg.Author}}"
+      },
+      "datePublished": "{{.Post.CreatedAt | formatDateShort}}",
+      "dateModified": "{{.Post.UpdatedAt | formatDateShort}}",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{.CanonicalURL}}"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "{{.Cfg.Title}}"
+      }{{if .OGImage}},
+      "image": "{{.OGImage}}"
+      {{end}}{{if .PostCategoryName}},
+      "articleSection": "{{.PostCategoryName}}"
+      {{end}}{{if .PostTags}},
+      "keywords": [{{range $i, $t := .PostTags}}{{if $i}}, {{end}}"{{$t.Name}}"{{end}}]
+      {{end}}
+    }
+    {{else if .IsAbout}}
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "关于 — {{.Cfg.Title}}",
+      "description": "关于本站和作者",
+      "url": "{{.CanonicalURL}}",
+      "author": {
+        "@type": "Person",
+        "name": "{{.Cfg.Author}}"
+      }
+    }
+    {{else}}
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": "{{.Title}}",
+      "description": "{{.Description}}",
+      "url": "{{.CanonicalURL}}"
+    }
+    {{end}}
+    </script>
+    <!-- 面包屑结构化数据（文章详情页） -->
+    {{if .Post}}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "首页",
+          "item": "{{.Cfg.BaseURL}}"
+        }{{if .PostCategoryName}},
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "{{.PostCategoryName}}",
+          "item": "{{.Cfg.BaseURL}}/category/{{.PostCategorySlug}}"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "{{.Post.Title}}"
+        }
+        {{else}},
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "{{.Post.Title}}"
+        }
+        {{end}}
+      ]
+    }
+    </script>
+    {{end}}
 
     <script src="/static/js/main.js"></script>
 </body>
