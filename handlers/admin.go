@@ -23,12 +23,20 @@ import (
 	"github.com/russross/blackfriday/v2"
 )
 
-// sanitizePolicy returns a bluemonday policy that allows video elements.
+// sanitizePolicy returns a bluemonday policy that allows HTML and video elements.
 func sanitizePolicy() *bluemonday.Policy {
 	p := bluemonday.UGCPolicy()
+	// 允许视频元素
 	p.AllowElements("video", "source")
 	p.AllowAttrs("src", "controls", "width", "height", "autoplay", "loop", "muted", "poster").OnElements("video")
 	p.AllowAttrs("src", "type").OnElements("source")
+	// 允许常用 HTML 布局标签 + 样式/类名
+	p.AllowElements("div", "span", "section", "article", "header", "footer", "nav", "aside", "main", "figure", "figcaption", "details", "summary")
+	p.AllowAttrs("class", "id", "style").OnElements("div", "span", "section", "article", "header", "footer", "nav", "aside", "main", "figure", "figcaption", "details", "summary")
+	p.AllowAttrs("class", "id").Globally()
+	// 允许 iframe（嵌入视频等）
+	p.AllowElements("iframe")
+	p.AllowAttrs("src", "width", "height", "frameborder", "allowfullscreen", "allow", "style").OnElements("iframe")
 	return p
 }
 

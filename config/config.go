@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,16 +10,27 @@ import (
 
 type Config struct {
 	Port          string
-	DBPath        string
+	DBHost        string
+	DBPort        string
+	DBUser        string
+	DBPassword    string
+	DBName        string
 	Title         string
 	Author        string
 	BaseURL       string
 	AdminPassword string
+	SeedDB        bool
 	// SEO
 	Keywords    string
 	BaiduVerify string
 	Verify360   string
 	SogouVerify string
+}
+
+// DSN returns the MariaDB/MySQL data source name.
+func (c *Config) DSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName)
 }
 
 // LoadDotenv reads KEY=VALUE pairs from .env in baseDir and exports them as
@@ -62,11 +74,16 @@ func LoadDotenv(baseDir string) {
 func Load() *Config {
 	return &Config{
 		Port:          getEnv("PORT", "8080"),
-		DBPath:        getEnv("DB_PATH", "db/log.db"),
+		DBHost:        getEnv("DB_HOST", "127.0.0.1"),
+		DBPort:        getEnv("DB_PORT", "3306"),
+		DBUser:        getEnv("DB_USER", "root"),
+		DBPassword:    getEnv("DB_PASSWORD", ""),
+		DBName:        getEnv("DB_NAME", "ofo"),
 		Title:         getEnv("BLOG_TITLE", "骑自行车"),
 		Author:        getEnv("BLOG_AUTHOR", "青头儿包"),
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
+		SeedDB:        getEnvBool("SEED_DB", true),
 		Keywords:      getEnv("BLOG_KEYWORDS", "搞笑图片,趣味短片,奇闻趣事,搞笑视频"),
 		BaiduVerify:   getEnv("BAIDU_VERIFY", ""),
 		Verify360:     getEnv("VERIFY_360", ""),
@@ -79,4 +96,12 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v := strings.ToLower(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	return v == "true" || v == "1" || v == "yes"
 }

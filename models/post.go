@@ -390,11 +390,11 @@ func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbna
 			continue
 		}
 		tagSlug := slugify(tagName)
-		m.DB.Exec("INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)", tagName, tagSlug)
+		m.DB.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", tagName, tagSlug)
 
 		var tagID int64
 		if err := m.DB.QueryRow("SELECT id FROM tags WHERE slug = ?", tagSlug).Scan(&tagID); err == nil {
-			m.DB.Exec("INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
+			m.DB.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
 		}
 	}
 
@@ -423,11 +423,11 @@ func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt,
 			continue
 		}
 		tagSlug := slugify(tagName)
-		m.DB.Exec("INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)", tagName, tagSlug)
+		m.DB.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", tagName, tagSlug)
 
 		var tagID int64
 		if err := m.DB.QueryRow("SELECT id FROM tags WHERE slug = ?", tagSlug).Scan(&tagID); err == nil {
-			m.DB.Exec("INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", id, tagID)
+			m.DB.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", id, tagID)
 		}
 	}
 

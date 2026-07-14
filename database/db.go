@@ -5,65 +5,65 @@ import (
 	"log"
 	"strings"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var migrations = []string{
 	`CREATE TABLE IF NOT EXISTS categories (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL UNIQUE,
-		slug TEXT NOT NULL UNIQUE
-	)`,
+		id INT NOT NULL AUTO_INCREMENT,
+		name VARCHAR(100) NOT NULL UNIQUE,
+		slug VARCHAR(100) NOT NULL UNIQUE,
+		PRIMARY KEY (id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE TABLE IF NOT EXISTS posts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		title TEXT NOT NULL,
-		slug TEXT NOT NULL UNIQUE,
-		excerpt TEXT NOT NULL DEFAULT '',
-		content_md TEXT NOT NULL,
-		content_html TEXT NOT NULL,
-		category_id INTEGER,
-		is_published INTEGER DEFAULT 1,
+		id INT NOT NULL AUTO_INCREMENT,
+		title VARCHAR(255) NOT NULL,
+		slug VARCHAR(255) NOT NULL UNIQUE,
+		excerpt TEXT NOT NULL,
+		content_md MEDIUMTEXT NOT NULL,
+		content_html MEDIUMTEXT NOT NULL,
+		category_id INT,
+		is_published INT DEFAULT 1,
+		thumbnail_url VARCHAR(512) DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
 		FOREIGN KEY (category_id) REFERENCES categories(id)
-	)`,
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE TABLE IF NOT EXISTS tags (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL UNIQUE,
-		slug TEXT NOT NULL UNIQUE
-	)`,
+		id INT NOT NULL AUTO_INCREMENT,
+		name VARCHAR(100) NOT NULL UNIQUE,
+		slug VARCHAR(100) NOT NULL UNIQUE,
+		PRIMARY KEY (id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE TABLE IF NOT EXISTS post_tags (
-		post_id INTEGER,
-		tag_id INTEGER,
+		post_id INT,
+		tag_id INT,
 		PRIMARY KEY (post_id, tag_id),
 		FOREIGN KEY (post_id) REFERENCES posts(id),
 		FOREIGN KEY (tag_id) REFERENCES tags(id)
-	)`,
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug)`,
 	`CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC)`,
 	`CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug)`,
 	`CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug)`,
-	`PRAGMA journal_mode=WAL`,
-	`PRAGMA foreign_keys=ON`,
-	// v2: 文章缩略图
-	`ALTER TABLE posts ADD COLUMN thumbnail_url TEXT DEFAULT ''`,
-	// v3: 上传资源管理
 	`CREATE TABLE IF NOT EXISTS resources (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		post_id INTEGER,
-		filename TEXT NOT NULL,
-		url TEXT NOT NULL,
-		file_size INTEGER NOT NULL DEFAULT 0,
-		mime_type TEXT NOT NULL DEFAULT '',
+		id INT NOT NULL AUTO_INCREMENT,
+		post_id INT,
+		filename VARCHAR(255) NOT NULL,
+		url VARCHAR(512) NOT NULL,
+		file_size BIGINT NOT NULL DEFAULT 0,
+		mime_type VARCHAR(100) NOT NULL DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
 		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
-	)`,
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE INDEX IF NOT EXISTS idx_resources_post_id ON resources(post_id)`,
 }
 
-func Init(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_foreign_keys=on")
+func Init(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +74,10 @@ func Init(dbPath string) (*sql.DB, error) {
 
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil {
-			// 忽略 "duplicate column" 错误（重复迁移）
-			if strings.Contains(err.Error(), "duplicate column") {
+			// 忽略重复迁移错误
+			if strings.Contains(err.Error(), "Duplicate column") ||
+				strings.Contains(err.Error(), "Duplicate key") ||
+				strings.Contains(err.Error(), "already exists") {
 				continue
 			}
 			return nil, err

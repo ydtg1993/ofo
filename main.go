@@ -27,24 +27,23 @@ func main() {
 	cfg := config.Load()
 
 	// ---- 确保必要目录存在 ----
-	dbPath := filepath.Join(baseDir, cfg.DBPath)
-	if dir := filepath.Dir(dbPath); dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Fatalf("Failed to create database directory: %v", err)
-		}
-	}
 	if err := os.MkdirAll(filepath.Join(baseDir, "static", "uploads"), 0755); err != nil {
 		log.Fatalf("Failed to create uploads directory: %v", err)
 	}
-	db, err := database.Init(dbPath)
+
+	db, err := database.Init(cfg.DSN())
 	if err != nil {
 		log.Fatalf("Failed to init database: %v", err)
 	}
 	defer db.Close()
 
 	// ---- 种子数据 ----
-	if err := database.Seed(db); err != nil {
-		log.Fatalf("Failed to seed data: %v", err)
+	if cfg.SeedDB {
+		if err := database.Seed(db); err != nil {
+			log.Fatalf("Failed to seed data: %v", err)
+		}
+	} else {
+		log.Println("SeedDB is disabled, skipping seed data")
 	}
 
 	// ---- 依赖组装 ----

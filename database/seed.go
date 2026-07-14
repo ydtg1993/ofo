@@ -30,7 +30,7 @@ func Seed(db *sql.DB) error {
 		"Tools":        "tools",
 	}
 	for name, slug := range categories {
-		if _, err := db.Exec("INSERT OR IGNORE INTO categories (name, slug) VALUES (?, ?)", name, slug); err != nil {
+		if _, err := db.Exec("INSERT IGNORE INTO categories (name, slug) VALUES (?, ?)", name, slug); err != nil {
 			return err
 		}
 	}
@@ -51,7 +51,7 @@ func Seed(db *sql.DB) error {
 		"react":       "react",
 	}
 	for name, slug := range tags {
-		if _, err := db.Exec("INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)", name, slug); err != nil {
+		if _, err := db.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", name, slug); err != nil {
 			return err
 		}
 	}
@@ -484,7 +484,7 @@ Generics are one of TypeScript's most powerful features. They let you write flex
 			if err := db.QueryRow("SELECT id FROM tags WHERE slug = ?", tagSlug).Scan(&tagID); err != nil {
 				continue
 			}
-			db.Exec("INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
+			db.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
 		}
 	}
 
