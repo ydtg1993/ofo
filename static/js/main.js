@@ -726,3 +726,118 @@ function closeStickerPreview(e) {
         if (content) content.innerHTML = '';
     }
 }
+
+// ---- 正文图片全屏灯箱（dialog） ----
+(function () {
+    var body = document.querySelector('.post-full__body');
+    if (!body) return;
+
+    // 收集正文中的所有图片
+    var images = Array.from(body.querySelectorAll('img'));
+    if (images.length === 0) return;
+
+    // 创建 dialog
+    var dialog = document.createElement('dialog');
+    dialog.className = 'img-lightbox';
+    dialog.innerHTML =
+        '<div class="img-lightbox__inner">' +
+        '  <button class="img-lightbox__close" aria-label="关闭" title="关闭 (Esc)">&times;</button>' +
+        '  <button class="img-lightbox__prev" aria-label="上一张" title="上一张 (←)">&#8249;</button>' +
+        '  <button class="img-lightbox__next" aria-label="下一张" title="下一张 (→)">&#8250;</button>' +
+        '  <img class="img-lightbox__img" src="" alt="">' +
+        '  <span class="img-lightbox__counter"></span>' +
+        '</div>';
+    document.body.appendChild(dialog);
+
+    var inner      = dialog.querySelector('.img-lightbox__inner');
+    var lightImg   = dialog.querySelector('.img-lightbox__img');
+    var closeBtn   = dialog.querySelector('.img-lightbox__close');
+    var prevBtn    = dialog.querySelector('.img-lightbox__prev');
+    var nextBtn    = dialog.querySelector('.img-lightbox__next');
+    var counterEl  = dialog.querySelector('.img-lightbox__counter');
+
+    var currentIdx = 0;
+
+    function show(idx) {
+        idx = Math.max(0, Math.min(idx, images.length - 1));
+        currentIdx = idx;
+        var src = images[idx].getAttribute('src');
+        var alt = images[idx].getAttribute('alt') || '';
+        lightImg.src = src;
+        lightImg.alt = alt;
+
+        // 导航按钮显隐
+        prevBtn.hidden = (images.length <= 1);
+        nextBtn.hidden = (images.length <= 1);
+
+        // 计数器
+        counterEl.textContent = (idx + 1) + ' / ' + images.length;
+    }
+
+    function open(idx) {
+        show(idx);
+        if (!dialog.open) dialog.showModal();
+    }
+
+    function close() {
+        dialog.close();
+        // 关闭后释放图片内存（避免大图滞留）
+        setTimeout(function () { lightImg.src = ''; }, 200);
+    }
+
+    function next() { show(currentIdx + 1); }
+    function prev() { show(currentIdx - 1); }
+
+    // ---- 事件绑定 ----
+    // 点击正文图片
+    images.forEach(function (img, i) {
+        // 用闭包保存索引，避免 addEventListener 的 i 被覆盖
+        img.addEventListener('click', function (e) {
+            e.preventDefault();
+            open(i);
+        });
+    });
+
+    // 关闭按钮
+    closeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        close();
+    });
+
+    // 点击背景
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) close();
+    });
+
+    // 点击大图本身 → 关闭（zoom-out 体验）
+    lightImg.addEventListener('click', function (e) {
+        e.stopPropagation();
+        close();
+    });
+
+    // 导航按钮
+    prevBtn.addEventListener('click', function (e) { e.stopPropagation(); prev(); });
+    nextBtn.addEventListener('click', function (e) { e.stopPropagation(); next(); });
+
+    // 键盘
+    document.addEventListener('keydown', function (e) {
+        if (!dialog.open) return;
+        switch (e.key) {
+            case 'Escape':   break;           // dialog 原生处理
+            case 'ArrowLeft':  e.preventDefault(); prev(); break;
+            case 'ArrowRight': e.preventDefault(); next(); break;
+        }
+    });
+
+    // 触摸滑动（移动端）
+    var touchStartX = 0;
+    inner.addEventListener('touchstart', function (e) {
+        touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    inner.addEventListener('touchend', function (e) {
+        var dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 60) {
+            dx > 0 ? prev() : next();
+        }
+    });
+})();

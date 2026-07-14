@@ -190,6 +190,10 @@ func templateFuncMap(cfg *config.Config) template.FuncMap {
 				strings.Contains(lower, "/video/")
 		},
 		// 根据 category ID 查名称
+		// 给文章正文 <img> 注入 loading="lazy"（兼容已有旧文章）
+		"lazyImages": func(html string) template.HTML {
+			return template.HTML(handlers.InjectLazyLoading(html))
+		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {
 				return "—"

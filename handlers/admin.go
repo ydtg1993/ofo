@@ -49,7 +49,24 @@ func renderMarkdown(md string) string {
 	// 预处理：递归渲染 HTML 容器标签内的 Markdown（如 <div>![](url)</div>）
 	md = renderHTMLContainers(md)
 	unsafe := blackfriday.Run([]byte(md))
-	return string(sanitizePolicy().SanitizeBytes(unsafe))
+	html := string(sanitizePolicy().SanitizeBytes(unsafe))
+	// 给正文图片加懒加载
+	html = InjectLazyLoading(html)
+	return html
+}
+
+// reImgTag matches an <img> tag body for lazy-load injection.
+var reImgTag = regexp.MustCompile(`<img\s([^>]*?)>`)
+
+// InjectLazyLoading adds loading="lazy" to every <img> that lacks a loading attribute.
+// Exported so the router's template function can reuse it for existing posts.
+func InjectLazyLoading(html string) string {
+	return reImgTag.ReplaceAllStringFunc(html, func(match string) string {
+		if strings.Contains(match, "loading=") {
+			return match
+		}
+		return strings.Replace(match, "<img ", "<img loading=\"lazy\" ", 1)
+	})
 }
 
 // HTML 容器标签集合

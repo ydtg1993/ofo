@@ -24,7 +24,7 @@
                 </div>
             </header>
             <div class="neo-box post-full__body">
-                {{.Post.ContentHTML | safeHTML}}
+                {{.Post.ContentHTML | lazyImages}}
             </div>
             {{if .PostTags}}
             <div class="post-full__tags">
