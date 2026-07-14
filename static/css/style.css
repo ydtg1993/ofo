@@ -298,7 +298,7 @@ li { margin-bottom: 0.35rem; }
     border: var(--border-width) solid var(--border-color);
     box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--shadow-color);
     background: var(--accent);
-    color: var(--text-primary);
+    color: #000000;
     cursor: pointer;
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     text-align: center;
@@ -308,7 +308,7 @@ li { margin-bottom: 0.35rem; }
 .btn:hover {
     transform: translate(2px, 2px);
     box-shadow: 2px 2px 0 var(--shadow-color);
-    color: var(--text-primary);
+    color: #000000;
     text-decoration: none;
 }
 
@@ -720,6 +720,10 @@ pre:hover .code-copy-btn,
 }
 
 /* ---- Post Card Thumbnail ---- */
+.post-card {
+    position: relative;
+}
+
 .post-card--has-thumb {
     display: flex;
     gap: 1.25rem;
@@ -736,6 +740,8 @@ pre:hover .code-copy-btn,
     border-radius: var(--radius);
     background: var(--bg-primary);
     position: relative;
+    display: block;
+    cursor: pointer;
 }
 
 .post-card__thumb img {
@@ -815,8 +821,21 @@ pre:hover .code-copy-btn,
    Responsive — 三档策略：电脑 / 平板 / 手机
    ============================================================ */
 
-/* ---- 平板 (640px – 1023px) ---- */
+/* ---- 平板 (640px – 1023px) — 整卡点击跳转 ---- */
 @media (min-width: 641px) and (max-width: 1023px) {
+    .post-card__thumb { display: none; }
+    .post-card__body { position: static; }
+    .post-card__title a::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+    }
+    /* 卡片内的标签、分类等可交互元素需要浮到遮罩层上方 */
+    .post-card__meta a,
+    .post-card__category,
+    .post-card__tags a,
+    .tag { position: relative; z-index: 1; }
+
     .home-layout {
         grid-template-columns: 1fr;
         gap: 1.5rem;
@@ -847,8 +866,19 @@ pre:hover .code-copy-btn,
     }
 }
 
-/* ---- 手机 (< 640px) ---- */
+/* ---- 手机 (< 640px) — 整卡点击跳转 ---- */
 @media (max-width: 640px) {
+    .post-card__body { position: static; }
+    .post-card__title a::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+    }
+    .post-card__meta a,
+    .post-card__category,
+    .post-card__tags a,
+    .tag { position: relative; z-index: 1; }
+
     html { font-size: 15px; }
 
     .container {

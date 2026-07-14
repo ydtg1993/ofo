@@ -133,6 +133,42 @@
     });
 
     // --- Markdown Preview ---
+
+    // preprocessMarkdown: 递归渲染 HTML 容器标签内的 Markdown（前端预览用）
+    function preprocessMarkdown(md) {
+        // 先把 width="100px" 等属性转为 style
+        md = md.replace(/\b(width|height)\s*=\s*"(\d+%?)"/gi, function(m, prop, val) {
+            return 'style="' + prop.toLowerCase() + ':' + val + '"';
+        });
+        md = md.replace(/\b(align)\s*=\s*"(left|center|right)"/gi, function(m, prop, val) {
+            return 'style="text-align:' + val.toLowerCase() + '"';
+        });
+
+        var tagList = 'div|section|article|figure|figcaption|details|summary|header|footer|nav|aside|main';
+        var re = new RegExp('<(' + tagList + ')\\b([^>]*)>(.+?)<\\/(\\w+)>', 'gs');
+        for (var i = 0; i < 10; i++) {
+            var before = md;
+            md = md.replace(re, function(match, openTag, attrs, content, closeTag) {
+                if (openTag !== closeTag) return match;
+                var rendered;
+                try {
+                    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                        rendered = marked.parse(content);
+                    } else if (typeof marked !== 'undefined' && typeof marked === 'function') {
+                        rendered = marked(content);
+                    } else {
+                        rendered = escapeHtmlForPreview(content);
+                    }
+                } catch (e) {
+                    rendered = escapeHtmlForPreview(content);
+                }
+                return '<' + openTag + attrs + '>\n' + rendered + '\n</' + openTag + '>';
+            });
+            if (md === before) break;
+        }
+        return md;
+    }
+
     window.updatePreview = function () {
         var contentEl = document.getElementById('content');
         var titleEl = document.getElementById('title');
@@ -154,13 +190,14 @@
 
         var html = '';
         try {
-            // Use marked if available, otherwise escape
+            // 预处理：渲染 HTML 容器内的 Markdown
+            var processed = preprocessMarkdown(md);
             if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                html = marked.parse(md);
+                html = marked.parse(processed);
             } else if (typeof marked !== 'undefined' && typeof marked === 'function') {
-                html = marked(md);
+                html = marked(processed);
             } else {
-                html = escapeHtmlForPreview(md);
+                html = escapeHtmlForPreview(processed);
             }
         } catch (e) {
             html = escapeHtmlForPreview(md);
@@ -270,16 +307,50 @@
             var ext = f.name.split('.').pop().toLowerCase();
             var allowed = ['jpg','jpeg','png','gif','webp','mp4','webm','ogg','mov'];
             if (allowed.indexOf(ext) < 0) continue;
+            var idx = editorPendingFiles.length;
             editorPendingFiles.push(f);
             var li = document.createElement('li');
-            li.textContent = f.name + ' (' + formatSize(f.size) + ')';
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+            li.innerHTML = '<span>' + f.name + ' (' + formatSize(f.size) + ')</span>' +
+                '<button type="button" class="queue-remove-btn" data-idx="' + idx + '" data-queue="editor" title="移除">&times;</button>';
             editorQueueList.appendChild(li);
         }
-        if (editorPendingFiles.length > 0) {
+        refreshEditorQueue();
+    }
+
+    function refreshEditorQueue() {
+        if (editorPendingFiles.length === 0) {
+            editorQueueDiv.style.display = 'none';
+        } else {
             editorQueueDiv.style.display = 'block';
             editorQueueStatus.textContent = editorPendingFiles.length + ' 个文件待上传';
         }
     }
+
+    // 队列删除按钮（事件委托）
+    if (editorQueueList) editorQueueList.addEventListener('click', function (e) {
+        var btn = e.target.closest('.queue-remove-btn');
+        if (!btn) return;
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var queue = btn.getAttribute('data-queue');
+        if (queue === 'editor') {
+            editorPendingFiles.splice(idx, 1);
+            // 重建列表
+            editorQueueList.innerHTML = '';
+            editorPendingFiles.forEach(function (f, i) {
+                var li = document.createElement('li');
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+                li.innerHTML = '<span>' + f.name + ' (' + formatSize(f.size) + ')</span>' +
+                    '<button type="button" class="queue-remove-btn" data-idx="' + i + '" data-queue="editor" title="移除">&times;</button>';
+                editorQueueList.appendChild(li);
+            });
+            refreshEditorQueue();
+        }
+    });
 
     if (editorDropZone && editorFileInput) {
         editorDropZone.addEventListener('click', function (e) {
@@ -456,19 +527,49 @@ function fallbackCopy(url, btn) {
     function addFiles(files) {
         for (var i = 0; i < files.length; i++) {
             var f = files[i];
-            // validate type
             var ext = f.name.split('.').pop().toLowerCase();
             var allowed = ['jpg','jpeg','png','gif','webp','mp4','webm','ogg','mov'];
             if (allowed.indexOf(ext) < 0) continue;
+            var idx = pendingFiles.length;
             pendingFiles.push(f);
             var li = document.createElement('li');
-            li.textContent = f.name + ' (' + formatSize(f.size) + ')';
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+            li.innerHTML = '<span>' + f.name + ' (' + formatSize(f.size) + ')</span>' +
+                '<button type="button" class="queue-remove-btn" data-idx="' + idx + '" data-queue="sticker" title="移除">&times;</button>';
             queueList.appendChild(li);
         }
-        if (pendingFiles.length > 0) {
+        refreshStickerQueue();
+    }
+
+    function refreshStickerQueue() {
+        if (pendingFiles.length === 0) {
+            queueDiv.style.display = 'none';
+        } else {
             queueDiv.style.display = 'block';
             queueStatus.textContent = pendingFiles.length + ' 个文件待上传';
         }
+    }
+
+    if (queueList) {
+        queueList.addEventListener('click', function (e) {
+            var btn = e.target.closest('.queue-remove-btn');
+            if (!btn) return;
+            var idx = parseInt(btn.getAttribute('data-idx'), 10);
+            pendingFiles.splice(idx, 1);
+            queueList.innerHTML = '';
+            pendingFiles.forEach(function (f, i) {
+                var li = document.createElement('li');
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+                li.innerHTML = '<span>' + f.name + ' (' + formatSize(f.size) + ')</span>' +
+                    '<button type="button" class="queue-remove-btn" data-idx="' + i + '" data-queue="sticker" title="移除">&times;</button>';
+                queueList.appendChild(li);
+            });
+            refreshStickerQueue();
+        });
     }
 
     if (dropZone && fileInput) {

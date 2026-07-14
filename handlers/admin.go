@@ -33,7 +33,9 @@ func sanitizePolicy() *bluemonday.Policy {
 	// 允许常用 HTML 布局标签 + 样式/类名
 	p.AllowElements("div", "span", "section", "article", "header", "footer", "nav", "aside", "main", "figure", "figcaption", "details", "summary")
 	p.AllowAttrs("class", "id", "style").OnElements("div", "span", "section", "article", "header", "footer", "nav", "aside", "main", "figure", "figcaption", "details", "summary")
-	p.AllowAttrs("class", "id").Globally()
+	// 允许图片宽高和样式
+	p.AllowAttrs("width", "height", "style").OnElements("img")
+	p.AllowAttrs("class", "id", "style").Globally()
 	// 允许 iframe（嵌入视频等）
 	p.AllowElements("iframe")
 	p.AllowAttrs("src", "width", "height", "frameborder", "allowfullscreen", "allow", "style").OnElements("iframe")
@@ -42,10 +44,81 @@ func sanitizePolicy() *bluemonday.Policy {
 
 // renderMarkdown converts markdown to sanitized HTML.
 func renderMarkdown(md string) string {
-	// 预处理：确保块引用、标题、列表前有空行（非标准 markdown 的宽松模式）
+	// 预处理：确保块引用、标题、列表前有空行
 	md = normalizeMarkdown(md)
+	// 预处理：递归渲染 HTML 容器标签内的 Markdown（如 <div>![](url)</div>）
+	md = renderHTMLContainers(md)
 	unsafe := blackfriday.Run([]byte(md))
 	return string(sanitizePolicy().SanitizeBytes(unsafe))
+}
+
+// HTML 容器标签集合
+var htmlContainerTags = map[string]bool{
+	"div": true, "section": true, "article": true, "figure": true,
+	"figcaption": true, "details": true, "summary": true,
+	"header": true, "footer": true, "nav": true, "aside": true, "main": true,
+}
+
+// reHTMLContainer 匹配 HTML 容器标签，捕获标签名、属性和内容。
+var reHTMLContainer = regexp.MustCompile(
+	`(?s)<(div|section|article|figure|figcaption|details|summary|header|footer|nav|aside|main)\b([^>]*)>(.+?)</(\w+)>`,
+)
+
+// renderHTMLContainers 递归渲染 HTML 容器内的 Markdown 内容。
+func renderHTMLContainers(md string) string {
+	for i := 0; i < 10; i++ {
+		before := md
+		md = reHTMLContainer.ReplaceAllStringFunc(md, func(match string) string {
+			sub := reHTMLContainer.FindStringSubmatch(match)
+			if len(sub) < 5 {
+				return match
+			}
+			openTag := sub[1]
+			attrs := sub[2]
+			content := sub[3]
+			closeTag := sub[4]
+
+			// 只处理首尾标签匹配的
+			if openTag != closeTag || !htmlContainerTags[openTag] {
+				return match
+			}
+
+			// 把 width="100px" 等属性转为内联 style
+			attrs = normalizeHTMLAttrs(attrs)
+
+			rendered := blackfriday.Run([]byte(content))
+			return "<" + openTag + attrs + ">\n" + string(rendered) + "\n</" + openTag + ">"
+		})
+		if md == before {
+			break
+		}
+	}
+	return md
+}
+
+// reAttrWidth 匹配模板中直接写的 width="100px" / height="200" 等属性
+var reAttrWidth = regexp.MustCompile(`(?i)\b(width|height)\s*=\s*"(\d+%?)"`)
+var reAttrAlign = regexp.MustCompile(`(?i)\b(align)\s*=\s*"(left|center|right)"`)
+
+// normalizeHTMLAttrs 把 width/height/align 等 HTML 废弃属性转为 inline style。
+func normalizeHTMLAttrs(attrs string) string {
+	attrs = reAttrWidth.ReplaceAllStringFunc(attrs, func(m string) string {
+		parts := reAttrWidth.FindStringSubmatch(m)
+		if len(parts) < 3 {
+			return m
+		}
+		prop := strings.ToLower(parts[1])
+		val := parts[2]
+		return "style=\"" + prop + ":" + val + "\""
+	})
+	attrs = reAttrAlign.ReplaceAllStringFunc(attrs, func(m string) string {
+		parts := reAttrAlign.FindStringSubmatch(m)
+		if len(parts) < 3 {
+			return m
+		}
+		return "style=\"text-align:" + strings.ToLower(parts[2]) + "\""
+	})
+	return attrs
 }
 
 // normalizeMarkdown 预处理 markdown，让非空行前的 > / # / - 能正确解析。

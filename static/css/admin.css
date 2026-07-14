@@ -420,9 +420,25 @@
 .sticker-queue-list li {
     padding: 0.25rem 0;
     border-bottom: 1px solid var(--border-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+}
+
+.queue-remove-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    font-weight: 900;
+    cursor: pointer;
+    padding: 0 0.35rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+
+.queue-remove-btn:hover {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
 }
 
 /* 表格内预览 */

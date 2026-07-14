@@ -17,16 +17,16 @@
                 {{range $i, $post := .Posts}}
                 <article class="post-card neo-box{{if $post.ThumbnailURL}} post-card--has-thumb{{end}} lazy-post{{if ge $i 10}} post-card--hidden{{end}}" data-post-index="{{$i}}">
                     {{if $post.ThumbnailURL}}
-                    <div class="post-card__thumb">
+                    <a href="/post/{{$post.Slug}}" class="post-card__thumb" aria-hidden="true" tabindex="-1">
                         {{if isVideoURL $post.ThumbnailURL}}
-                        <div class="video-player" onclick="toggleVideoPlayer(this)">
+                        <div class="video-player">
                             <video src="{{$post.ThumbnailURL}}" preload="metadata"></video>
                             <div class="video-player__play"></div>
                         </div>
                         {{else}}
                         <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
                         {{end}}
-                    </div>
+                    </a>
                     {{end}}
                     <div class="post-card__body">
                     <h2 class="post-card__title">
