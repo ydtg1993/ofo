@@ -70,16 +70,28 @@
             placeholder="手动编写主页卡片显示的摘要…">{{if .Post}}{{.Post.Excerpt}}{{end}}</textarea>
     </div>
 
+    <!-- 媒体上传（拖拽 + 多选） -->
+    <div class="form-group">
+        <label class="form-label">上传媒体</label>
+        <div class="sticker-drop-zone" id="editor-drop-zone" style="padding:1.25rem;">
+            <p class="sticker-drop-zone__text">拖拽图片/视频到此处，或点击选择</p>
+            <p class="sticker-drop-zone__hint">支持 JPG / PNG / GIF / WebP / MP4 / WebM</p>
+            <input type="file" id="editor-file-input" accept="image/*,video/*" multiple style="display:none;">
+            <button type="button" class="btn btn--small" onclick="document.getElementById('editor-file-input').click()">选择文件</button>
+            <span id="upload-status" class="upload-status"></span>
+        </div>
+        <div id="editor-upload-queue" class="sticker-upload-queue" style="display:none;">
+            <div class="sticker-upload-queue__header">
+                <span id="editor-queue-status">等待上传…</span>
+                <button type="button" class="btn btn--small" onclick="uploadEditorBatch()">上传全部</button>
+            </div>
+            <ul id="editor-queue-list" class="sticker-queue-list"></ul>
+        </div>
+    </div>
+
     <!-- 编辑器工具栏 -->
     <div class="editor-toolbar">
         <label class="form-label" style="margin-bottom:0;">正文（Markdown）</label>
-        <div class="toolbar-buttons">
-            <input type="file" id="file-upload" accept="image/*,video/*" style="display:none;" onchange="handleUpload(this)">
-            <button type="button" class="btn btn--small" onclick="document.getElementById('file-upload').click()" title="上传图片或视频">
-                📁 上传媒体
-            </button>
-            <span id="upload-status" class="upload-status"></span>
-        </div>
     </div>
     <textarea id="content" name="content" class="form-textarea editor-textarea" rows="22" required
         oninput="updatePreview()">{{if .Post}}{{.Post.ContentMD}}{{end}}</textarea>

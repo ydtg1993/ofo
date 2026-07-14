@@ -256,72 +256,121 @@
         }
     };
 
-    // --- File Upload ---
-    window.handleUpload = function (input) {
-        var file = input.files[0];
-        if (!file) return;
+    // --- Editor File Upload (drag-drop + multi-file) ---
+    var editorDropZone = document.getElementById('editor-drop-zone');
+    var editorFileInput = document.getElementById('editor-file-input');
+    var editorQueueDiv = document.getElementById('editor-upload-queue');
+    var editorQueueList = document.getElementById('editor-queue-list');
+    var editorQueueStatus = document.getElementById('editor-queue-status');
+    var editorPendingFiles = [];
 
-        var statusEl = document.getElementById('upload-status');
-        if (statusEl) {
-            statusEl.textContent = '上传中…';
+    function addEditorFiles(files) {
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            var ext = f.name.split('.').pop().toLowerCase();
+            var allowed = ['jpg','jpeg','png','gif','webp','mp4','webm','ogg','mov'];
+            if (allowed.indexOf(ext) < 0) continue;
+            editorPendingFiles.push(f);
+            var li = document.createElement('li');
+            li.textContent = f.name + ' (' + formatSize(f.size) + ')';
+            editorQueueList.appendChild(li);
         }
+        if (editorPendingFiles.length > 0) {
+            editorQueueDiv.style.display = 'block';
+            editorQueueStatus.textContent = editorPendingFiles.length + ' 个文件待上传';
+        }
+    }
 
-        var formData = new FormData();
-        formData.append('file', file);
-
-        fetch('/admin/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(function (res) {
-            return res.json().then(function (data) {
-                return {ok: res.ok, data: data};
-            });
-        })
-        .then(function (result) {
-            if (statusEl) {
-                statusEl.textContent = result.ok ? '✓ 上传成功' : '✗ ' + (result.data.error || '失败');
-                if (result.ok) {
-                    setTimeout(function () { statusEl.textContent = ''; }, 3000);
-                }
-            }
-
-            if (result.ok && result.data.url) {
-                var url = result.data.url;
-                var textarea = document.getElementById('content');
-                if (!textarea) return;
-
-                var ext = url.split('.').pop().toLowerCase();
-                var isVideo = ['mp4', 'webm', 'ogg', 'mov'].indexOf(ext) > -1;
-
-                var insertText;
-                if (isVideo) {
-                    insertText = '<video src="' + url + '" controls></video>';
-                } else {
-                    var alt = file.name.replace(/\.[^.]+$/, '');
-                    insertText = '![' + alt + '](' + url + ')';
-                }
-
-                // Insert at cursor position or append
-                var start = textarea.selectionStart;
-                var end = textarea.selectionEnd;
-                var before = textarea.value.substring(0, start);
-                var after = textarea.value.substring(end);
-                textarea.value = before + insertText + '\n' + after;
-                textarea.focus();
-                textarea.selectionStart = textarea.selectionEnd = start + insertText.length + 1;
-
-                updatePreview();
-            }
-        })
-        .catch(function (err) {
-            if (statusEl) {
-                statusEl.textContent = '✗ 上传失败: ' + err.message;
+    if (editorDropZone && editorFileInput) {
+        editorDropZone.addEventListener('click', function (e) {
+            if (e.target.tagName !== 'BUTTON') editorFileInput.click();
+        });
+        editorDropZone.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            editorDropZone.classList.add('sticker-drop-zone--drag-over');
+        });
+        editorDropZone.addEventListener('dragleave', function () {
+            editorDropZone.classList.remove('sticker-drop-zone--drag-over');
+        });
+        editorDropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            editorDropZone.classList.remove('sticker-drop-zone--drag-over');
+            if (e.dataTransfer.files.length > 0) addEditorFiles(e.dataTransfer.files);
+        });
+        editorFileInput.addEventListener('change', function () {
+            if (editorFileInput.files.length > 0) {
+                addEditorFiles(editorFileInput.files);
+                editorFileInput.value = '';
             }
         });
+    }
 
-        // Reset file input
-        input.value = '';
+    window.uploadEditorBatch = function () {
+        if (editorPendingFiles.length === 0) return;
+
+        editorQueueStatus.textContent = '上传中…';
+        var total = editorPendingFiles.length;
+        var done = 0;
+        var failed = 0;
+
+        function uploadNext(idx) {
+            if (idx >= editorPendingFiles.length) {
+                editorQueueStatus.textContent = '完成：' + done + ' 成功' + (failed > 0 ? '，' + failed + ' 失败' : '');
+                editorPendingFiles = [];
+                editorQueueList.innerHTML = '';
+                setTimeout(function () {
+                    editorQueueDiv.style.display = 'none';
+                }, 2000);
+                return;
+            }
+
+            var file = editorPendingFiles[idx];
+            var formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/admin/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function (res) { return res.json().then(function (data) { return {ok: res.ok, data: data}; }); })
+            .then(function (result) {
+                if (result.ok && result.data.url) {
+                    done++;
+                    var url = result.data.url;
+                    var ext = url.split('.').pop().toLowerCase();
+                    var isVideo = ['mp4','webm','ogg','mov'].indexOf(ext) > -1;
+                    var insertText = isVideo
+                        ? '<video src="' + url + '" controls></video>'
+                        : '![' + file.name.replace(/\.[^.]+$/, '') + '](' + url + ')';
+
+                    var textarea = document.getElementById('content');
+                    if (textarea) {
+                        var start = textarea.selectionStart;
+                        var after = textarea.value.substring(textarea.selectionEnd);
+                        textarea.value = textarea.value.substring(0, start) + insertText + '\n' + after;
+                        textarea.focus();
+                        textarea.selectionStart = textarea.selectionEnd = start + insertText.length + 1;
+                        updatePreview();
+                    }
+
+                    var items = editorQueueList.querySelectorAll('li');
+                    if (items[idx]) items[idx].textContent = '✓ ' + file.name;
+                } else {
+                    failed++;
+                    var items2 = editorQueueList.querySelectorAll('li');
+                    if (items2[idx]) items2[idx].textContent = '✗ ' + file.name;
+                }
+                editorQueueStatus.textContent = '上传中… ' + (done + failed) + '/' + total;
+                uploadNext(idx + 1);
+            })
+            .catch(function () {
+                failed++;
+                editorQueueStatus.textContent = '上传中… ' + (done + failed) + '/' + total;
+                uploadNext(idx + 1);
+            });
+        }
+
+        uploadNext(0);
     };
 
     // --- Helpers ---
@@ -422,12 +471,6 @@ function fallbackCopy(url, btn) {
         }
     }
 
-    function formatSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / 1048576).toFixed(1) + ' MB';
-    }
-
     if (dropZone && fileInput) {
         // Click to select
         dropZone.addEventListener('click', function (e) {
@@ -509,6 +552,13 @@ function fallbackCopy(url, btn) {
         uploadNext(0);
     };
 })();
+
+// 文件大小格式化（编辑器 & 表情包共用）
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
 
 // 点击已有标签，添加到 textarea
 window.addTag = function (btn) {
