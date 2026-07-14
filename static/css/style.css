@@ -208,11 +208,19 @@ li { margin-bottom: 0.35rem; }
     letter-spacing: -0.03em;
     text-decoration: none;
     color: #000000;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
 }
 
 .navbar__brand:hover {
     color: #000000;
     text-decoration: none;
+}
+
+.navbar__logo {
+    height: 1.6em;
+    width: auto;
 }
 
 .navbar__toggle {
@@ -261,7 +269,7 @@ li { margin-bottom: 0.35rem; }
 .theme-toggle {
     background: var(--bg-secondary);
     border: 2px solid var(--border-color);
-    color: #000000;
+    color: var(--text-primary);
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0.3rem 0.6rem;
