@@ -1,26 +1,17 @@
 package handlers
 
 import (
-	"math"
 	"net/http"
-	"strconv"
-
-	"ofo/models"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) Category(c *gin.Context) {
 	slug := c.Param("slug")
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if page < 1 {
-		page = 1
-	}
-	perPage := 6
-	offset := (page - 1) * perPage
 
-	posts, total, err := h.PostModel.ListByCategory(slug, offset, perPage)
-	if err != nil {
+	// 一次加载最多 50 篇文章，前端 JS 控制每 15 条展示
+	posts, total, err := h.PostModel.ListByCategory(slug, 0, 50)
+	if err != nil || total == 0 {
 		c.HTML(http.StatusNotFound, "home.html", PageData{
 			Title: "404 — Category Not Found", Cfg: h.Cfg, Is404: true,
 		})
@@ -39,18 +30,6 @@ func (h *Handler) Category(c *gin.Context) {
 		}
 	}
 
-	totalPages := int(math.Ceil(float64(total) / float64(perPage)))
-	pagination := &models.Pagination{
-		CurrentPage: page,
-		TotalPages:  totalPages,
-		PerPage:     perPage,
-		TotalPosts:  total,
-		HasPrev:     page > 1,
-		HasNext:     page < totalPages,
-		PrevPage:    page - 1,
-		NextPage:    page + 1,
-	}
-
 	c.HTML(http.StatusOK, "home.html", PageData{
 		Title:        "Category: " + categoryName + " — " + h.Cfg.Title,
 		Description:  "Posts in category " + categoryName,
@@ -60,7 +39,6 @@ func (h *Handler) Category(c *gin.Context) {
 		Categories:   categories,
 		Tags:         tags,
 		Posts:        posts,
-		Pagination:   pagination,
 		FilterName:   categoryName,
 		CurrentPath:  "/category/" + slug,
 	})

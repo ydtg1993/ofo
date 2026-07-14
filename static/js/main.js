@@ -85,12 +85,16 @@
         updatePreview();
 
         // --- Lazy Load Posts ---
-        var POSTS_PER_BATCH = 10;
+        var POSTS_PER_BATCH = 15;
         var allPosts = document.querySelectorAll('.lazy-post');
         var loadMoreWrap = document.getElementById('load-more-wrap');
         var loadMoreBtn = document.getElementById('load-more-btn');
         var loadMoreRemaining = document.getElementById('load-more-remaining');
-        var visibleCount = POSTS_PER_BATCH;
+
+        // 恢复上次浏览位置：读取 sessionStorage 中已展示的文章数
+        var storageKey = 'ofo-posts-visible';
+        var savedCount = parseInt(sessionStorage.getItem(storageKey), 10);
+        var visibleCount = Math.max(POSTS_PER_BATCH, savedCount || POSTS_PER_BATCH);
 
         function updateLoadMore() {
             var hiddenPosts = document.querySelectorAll('.lazy-post.post-card--hidden');
@@ -104,13 +108,19 @@
             }
         }
 
-        // Initially show only first batch
+        // 展示前 visibleCount 篇，隐藏其余
         allPosts.forEach(function (post, i) {
-            if (i < POSTS_PER_BATCH) {
+            if (i < visibleCount) {
                 post.classList.remove('post-card--hidden');
             }
         });
         updateLoadMore();
+
+        // 每次展开后存一下状态
+        function saveVisibleState() {
+            var shown = document.querySelectorAll('.lazy-post:not(.post-card--hidden)').length;
+            sessionStorage.setItem(storageKey, shown);
+        }
 
         if (loadMoreBtn) {
             loadMoreBtn.addEventListener('click', function () {
@@ -120,6 +130,7 @@
                     hidden[i].classList.remove('post-card--hidden');
                 }
                 updateLoadMore();
+                saveVisibleState();
             });
         }
 

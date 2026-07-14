@@ -20,7 +20,7 @@
                     <a href="/post/{{$post.Slug}}" class="post-card__thumb" aria-hidden="true" tabindex="-1">
                         {{if isVideoURL $post.ThumbnailURL}}
                         <div class="video-player">
-                            <video src="{{$post.ThumbnailURL}}" preload="metadata"></video>
+                            <video src="{{$post.ThumbnailURL}}" preload="none"></video>
                             <div class="video-player__play"></div>
                         </div>
                         {{else}}

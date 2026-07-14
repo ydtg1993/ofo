@@ -26,6 +26,10 @@ type Config struct {
 	BaiduVerify string
 	Verify360   string
 	SogouVerify string
+	// 反盗链 / 反爬虫
+	HotlinkProtection bool     // 是否启用 Referer 防盗链
+	AllowedReferrers  []string // 额外允许的 Referer 域名
+	StaticRateLimit   int      // 静态资源每 IP 每秒请求上限（0=不限制）
 }
 
 // DSN returns the MariaDB/MySQL data source name.
@@ -73,6 +77,17 @@ func LoadDotenv(baseDir string) {
 }
 
 func Load() *Config {
+	allowedRefStr := getEnv("ALLOWED_REFERRERS", "")
+	var allowedReferrers []string
+	if allowedRefStr != "" {
+		for _, s := range strings.Split(allowedRefStr, ",") {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				allowedReferrers = append(allowedReferrers, s)
+			}
+		}
+	}
+
 	return &Config{
 		Port:          getEnv("PORT", "8080"),
 		DBHost:        getEnv("DB_HOST", "127.0.0.1"),
@@ -90,6 +105,10 @@ func Load() *Config {
 		BaiduVerify:   getEnv("BAIDU_VERIFY", ""),
 		Verify360:     getEnv("VERIFY_360", ""),
 		SogouVerify:   getEnv("SOGOU_VERIFY", ""),
+		// 反盗链
+		HotlinkProtection: getEnvBool("HOTLINK_PROTECTION", true),
+		AllowedReferrers:  allowedReferrers,
+		StaticRateLimit:   getEnvInt("STATIC_RATE_LIMIT", 20),
 	}
 }
 
@@ -106,4 +125,16 @@ func getEnvBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return v == "true" || v == "1" || v == "yes"
+}
+
+func getEnvInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	var n int
+	if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
+		return fallback
+	}
+	return n
 }
