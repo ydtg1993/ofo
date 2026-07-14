@@ -22,7 +22,7 @@ warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()  { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 # ---- 检查是否 root ----
-if [[ $EUID -ne 0 ]]; then
+if [ "$(id -u)" -ne 0 ]; then
     err "请用 sudo 运行此脚本"
 fi
 
