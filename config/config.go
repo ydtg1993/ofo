@@ -20,6 +20,7 @@ type Config struct {
 	BaseURL       string
 	AdminPassword string
 	SeedDB        bool
+	AssetVersion  string
 	// SEO
 	Keywords    string
 	BaiduVerify string
@@ -84,6 +85,7 @@ func Load() *Config {
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
 		SeedDB:        getEnvBool("SEED_DB", true),
+		AssetVersion:  getEnv("ASSET_VERSION", "1"),
 		Keywords:      getEnv("BLOG_KEYWORDS", "搞笑图片,趣味短片,奇闻趣事,搞笑视频"),
 		BaiduVerify:   getEnv("BAIDU_VERIFY", ""),
 		Verify360:     getEnv("VERIFY_360", ""),

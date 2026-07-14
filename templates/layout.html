@@ -22,14 +22,14 @@
     <!-- Canonical -->
     <link rel="canonical" href="{{.CanonicalURL}}">
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" type="image/x-icon" href="/static/resources/ofo.ico">
+    <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
+    <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
 </head>
 <body>
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="container navbar__inner">
-            <a href="/" class="navbar__brand">{{.Cfg.Title}}<img src="/static/resources/ofo.png" alt="logo" class="navbar__logo"></a>
+            <a href="/" class="navbar__brand">{{.Cfg.Title}}<img src="{{asset "/static/resources/ofo.png"}}" alt="logo" class="navbar__logo"></a>
             <button class="navbar__toggle" id="nav-toggle" aria-label="切换导航菜单">
                 <span></span><span></span><span></span>
             </button>
@@ -52,7 +52,7 @@
         <!-- 404 页面 -->
         <div class="neo-box" style="text-align:center;padding:4rem 2rem;">
             <h1 style="font-size:4rem;margin-bottom:0;">404</h1>
-            <img src="/static/resources/ofo-256.png" alt="ofo" class="error-404__logo" style="width:120px;height:auto;margin-bottom:1.5rem;">
+            <img src="{{asset "/static/resources/ofo-256.png"}}" alt="ofo" class="error-404__logo" style="width:120px;height:auto;margin-bottom:1.5rem;">
             <p style="font-size:1.25rem;margin-bottom:2rem;">页面未找到 — 它可能被外星人偷走了 👽</p>
             <a href="/" class="btn">&larr; 返回首页</a>
         </div>
@@ -339,6 +339,6 @@
     </script>
     {{end}}
 
-    <script src="/static/js/main.js"></script>
+    <script src="{{asset "/static/js/main.js"}}"></script>
 </body>
 </html>

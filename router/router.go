@@ -39,7 +39,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	// ==========================================
 	// 模板引擎配置
 	// ==========================================
-	r.SetFuncMap(templateFuncMap())
+	r.SetFuncMap(templateFuncMap(cfg))
 	r.LoadHTMLGlob(filepath.Join(baseDir, "templates", "*.html"))
 
 	// ==========================================
@@ -122,8 +122,12 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 // ==========================================
 // 模板函数注册
 // ==========================================
-func templateFuncMap() template.FuncMap {
+func templateFuncMap(cfg *config.Config) template.FuncMap {
 	return template.FuncMap{
+		// 静态资源版本号（缓存破坏）
+		"asset": func(path string) string {
+			return path + "?v=" + cfg.AssetVersion
+		},
 		// 日期格式化
 		"formatDate": func(t time.Time) string {
 			return t.Format("January 2, 2006")

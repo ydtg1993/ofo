@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>后台登录 — {{.Cfg.Title}}</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" type="image/x-icon" href="/static/resources/ofo.ico">
+    <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
+    <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
 </head>
 <body>
     <main class="container" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
@@ -26,6 +26,6 @@
             </p>
         </div>
     </main>
-    <script src="/static/js/main.js"></script>
+    <script src="{{asset "/static/js/main.js"}}"></script>
 </body>
 </html>

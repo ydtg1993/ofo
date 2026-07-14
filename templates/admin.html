@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}} — 后台管理</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" type="image/x-icon" href="/static/resources/ofo.ico">
+    <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
+    <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
     <script src="https://cdn.jsdelivr.net/npm/marked@11.2.0/marked.min.js"></script>
 </head>
 <body>
     <!-- 管理后台顶栏 -->
     <nav class="navbar admin-navbar">
         <div class="container navbar__inner">
-            <a href="/admin" class="navbar__brand"><img src="/static/resources/ofo.png" alt="logo" class="navbar__logo">后台</a>
+            <a href="/admin" class="navbar__brand"><img src="{{asset "/static/resources/ofo.png"}}" alt="logo" class="navbar__logo">后台</a>
             <ul class="navbar__links">
                 <li><a href="/admin">仪表盘</a></li>
                 <li><a href="/admin/categories">分类管理</a></li>
@@ -199,7 +199,7 @@
 {{end}}
     </main>
 
-    <script src="/static/js/main.js"></script>
+    <script src="{{asset "/static/js/main.js"}}"></script>
 </body>
 </html>
 
