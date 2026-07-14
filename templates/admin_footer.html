@@ -1,0 +1,15 @@
+{{define "admin_footer"}}
+    </main>
+
+    <!-- 预览弹窗（RetroUI 风格） -->
+    <div class="sticker-modal" id="sticker-modal" style="display:none;" onclick="closeStickerPreview(event)">
+        <div class="sticker-modal__card neo-box" onclick="event.stopPropagation()">
+            <button class="sticker-modal__close" onclick="closeStickerPreview(event)" title="关闭">&times;</button>
+            <div class="sticker-modal__content" id="sticker-modal-content"></div>
+        </div>
+    </div>
+
+    <script src="{{asset "/static/js/main.js"}}"></script>
+</body>
+</html>
+{{end}}

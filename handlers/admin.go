@@ -111,7 +111,7 @@ func (h *Handler) AdminLogout(c *gin.Context) {
 func (h *Handler) AdminDashboard(c *gin.Context) {
 	posts, err := h.PostModel.ListAll()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "admin.html", AdminPageData{
+		c.HTML(http.StatusInternalServerError, "admin_dashboard.html", AdminPageData{
 			Title: "Dashboard",
 			Cfg:   h.Cfg,
 			Error: "加载文章列表失败",
@@ -121,7 +121,7 @@ func (h *Handler) AdminDashboard(c *gin.Context) {
 
 	categories, _ := h.PostModel.AllCategoriesSimple()
 
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_dashboard.html", AdminPageData{
 		Title:      "Dashboard",
 		Cfg:        h.Cfg,
 		Posts:      posts,
@@ -135,7 +135,7 @@ func (h *Handler) AdminNewPost(c *gin.Context) {
 	categories, _ := h.PostModel.AllCategoriesSimple()
 	allTags, _ := h.PostModel.AllTagsSimple()
 
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "New Post",
 		Cfg:        h.Cfg,
 		IsNew:      true,
@@ -164,7 +164,7 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 	tags, _ := h.PostModel.TagsForPost(id)
 	allTags, _ := h.PostModel.AllTagsSimple()
 
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "Edit: " + post.Title,
 		Cfg:        h.Cfg,
 		Post:       post,
@@ -219,7 +219,7 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames)
 	if err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
-		c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 			Title:      "New Post",
 			Cfg:        h.Cfg,
 			IsNew:      true,
@@ -287,7 +287,7 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		tags, _ := h.PostModel.TagsForPost(id)
 		post, _ := h.PostModel.GetByID(id)
-		c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 			Title:      "Edit: " + title,
 			Cfg:        h.Cfg,
 			Post:       post,
@@ -347,7 +347,7 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 func (h *Handler) AdminCategories(c *gin.Context) {
 	categories, _ := h.PostModel.AllCategoriesSimple()
 
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_categories.html", AdminPageData{
 		Title:          "Category Management",
 		Cfg:            h.Cfg,
 		Categories:     categories,
@@ -368,7 +368,7 @@ func (h *Handler) AdminCreateCategory(c *gin.Context) {
 
 	if err := h.PostModel.CreateCategory(name, slug); err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
-		c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		c.HTML(http.StatusOK, "admin_categories.html", AdminPageData{
 			Title:          "Category Management",
 			Cfg:            h.Cfg,
 			Categories:     categories,
@@ -397,7 +397,7 @@ func (h *Handler) AdminUpdateCategory(c *gin.Context) {
 
 	if err := h.PostModel.UpdateCategory(id, name, slug); err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
-		c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		c.HTML(http.StatusOK, "admin_categories.html", AdminPageData{
 			Title:          "Category Management",
 			Cfg:            h.Cfg,
 			Categories:     categories,
@@ -416,7 +416,7 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 
 	if err := h.PostModel.DeleteCategory(id); err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
-		c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		c.HTML(http.StatusOK, "admin_categories.html", AdminPageData{
 			Title:          "Category Management",
 			Cfg:            h.Cfg,
 			Categories:     categories,
@@ -435,7 +435,7 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 func (h *Handler) AdminStickers(c *gin.Context) {
 	stickers, _ := h.StickerModel.ListAll()
 
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
 		Title:        "表情包管理",
 		Cfg:          h.Cfg,
 		ShowStickers: true,
@@ -505,7 +505,7 @@ func (h *Handler) stickerError(c *gin.Context, msg string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
 		Title:        "表情包管理",
 		Cfg:          h.Cfg,
 		ShowStickers: true,
@@ -513,7 +513,7 @@ func (h *Handler) stickerError(c *gin.Context, msg string) {
 	})
 }
 
-// AdminDeleteSticker removes a sticker by ID.
+// AdminDeleteSticker removes a sticker by ID and deletes the file from disk.
 func (h *Handler) AdminDeleteSticker(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -522,10 +522,21 @@ func (h *Handler) AdminDeleteSticker(c *gin.Context) {
 		return
 	}
 
-	// Build a lookup by URL (we need the filename to delete the file)
-	// Since we don't have a GetByID on StickerModel yet, let's just delete the DB row.
-	// File cleanup: we keep files on disk for safety — other articles may still reference the URL.
-	// The sticker is a public resource; the URL still works even without the DB record.
+	// 先查出记录，拿到文件名
+	sticker, err := h.StickerModel.GetByID(id)
+	if err != nil {
+		log.Printf("AdminDeleteSticker: sticker %d not found: %v", id, err)
+		c.Redirect(http.StatusFound, "/admin/stickers")
+		return
+	}
+
+	// 删除磁盘文件
+	filePath := filepath.Join(h.BaseDir, "static", "stickers", sticker.Filename)
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		log.Printf("AdminDeleteSticker: failed to remove file %s: %v", filePath, err)
+	}
+
+	// 删除数据库记录
 	if err := h.StickerModel.Delete(id); err != nil {
 		log.Printf("AdminDeleteSticker: failed to delete sticker %d: %v", id, err)
 	}
@@ -593,7 +604,7 @@ func (h *Handler) adminDashboardWithSuccess(c *gin.Context, msg string) {
 	posts, _ := h.PostModel.ListAll()
 	categories, _ := h.PostModel.AllCategoriesSimple()
 
-	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+	c.HTML(http.StatusOK, "admin_dashboard.html", AdminPageData{
 		Title:      "Dashboard",
 		Cfg:        h.Cfg,
 		Posts:      posts,

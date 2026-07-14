@@ -1,0 +1,41 @@
+{{template "header" .}}
+
+        <!-- 文章详情页 -->
+        <article class="post-full">
+            <!-- 面包屑导航 -->
+            <nav class="breadcrumb" aria-label="面包屑导航">
+                <ol>
+                    <li><a href="/">首页</a></li>
+                    {{if .PostCategoryName}}
+                    <li><a href="/category/{{.PostCategorySlug}}">{{.PostCategoryName}}</a></li>
+                    {{end}}
+                    <li aria-current="page">{{.Post.Title}}</li>
+                </ol>
+            </nav>
+
+            <header class="post-full__header">
+                <h1 class="post-full__title">{{.Post.Title}}</h1>
+                <div class="post-full__meta">
+                    <span class="post-full__date">{{.Post.CreatedAt | formatDate}}</span>
+                    {{if .PostCategoryName}}
+                    <span>&middot;</span>
+                    <a href="/category/{{.PostCategorySlug}}" class="post-full__category">{{.PostCategoryName}}</a>
+                    {{end}}
+                </div>
+            </header>
+            <div class="neo-box post-full__body">
+                {{.Post.ContentHTML | safeHTML}}
+            </div>
+            {{if .PostTags}}
+            <div class="post-full__tags">
+                {{range .PostTags}}
+                <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                {{end}}
+            </div>
+            {{end}}
+            <footer class="post-full__footer">
+                <a href="/" class="btn">&larr; 全部文章</a>
+            </footer>
+        </article>
+
+{{template "footer" .}}

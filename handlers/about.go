@@ -10,7 +10,7 @@ func (h *Handler) About(c *gin.Context) {
 	categories, _ := h.PostModel.AllCategories()
 	tags, _ := h.PostModel.AllTags()
 
-	c.HTML(http.StatusOK, "layout.html", PageData{
+	c.HTML(http.StatusOK, "about.html", PageData{
 		Title:        "关于 — " + h.Cfg.Title,
 		Description:  "关于本站和作者",
 		Keywords:     h.Cfg.Keywords,

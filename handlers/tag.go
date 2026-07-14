@@ -21,7 +21,7 @@ func (h *Handler) Tag(c *gin.Context) {
 
 	posts, total, err := h.PostModel.ListByTag(slug, offset, perPage)
 	if err != nil {
-		c.HTML(http.StatusNotFound, "layout.html", PageData{
+		c.HTML(http.StatusNotFound, "home.html", PageData{
 			Title: "404 — Tag Not Found", Cfg: h.Cfg, Is404: true,
 		})
 		return
@@ -51,7 +51,7 @@ func (h *Handler) Tag(c *gin.Context) {
 		NextPage:    page + 1,
 	}
 
-	c.HTML(http.StatusOK, "layout.html", PageData{
+	c.HTML(http.StatusOK, "home.html", PageData{
 		Title:        "Tag: " + tagName + " — " + h.Cfg.Title,
 		Description:  "Posts tagged with " + tagName,
 		Keywords:     tagName + "," + h.Cfg.Keywords,

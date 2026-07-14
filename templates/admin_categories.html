@@ -1,0 +1,62 @@
+{{template "admin_header" .}}
+
+        <!-- ============ 分类管理 ============ -->
+        <div class="admin-header-row">
+            <h1>分类管理</h1>
+        </div>
+
+        <div class="neo-box" style="padding:0;overflow-x:auto;margin-bottom:1.5rem;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名称</th>
+                        <th>Slug</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range .Categories}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>
+                            <form method="POST" action="/admin/categories/{{.ID}}" class="inline-edit-form" id="cat-form-{{.ID}}">
+                                <input type="text" name="name" value="{{.Name}}" class="form-input inline-input" style="width:160px;">
+                        </td>
+                        <td>
+                                <input type="text" name="slug" value="{{.Slug}}" class="form-input inline-input" style="width:160px;">
+                            </form>
+                        </td>
+                        <td style="display:flex;gap:0.4rem;">
+                            <button type="submit" form="cat-form-{{.ID}}" class="btn btn--small">保存</button>
+                            <form method="POST" action="/admin/categories/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除分类「{{.Name}}」？关联的文章将取消分类。');">
+                                <button type="submit" class="btn btn--small btn--danger">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                {{else}}
+                    <tr>
+                        <td colspan="4" style="text-align:center;padding:2rem;">暂无分类</td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 新建分类 -->
+        <div class="neo-box" style="padding:1.25rem;">
+            <h3 style="margin-bottom:1rem;">新建分类</h3>
+            <form method="POST" action="/admin/categories" class="form-row" style="align-items:flex-end;">
+                <div class="form-group" style="flex:1;margin-bottom:0;">
+                    <label class="form-label">名称</label>
+                    <input type="text" name="name" class="form-input" placeholder="分类名称" required>
+                </div>
+                <div class="form-group" style="flex:1;margin-bottom:0;">
+                    <label class="form-label">Slug（可选）</label>
+                    <input type="text" name="slug" class="form-input" placeholder="留空自动生成">
+                </div>
+                <button type="submit" class="btn" style="flex-shrink:0;">创建分类</button>
+            </form>
+        </div>
+
+{{template "admin_footer" .}}

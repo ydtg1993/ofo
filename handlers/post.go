@@ -12,7 +12,7 @@ func (h *Handler) Post(c *gin.Context) {
 
 	post, err := h.PostModel.GetBySlug(slug)
 	if err != nil {
-		c.HTML(http.StatusNotFound, "layout.html", PageData{
+		c.HTML(http.StatusNotFound, "post.html", PageData{
 			Title: "404 — 文章未找到", Cfg: h.Cfg, Is404: true,
 		})
 		return
@@ -58,7 +58,7 @@ func (h *Handler) Post(c *gin.Context) {
 		ogImage = post.ThumbnailURL
 	}
 
-	c.HTML(http.StatusOK, "layout.html", PageData{
+	c.HTML(http.StatusOK, "post.html", PageData{
 		Title:            post.Title + " — " + h.Cfg.Title,
 		Description:      post.Excerpt,
 		Keywords:         keywords,

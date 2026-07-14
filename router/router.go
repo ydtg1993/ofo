@@ -3,6 +3,7 @@ package router
 import (
 	"database/sql"
 	"html/template"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -40,7 +41,19 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	// 模板引擎配置
 	// ==========================================
 	r.SetFuncMap(templateFuncMap(cfg))
-	r.LoadHTMLGlob(filepath.Join(baseDir, "templates", "*.html"))
+	// 递归加载 templates/ 下所有 .html 文件
+	tmplDir := filepath.Join(baseDir, "templates")
+	var tmplFiles []string
+	filepath.Walk(tmplDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".html") {
+			tmplFiles = append(tmplFiles, path)
+		}
+		return nil
+	})
+	r.LoadHTMLFiles(tmplFiles...)
 
 	// ==========================================
 	// 静态资源（CSS / JS / 图片）
@@ -77,7 +90,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 			c.Status(404)
 			return
 		}
-		c.HTML(404, "layout.html", handlers.PageData{
+		c.HTML(404, "404.html", handlers.PageData{
 			Title:        "404 — 页面未找到",
 			Description:  "页面未找到",
 			Keywords:     cfg.Keywords,

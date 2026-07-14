@@ -1,0 +1,35 @@
+{{template "admin_header" .}}
+
+        <!-- ============ 编辑器（分栏布局） ============ -->
+        {{if .IsNew}}
+        <h1>写新文章</h1>
+        <form method="POST" action="/admin/posts" class="editor-layout" id="editor-form">
+        {{else}}
+        <h1>编辑文章</h1>
+        <form method="POST" action="/admin/posts/{{.Post.ID}}" class="editor-layout" id="editor-form">
+        {{end}}
+            <div class="editor-left">
+                {{template "post_form_fields" .}}
+                <div class="form-actions">
+                    {{if .IsNew}}
+                    <button type="submit" class="btn">发布文章</button>
+                    {{else}}
+                    <button type="submit" class="btn">保存修改</button>
+                    {{end}}
+                    <a href="/admin" class="btn btn--accent">取消</a>
+                </div>
+            </div>
+            <div class="editor-right">
+                <div class="preview-panel neo-box" id="preview-panel">
+                    <div class="preview-tabs">
+                        <button type="button" class="preview-tab active" data-preview="detail">详情页预览</button>
+                        <button type="button" class="preview-tab" data-preview="card">主页卡片预览</button>
+                    </div>
+                    <div class="preview-content" id="preview-content">
+                        <div class="preview-placeholder">在左侧输入内容即可实时预览…</div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+{{template "admin_footer" .}}

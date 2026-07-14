@@ -1,0 +1,66 @@
+{{template "admin_header" .}}
+
+        <!-- ============ 表情包管理 ============ -->
+        <div class="admin-header-row">
+            <h1>表情包管理</h1>
+        </div>
+
+        <!-- 上传区域（支持拖拽 + 多选） -->
+        <div class="neo-box" style="padding:1.25rem;margin-bottom:1.5rem;">
+            <div class="sticker-drop-zone" id="sticker-drop-zone">
+                <p class="sticker-drop-zone__text">拖拽图片/视频到此处，或点击选择文件</p>
+                <p class="sticker-drop-zone__hint">支持 JPG / PNG / GIF / WebP / MP4 / WebM</p>
+                <input type="file" id="sticker-file-input" accept="image/*,video/*" multiple style="display:none;">
+                <button type="button" class="btn" onclick="document.getElementById('sticker-file-input').click()">选择文件</button>
+            </div>
+            <div id="sticker-upload-queue" class="sticker-upload-queue" style="display:none;">
+                <div class="sticker-upload-queue__header">
+                    <span id="sticker-queue-status">等待上传…</span>
+                    <button type="button" class="btn btn--small" onclick="uploadStickerBatch()">上传全部</button>
+                </div>
+                <ul id="sticker-queue-list" class="sticker-queue-list"></ul>
+            </div>
+        </div>
+
+        <!-- 表情包列表（表格） -->
+        <div class="neo-box" style="padding:0;overflow-x:auto;">
+            <table class="admin-table sticker-table">
+                <thead>
+                    <tr>
+                        <th style="width:65px;">预览</th>
+                        <th>文件名</th>
+                        <th style="width:200px;">URL</th>
+                        <th style="width:120px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range .Stickers}}
+                    <tr>
+                        <td class="sticker-table__preview">
+                        {{if isVideoURL .URL}}
+                            <video src="{{.URL}}" preload="metadata" muted onclick="previewSticker('{{.URL}}', true)" title="点击预览"></video>
+                        {{else}}
+                            <img src="{{.URL}}" alt="{{.Filename}}" loading="lazy" onclick="previewSticker('{{.URL}}', false)" title="点击预览">
+                        {{end}}
+                        </td>
+                        <td class="sticker-table__name" title="{{.Filename}}">{{.Filename}}</td>
+                        <td class="sticker-table__url" title="{{.URL}}">
+                            <code>{{.URL}}</code>
+                        </td>
+                        <td class="sticker-table__actions">
+                            <button type="button" class="btn btn--small sticker-copy-btn" data-url="{{.URL}}" title="复制链接">📋 复制</button>
+                            <form method="POST" action="/admin/stickers/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除？文章中引用不受影响。');">
+                                <button type="submit" class="btn btn--small btn--danger">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                {{else}}
+                    <tr>
+                        <td colspan="4" style="text-align:center;padding:3rem;color:var(--text-muted);">还没有表情包，上传一个吧！</td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+
+{{template "admin_footer" .}}

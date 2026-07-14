@@ -1,0 +1,53 @@
+{{template "admin_header" .}}
+
+        <!-- ============ 仪表盘 ============ -->
+        <div class="admin-header-row">
+            <h1>文章列表</h1>
+            <a href="/admin/posts/new" class="btn">+ 写文章</a>
+        </div>
+
+        <div class="neo-box" style="padding:0;overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>标题</th>
+                        <th>分类</th>
+                        <th>状态</th>
+                        <th>日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range .Posts}}
+                    <tr>
+                        <td class="admin-table__title">
+                            <a href="/post/{{.Slug}}" target="_blank">{{.Title}}</a>
+                        </td>
+                        <td>
+                            {{catName .CategoryID $.Categories}}
+                        </td>
+                        <td>
+                        {{if .IsPublished}}
+                            <span class="admin-badge admin-badge--published">已发布</span>
+                        {{else}}
+                            <span class="admin-badge admin-badge--draft">草稿</span>
+                        {{end}}
+                        </td>
+                        <td class="admin-table__date">{{.CreatedAt | formatDate}}</td>
+                        <td class="admin-table__actions">
+                            <a href="/admin/posts/{{.ID}}/edit" class="btn btn--small">编辑</a>
+                            <form method="POST" action="/admin/posts/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定要删除这篇文章吗？');">
+                                <button type="submit" class="btn btn--small btn--danger">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                {{else}}
+                    <tr>
+                        <td colspan="5" style="text-align:center;padding:2rem;">还没有文章。<a href="/admin/posts/new">写一篇吧！</a></td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+
+{{template "admin_footer" .}}

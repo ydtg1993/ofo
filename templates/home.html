@@ -1,0 +1,90 @@
+{{template "header" .}}
+
+        <!-- 文章列表（首页、分类、标签） -->
+        <div class="home-layout">
+            <section class="post-list">
+                <div class="post-list__header">
+                    <h1>
+                    {{if .FilterName}}
+                        {{.FilterName}}
+                    {{else}}
+                        最新内容
+                    {{end}}
+                    </h1>
+                    <span class="post-list__count">共 <span id="post-total">{{len .Posts}}</span> 篇</span>
+                </div>
+
+                {{range $i, $post := .Posts}}
+                <article class="post-card neo-box{{if $post.ThumbnailURL}} post-card--has-thumb{{end}} lazy-post{{if ge $i 10}} post-card--hidden{{end}}" data-post-index="{{$i}}">
+                    {{if $post.ThumbnailURL}}
+                    <div class="post-card__thumb">
+                        {{if isVideoURL $post.ThumbnailURL}}
+                        <div class="video-player" onclick="toggleVideoPlayer(this)">
+                            <video src="{{$post.ThumbnailURL}}" preload="metadata"></video>
+                            <div class="video-player__play"></div>
+                        </div>
+                        {{else}}
+                        <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
+                        {{end}}
+                    </div>
+                    {{end}}
+                    <div class="post-card__body">
+                    <h2 class="post-card__title">
+                        <a href="/post/{{$post.Slug}}">{{$post.Title}}</a>
+                    </h2>
+                    <div class="post-card__meta">
+                        <time datetime="{{$post.CreatedAt | formatDateShort}}">{{$post.CreatedAt | formatDate}}</time>
+                        {{if $post.CategoryName}}
+                        <span>&middot;</span>
+                        <a href="/category/{{$post.CategorySlug}}" class="post-card__category">{{$post.CategoryName}}</a>
+                        {{end}}
+                    </div>
+                    <p class="post-card__excerpt">{{$post.Excerpt}}</p>
+                    {{if $post.Tags}}
+                    <div class="post-card__tags">
+                        {{range $post.Tags}}
+                        <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                        {{end}}
+                    </div>
+                    {{end}}
+                    </div>
+                </article>
+                {{else}}
+                <div class="neo-box" style="text-align:center;padding:3rem;">
+                    <p style="font-size:1.25rem;">暂无内容，敬请期待！</p>
+                </div>
+                {{end}}
+
+                <!-- 加载更多 -->
+                <div id="load-more-wrap" class="load-more-wrap" style="display:none;">
+                    <button id="load-more-btn" class="btn load-more-btn">加载更多 <span id="load-more-remaining"></span></button>
+                </div>
+            </section>
+
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                {{if .Categories}}
+                <div class="sidebar__section neo-box">
+                    <h3 class="sidebar__title">分类</h3>
+                    <ul class="sidebar__list">
+                        {{range .Categories}}{{if gt .Count 0}}
+                        <li><a href="/category/{{.Slug}}">{{.Name}} <span class="count">{{.Count}}</span></a></li>
+                        {{end}}{{end}}
+                    </ul>
+                </div>
+                {{end}}
+
+                {{if .Tags}}
+                <div class="sidebar__section neo-box">
+                    <h3 class="sidebar__title">标签</h3>
+                    <div class="tag-cloud">
+                        {{range .Tags}}{{if gt .Count 0}}
+                        <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                        {{end}}{{end}}
+                    </div>
+                </div>
+                {{end}}
+            </aside>
+        </div>
+
+{{template "footer" .}}

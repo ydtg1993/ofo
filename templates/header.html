@@ -1,0 +1,51 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <meta name="description" content="{{.Description}}">
+    <meta name="keywords" content="{{.Keywords}}">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="{{.Cfg.Author}}">
+    {{if .Cfg.BaiduVerify}}<meta name="baidu-site-verification" content="{{.Cfg.BaiduVerify}}">{{end}}
+    {{if .Cfg.Verify360}}<meta name="360-site-verification" content="{{.Cfg.Verify360}}">{{end}}
+    {{if .Cfg.SogouVerify}}<meta name="sogou-site-verification" content="{{.Cfg.SogouVerify}}">{{end}}
+    <!-- Open Graph -->
+    <meta property="og:title" content="{{.Title}}">
+    <meta property="og:description" content="{{.Description}}">
+    <meta property="og:url" content="{{.CanonicalURL}}">
+    <meta property="og:site_name" content="{{.Cfg.Title}}">
+    <meta property="og:locale" content="zh_CN">
+    {{if .OGImage}}<meta property="og:image" content="{{.OGImage}}">{{end}}
+    {{if .IsHome}}<meta property="og:type" content="website">{{else}}<meta property="og:type" content="article">{{end}}
+    <!-- Canonical -->
+    <link rel="canonical" href="{{.CanonicalURL}}">
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
+    <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
+    <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="container navbar__inner">
+            <a href="/" class="navbar__brand">{{.Cfg.Title}}<img src="{{asset "/static/resources/ofo.png"}}" alt="logo" class="navbar__logo"></a>
+            <button class="navbar__toggle" id="nav-toggle" aria-label="切换导航菜单">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="navbar__links" id="nav-links">
+                <li><a href="/" class="{{if eq .CurrentPath "/"}}active{{end}}">首页</a></li>
+                <li><a href="/about" class="{{if eq .CurrentPath "/about"}}active{{end}}">关于</a></li>
+                <li><a href="/rss.xml" title="RSS 订阅">RSS</a></li>
+                <li>
+                    <button class="theme-toggle" id="theme-toggle" aria-label="切换深色模式" title="切换主题">
+                        <span class="theme-toggle__icon">&#9788;</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container main-content">
+{{end}}

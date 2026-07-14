@@ -1,0 +1,41 @@
+{{define "admin_header"}}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} — 后台管理</title>
+    <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
+    <link rel="stylesheet" href="{{asset "/static/css/admin.css"}}">
+    <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.2.0/marked.min.js"></script>
+</head>
+<body>
+    <!-- 管理后台顶栏 -->
+    <nav class="navbar admin-navbar">
+        <div class="container navbar__inner">
+            <a href="/admin" class="navbar__brand"><img src="{{asset "/static/resources/ofo.png"}}" alt="logo" class="navbar__logo">后台</a>
+            <ul class="navbar__links">
+                <li><a href="/admin">仪表盘</a></li>
+                <li><a href="/admin/categories">分类管理</a></li>
+                <li><a href="/admin/stickers">表情包</a></li>
+                <li><a href="/admin/posts/new">+ 写文章</a></li>
+                <li><a href="/" target="_blank">浏览网站</a></li>
+                <li><a href="/admin/logout" style="color:var(--danger);">退出</a></li>
+                <li>
+                    <button class="theme-toggle" id="theme-toggle" aria-label="切换深色模式">
+                        <span class="theme-toggle__icon">&#9788;</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container main-content">
+{{if .Error}}
+        <div class="admin-flash admin-flash--error">{{.Error}}</div>
+{{end}}
+{{if .Success}}
+        <div class="admin-flash admin-flash--success">{{.Success}}</div>
+{{end}}
+{{end}}

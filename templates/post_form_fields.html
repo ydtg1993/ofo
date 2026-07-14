@@ -1,0 +1,86 @@
+{{define "post_form_fields"}}
+    <div class="form-group">
+        <label for="title" class="form-label">标题</label>
+        <input type="text" id="title" name="title" class="form-input"
+            value="{{if .Post}}{{.Post.Title}}{{end}}" required autofocus
+            oninput="updatePreview()">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group" style="flex:1;">
+            <label for="slug" class="form-label">URL 别名</label>
+            <input type="text" id="slug" name="slug" class="form-input"
+                value="{{if .Post}}{{.Post.Slug}}{{end}}" placeholder="留空自动生成">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label for="thumbnail_url" class="form-label">封面图URL（可选）</label>
+            <input type="text" id="thumbnail_url" name="thumbnail_url" class="form-input"
+                value="{{if .Post}}{{.Post.ThumbnailURL}}{{end}}"
+                placeholder="留空则自动提取首图" oninput="updatePreview()">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group" style="flex:1;">
+            <label for="category_id" class="form-label">分类</label>
+            <select id="category_id" name="category_id" class="form-input">
+                <option value="">— 无 —</option>
+                {{$currentCat := 0}}
+                {{if .Post}}{{if .Post.CategoryID.Valid}}{{$currentCat = toInt .Post.CategoryID.Int64}}{{end}}{{end}}
+                {{range .Categories}}
+                <option value="{{.ID}}" {{if eq .ID $currentCat}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label class="form-label">发布状态</label>
+            <label class="form-checkbox">
+                <input type="checkbox" name="published" value="1"
+                    {{if .Post}}{{if .Post.IsPublished}}checked{{end}}{{else}}checked{{end}}>
+                公开发布
+            </label>
+        </div>
+    </div>
+
+    <!-- 发布时间 -->
+    <div class="form-group">
+        <label for="created_at" class="form-label">发布时间</label>
+        <input type="date" id="created_at" name="created_at" class="form-input" style="max-width:220px;"
+            value="{{if .Post}}{{.Post.CreatedAt | formatDateShort}}{{end}}">
+    </div>
+
+    <div class="form-group">
+        <label for="tags" class="form-label">标签（一行一个）</label>
+        <textarea id="tags" name="tags" class="form-textarea" rows="4"
+            placeholder="每行一个标签，如：&#10;搞笑&#10;表情包&#10;趣图">{{if .Tags}}{{range $i, $t := .Tags}}{{if $i}}&#10;{{end}}{{$t.Name}}{{end}}{{end}}</textarea>
+        {{if .AllTags}}
+        <div class="tag-chips" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.35rem;">
+            <span style="font-size:0.8rem;color:var(--text-muted);line-height:1.8;">点击添加：</span>
+            {{range .AllTags}}
+            <button type="button" class="tag-chip" data-tag="{{.Name}}" onclick="addTag(this)" title="点击添加到标签列表">{{.Name}}</button>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+
+    <!-- 摘要（手动编辑，留空则自动提取） -->
+    <div class="form-group">
+        <label for="excerpt" class="form-label">主页摘要（可选，留空则自动从正文提取前 200 字）</label>
+        <textarea id="excerpt" name="excerpt" class="form-textarea" rows="3" style="font-family:var(--font-body);"
+            placeholder="手动编写主页卡片显示的摘要…">{{if .Post}}{{.Post.Excerpt}}{{end}}</textarea>
+    </div>
+
+    <!-- 编辑器工具栏 -->
+    <div class="editor-toolbar">
+        <label class="form-label" style="margin-bottom:0;">正文（Markdown）</label>
+        <div class="toolbar-buttons">
+            <input type="file" id="file-upload" accept="image/*,video/*" style="display:none;" onchange="handleUpload(this)">
+            <button type="button" class="btn btn--small" onclick="document.getElementById('file-upload').click()" title="上传图片或视频">
+                📁 上传媒体
+            </button>
+            <span id="upload-status" class="upload-status"></span>
+        </div>
+    </div>
+    <textarea id="content" name="content" class="form-textarea editor-textarea" rows="22" required
+        oninput="updatePreview()">{{if .Post}}{{.Post.ContentMD}}{{end}}</textarea>
+{{end}}
