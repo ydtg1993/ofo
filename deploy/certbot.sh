@@ -8,7 +8,7 @@ set -euo pipefail
 
 # ---- 可配置项 ----
 DOMAIN="${DOMAIN:-qiofo.com}"                                     # 主域名
-EMAIL="${EMAIL:-admin@qiofo.com}"                                 # 证书过期通知邮箱
+EMAIL="${EMAIL:-ydtg1993@foxmail.com}"                                 # 证书过期通知邮箱
 WEBROOT="${WEBROOT:-/var/www/certbot}"                            # ACME challenge 目录
 NGINX_CONF="${NGINX_CONF:-/etc/nginx/sites-enabled/qiofo.com.conf}"
 
