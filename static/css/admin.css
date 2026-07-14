@@ -536,6 +536,27 @@
     border: var(--border-width) solid var(--border-color);
 }
 
+/* ---- Admin Pagination ---- */
+.admin-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.admin-pagination__info {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.admin-pagination__btns {
+    display: flex;
+    gap: 0.5rem;
+}
+
 /* ============================================================
    Admin Responsive
    ============================================================ */

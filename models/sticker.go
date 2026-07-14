@@ -22,12 +22,20 @@ type StickerModel struct {
 	DB *sql.DB
 }
 
-// ListAll returns all stickers ordered by newest first.
-func (m *StickerModel) ListAll() ([]Sticker, error) {
+// Count returns the total number of stickers.
+func (m *StickerModel) Count() (int, error) {
+	var total int
+	err := m.DB.QueryRow("SELECT COUNT(*) FROM stickers").Scan(&total)
+	return total, err
+}
+
+// ListPaginated returns stickers ordered by newest first with offset/limit.
+func (m *StickerModel) ListPaginated(offset, limit int) ([]Sticker, error) {
 	rows, err := m.DB.Query(`
 		SELECT id, filename, url, file_size, mime_type, created_at
 		FROM stickers ORDER BY created_at DESC
-	`)
+		LIMIT ? OFFSET ?
+	`, limit, offset)
 	if err != nil {
 		return nil, err
 	}

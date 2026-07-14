@@ -1,0 +1,19 @@
+{{define "admin_pagination"}}
+{{if .Pagination}}{{if gt .Pagination.TotalPages 1}}
+        <div class="admin-pagination">
+            <span class="admin-pagination__info">共 {{.Pagination.TotalPosts}} 条，第 {{.Pagination.CurrentPage}}/{{.Pagination.TotalPages}} 页</span>
+            <div class="admin-pagination__btns">
+                {{if .Pagination.HasPrev}}
+                <a href="?page={{.Pagination.PrevPage}}" class="btn btn--small">上一页</a>
+                {{else}}
+                <span class="btn btn--small btn--disabled">上一页</span>
+                {{end}}
+                {{if .Pagination.HasNext}}
+                <a href="?page={{.Pagination.NextPage}}" class="btn btn--small">下一页</a>
+                {{else}}
+                <span class="btn btn--small btn--disabled">下一页</span>
+                {{end}}
+            </div>
+        </div>
+{{end}}{{end}}
+{{end}}

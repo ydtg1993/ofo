@@ -148,6 +148,7 @@ type AdminPageData struct {
 	ShowCategories bool
 	ShowStickers   bool
 	Stickers       []models.Sticker
+	Pagination     *models.Pagination
 }
 
 // ---- Login ----
@@ -182,7 +183,11 @@ func (h *Handler) AdminLogout(c *gin.Context) {
 // ---- Dashboard ----
 
 func (h *Handler) AdminDashboard(c *gin.Context) {
-	posts, err := h.PostModel.ListAll()
+	total, _ := h.PostModel.CountAll()
+	pg := adminPagination(c, total, 15)
+	offset := (pg.CurrentPage - 1) * pg.PerPage
+
+	posts, err := h.PostModel.ListAllPaginated(offset, pg.PerPage)
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "admin_dashboard.html", AdminPageData{
 			Title: "Dashboard",
@@ -199,6 +204,7 @@ func (h *Handler) AdminDashboard(c *gin.Context) {
 		Cfg:        h.Cfg,
 		Posts:      posts,
 		Categories: categories,
+		Pagination: pg,
 	})
 }
 
@@ -506,13 +512,18 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 
 // AdminStickers displays the sticker management page.
 func (h *Handler) AdminStickers(c *gin.Context) {
-	stickers, _ := h.StickerModel.ListAll()
+	total, _ := h.StickerModel.Count()
+	pg := adminPagination(c, total, 15)
+	offset := (pg.CurrentPage - 1) * pg.PerPage
+
+	stickers, _ := h.StickerModel.ListPaginated(offset, pg.PerPage)
 
 	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
 		Title:        "表情包管理",
 		Cfg:          h.Cfg,
 		ShowStickers: true,
 		Stickers:     stickers,
+		Pagination:   pg,
 	})
 }
 
@@ -578,10 +589,17 @@ func (h *Handler) stickerError(c *gin.Context, msg string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
+	total, _ := h.StickerModel.Count()
+	pg := adminPagination(c, total, 15)
+	offset := (pg.CurrentPage - 1) * pg.PerPage
+	stickers, _ := h.StickerModel.ListPaginated(offset, pg.PerPage)
+
 	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
 		Title:        "表情包管理",
 		Cfg:          h.Cfg,
 		ShowStickers: true,
+		Stickers:     stickers,
+		Pagination:   pg,
 		Error:        msg,
 	})
 }
@@ -674,7 +692,10 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 // ---- Helpers ----
 
 func (h *Handler) adminDashboardWithSuccess(c *gin.Context, msg string) {
-	posts, _ := h.PostModel.ListAll()
+	total, _ := h.PostModel.CountAll()
+	pg := adminPagination(c, total, 15)
+	offset := (pg.CurrentPage - 1) * pg.PerPage
+	posts, _ := h.PostModel.ListAllPaginated(offset, pg.PerPage)
 	categories, _ := h.PostModel.AllCategoriesSimple()
 
 	c.HTML(http.StatusOK, "admin_dashboard.html", AdminPageData{
@@ -683,7 +704,33 @@ func (h *Handler) adminDashboardWithSuccess(c *gin.Context, msg string) {
 		Posts:      posts,
 		Categories: categories,
 		Success:    msg,
+		Pagination: pg,
 	})
+}
+
+// adminPagination builds Pagination info from query params.
+func adminPagination(c *gin.Context, total int, perPage int) *models.Pagination {
+	page := 1
+	if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
+		page = p
+	}
+	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	return &models.Pagination{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		PerPage:     perPage,
+		TotalPosts:  total,
+		HasPrev:     page > 1,
+		HasNext:     page < totalPages,
+		PrevPage:    page - 1,
+		NextPage:    page + 1,
+	}
 }
 
 func slugifyStr(s string) string {

@@ -353,6 +353,37 @@ func (m *PostModel) ListAll() ([]Post, error) {
 	return posts, nil
 }
 
+// CountAll returns the total number of posts (including drafts).
+func (m *PostModel) CountAll() (int, error) {
+	var total int
+	err := m.DB.QueryRow("SELECT COUNT(*) FROM posts").Scan(&total)
+	return total, err
+}
+
+// ListAllPaginated returns posts (including drafts) with offset/limit for admin dashboard.
+func (m *PostModel) ListAllPaginated(offset, limit int) ([]Post, error) {
+	rows, err := m.DB.Query(`
+		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at, updated_at
+		FROM posts ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Excerpt, &p.ContentMD,
+			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+
 // GetByID returns a post by its numeric ID.
 func (m *PostModel) GetByID(id int) (*Post, error) {
 	p := &Post{}
