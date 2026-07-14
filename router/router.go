@@ -40,7 +40,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	// ==========================================
 	// 模板引擎配置
 	// ==========================================
-	r.SetFuncMap(templateFuncMap(cfg))
+	r.SetFuncMap(templateFuncMap(cfg, baseDir))
 	// 递归加载 templates/ 下所有 .html 文件
 	tmplDir := filepath.Join(baseDir, "templates")
 	var tmplFiles []string
@@ -157,7 +157,7 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 // ==========================================
 // 模板函数注册
 // ==========================================
-func templateFuncMap(cfg *config.Config) template.FuncMap {
+func templateFuncMap(cfg *config.Config, baseDir string) template.FuncMap {
 	return template.FuncMap{
 		// 静态资源版本号（缓存破坏）
 		"asset": func(path string) string {
@@ -192,7 +192,10 @@ func templateFuncMap(cfg *config.Config) template.FuncMap {
 		// 根据 category ID 查名称
 		// 给文章正文 <img> 注入 loading="lazy"（兼容已有旧文章）
 		"lazyImages": func(html string) template.HTML {
-			return template.HTML(handlers.InjectLazyLoading(html))
+			html = handlers.InjectLazyLoading(html)
+			html = handlers.InjectImageDimensions(html, baseDir)
+			html = handlers.InjectVideoDimensions(html, baseDir)
+			return template.HTML(html)
 		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {

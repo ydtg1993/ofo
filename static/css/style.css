@@ -1083,24 +1083,46 @@ pre:hover .code-copy-btn,
     transition: opacity 0.3s;
 }
 
-/* ---- 严格懒加载状态 ---- */
-.post-full__body img.img-pending {
-    cursor: default;
-    min-height: 200px;
-    background: var(--code-bg);
-    border-radius: var(--radius);
-    /* 脉冲动画提示用户此处有内容加载中 */
-    animation: img-pulse 2s ease-in-out infinite;
-    opacity: 0.4;
+/* ---- Skeleton 骨架屏：图片/视频加载前的流光占位 ---- */
+
+@keyframes skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
-@keyframes img-pulse {
-    0%, 100% { opacity: 0.3; }
-    50%      { opacity: 0.6; }
+.post-full__body img.img-pending {
+    cursor: default;
+    height: auto;                 /* 配合 aspect-ratio 内联样式，占位高度 = 实际图片高度 */
+    min-height: 50px;             /* 兜底 */
+    border-radius: var(--radius);
+    /* 骨架底色 + 流光扫过效果 */
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .post-full__body img.img-pending {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
 }
 
 .post-full__body img.img-loaded {
     animation: none;
+    background: none;
     opacity: 1;
 }
 
@@ -1111,6 +1133,35 @@ pre:hover .code-copy-btn,
     background: #fff0f0;
     border: 1px dashed var(--danger);
     border-radius: var(--radius);
+}
+
+/* ---- 正文视频：Skeleton 占位，加载前流光 ---- */
+.post-full__body video {
+    max-width: 100%;
+    height: auto;                 /* 配合 aspect-ratio 内联样式 */
+    border-radius: var(--radius);
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .post-full__body video {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
 }
 
 /* ---- Print ---- */
