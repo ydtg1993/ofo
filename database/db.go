@@ -48,6 +48,18 @@ var migrations = []string{
 	`PRAGMA foreign_keys=ON`,
 	// v2: 文章缩略图
 	`ALTER TABLE posts ADD COLUMN thumbnail_url TEXT DEFAULT ''`,
+	// v3: 上传资源管理
+	`CREATE TABLE IF NOT EXISTS resources (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		post_id INTEGER,
+		filename TEXT NOT NULL,
+		url TEXT NOT NULL,
+		file_size INTEGER NOT NULL DEFAULT 0,
+		mime_type TEXT NOT NULL DEFAULT '',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_resources_post_id ON resources(post_id)`,
 }
 
 func Init(dbPath string) (*sql.DB, error) {

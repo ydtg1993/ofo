@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -200,7 +201,7 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 	// 发布时间（默认当天）
 	createdAt := parseDate(c.PostForm("created_at"))
 
-	_, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames)
+	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames)
 	if err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin.html", AdminPageData{
@@ -211,6 +212,11 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 			Error:      "保存失败：" + err.Error(),
 		})
 		return
+	}
+
+	// 关联上传资源到文章
+	if err := h.ResourceModel.SyncPostResources(int(postID), contentHTML); err != nil {
+		log.Printf("AdminCreatePost: failed to sync resources for post %d: %v", postID, err)
 	}
 
 	// Redirect to dashboard with success
@@ -278,6 +284,11 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 		return
 	}
 
+	// 同步上传资源关联
+	if err := h.ResourceModel.SyncPostResources(id, contentHTML); err != nil {
+		log.Printf("AdminUpdatePost: failed to sync resources for post %d: %v", id, err)
+	}
+
 	h.adminDashboardWithSuccess(c, "文章更新成功")
 }
 
@@ -287,6 +298,27 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
 
+	// 1. 查找文章关联的资源
+	resources, err := h.ResourceModel.FindByPostID(id)
+	if err != nil {
+		log.Printf("AdminDeletePost: failed to find resources for post %d: %v", id, err)
+	}
+
+	// 2. 删除磁盘上的资源文件
+	uploadsDir := filepath.Join(h.BaseDir, "static", "uploads")
+	for _, r := range resources {
+		filePath := filepath.Join(uploadsDir, r.Filename)
+		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+			log.Printf("AdminDeletePost: failed to delete file %s: %v", filePath, err)
+		}
+	}
+
+	// 3. 删除资源记录
+	if err := h.ResourceModel.DeleteByPostID(id); err != nil {
+		log.Printf("AdminDeletePost: failed to delete resource records for post %d: %v", id, err)
+	}
+
+	// 4. 删除文章本身
 	if err := h.PostModel.Delete(id); err != nil {
 		h.adminDashboardWithSuccess(c, "删除文章失败")
 		return
@@ -426,6 +458,13 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 	}
 
 	url := "/static/uploads/" + savedName
+
+	// 记录到资源表（post_id 暂时为空，保存文章时关联）
+	mimeType := models.MIMEType(ext)
+	if _, err := h.ResourceModel.Create(savedName, url, header.Size, mimeType); err != nil {
+		log.Printf("AdminUpload: failed to record resource %s: %v", savedName, err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"url": url})
 }
 

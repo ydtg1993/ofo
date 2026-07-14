@@ -49,9 +49,21 @@ func main() {
 
 	// ---- 依赖组装 ----
 	postModel := &models.PostModel{DB: db}
+	resourceModel := &models.ResourceModel{DB: db}
+
+	// 启动时扫描已有上传文件，补录到资源表（幂等安全）
+	uploadsDir := filepath.Join(baseDir, "static", "uploads")
+	if n, err := resourceModel.ScanDiskAndRecord(uploadsDir); err != nil {
+		log.Printf("Warning: failed to scan uploads: %v", err)
+	} else if n > 0 {
+		log.Printf("Recorded %d previously untracked upload file(s)", n)
+	}
+
 	h := &handlers.Handler{
-		PostModel: postModel,
-		Cfg:       cfg,
+		PostModel:     postModel,
+		ResourceModel: resourceModel,
+		Cfg:           cfg,
+		BaseDir:       baseDir,
 	}
 
 	// ---- 路由 & 中间件 & 启动 ----
