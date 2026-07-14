@@ -427,15 +427,15 @@
 
 /* 表格内预览 */
 .sticker-table__preview {
-    width: 50px;
-    height: 50px;
+    width: 80px;
+    height: 80px;
     padding: 2px !important;
 }
 
 .sticker-table__preview img,
 .sticker-table__preview video {
-    width: 50px;
-    height: 50px;
+    width: 80px;
+    height: 80px;
     object-fit: cover;
     border: var(--border-width) solid var(--border-color);
     display: block;
