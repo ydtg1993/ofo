@@ -29,8 +29,11 @@ fi
 # ---- Step 1: 安装 MariaDB ----
 log "Step 1/5 — 安装 MariaDB"
 if ! command -v mariadb &>/dev/null; then
+    export DEBIAN_FRONTEND=noninteractive
+    log "正在 apt-get update ..."
     apt-get update -qq
-    apt-get install -y -qq mariadb-server mariadb-client
+    log "正在 apt-get install mariadb-server ..."
+    apt-get install -y mariadb-server mariadb-client
     log "MariaDB 安装完成"
 else
     log "MariaDB 已安装，跳过"
