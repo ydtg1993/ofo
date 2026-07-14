@@ -58,13 +58,26 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	// ==========================================
 	// 静态资源（CSS / JS / 图片）
 	// ==========================================
-	// 公开静态资源（CSS / JS / 站点图标）— 无限制
-	r.Static("/static/css", filepath.Join(baseDir, "static", "css"))
-	r.Static("/static/js", filepath.Join(baseDir, "static", "js"))
-	r.Static("/static/resources", filepath.Join(baseDir, "static", "resources"))
+	// CSS / JS / 资源 — 长期缓存（URL 有版本号 ?v=，更新即失效）
+	{
+		cached := r.Group("/static/css")
+		cached.Use(middleware.CacheControl(365 * 24 * time.Hour))
+		cached.Static("", filepath.Join(baseDir, "static", "css"))
+	}
+	{
+		cached := r.Group("/static/js")
+		cached.Use(middleware.CacheControl(365 * 24 * time.Hour))
+		cached.Static("", filepath.Join(baseDir, "static", "js"))
+	}
+	{
+		cached := r.Group("/static/resources")
+		cached.Use(middleware.CacheControl(365 * 24 * time.Hour))
+		cached.Static("", filepath.Join(baseDir, "static", "resources"))
+	}
 
-	// 受保护的静态资源（用户上传 / 表情包）— 防盗链
+	// 受保护的静态资源（用户上传 / 表情包）— 中期缓存 + 防盗链
 	uploadsGroup := r.Group("/static/uploads")
+	uploadsGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
 	if cfg.StaticRateLimit > 0 {
 		uploadsGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
 	}
@@ -72,6 +85,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	uploadsGroup.Static("", filepath.Join(baseDir, "static", "uploads"))
 
 	stickersGroup := r.Group("/static/stickers")
+	stickersGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
 	if cfg.StaticRateLimit > 0 {
 		stickersGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
 	}
@@ -196,6 +210,10 @@ func templateFuncMap(cfg *config.Config, baseDir string) template.FuncMap {
 			html = handlers.InjectImageDimensions(html, baseDir)
 			html = handlers.InjectVideoDimensions(html, baseDir)
 			return template.HTML(html)
+		},
+		// 缩略图：注入宽高 + aspect-ratio，配合 skeleton 骨架屏
+		"thumbnailImg": func(url, alt string) template.HTML {
+			return template.HTML(handlers.ThumbnailImage(url, alt, baseDir))
 		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {

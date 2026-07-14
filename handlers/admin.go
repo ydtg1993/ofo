@@ -507,6 +507,18 @@ func InjectVideoDimensions(html, baseDir string) string {
 	})
 }
 
+// ThumbnailImage generates an <img> tag for a thumbnail URL with skeleton-ready
+// attributes (width, height, aspect-ratio) injected for local upload files.
+// Used by the homepage card thumbnails.
+func ThumbnailImage(url, alt, baseDir string) string {
+	if url == "" {
+		return ""
+	}
+	html := fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, url, alt)
+	html = InjectImageDimensions(html, baseDir)
+	return html
+}
+
 // HTML 容器标签集合
 var htmlContainerTags = map[string]bool{
 	"div": true, "section": true, "article": true, "figure": true,

@@ -24,7 +24,7 @@
                             <div class="video-player__play"></div>
                         </div>
                         {{else}}
-                        <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
+                        {{thumbnailImg $post.ThumbnailURL $post.Title}}
                         {{end}}
                     </a>
                     {{end}}

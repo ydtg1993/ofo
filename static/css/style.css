@@ -749,6 +749,35 @@ pre:hover .code-copy-btn,
     height: auto;
     max-height: 480px;
     display: block;
+    /* Skeleton 骨架屏：图片加载前显示流光占位 */
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .post-card__thumb img {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+}
+
+/* 图片加载完成后清除 skeleton */
+.post-card__thumb img[src]:not([src=""]) {
+    /* 一旦有了有效的 src 且浏览器开始渲染图片，就不需要 skeleton 了 */
+    /* 但 CSS 无法检测图片是否加载完成，skeleton 会在图片显示后自然被覆盖 */
 }
 
 .post-card__thumb video {
@@ -1077,12 +1106,6 @@ pre:hover .code-copy-btn,
     user-select: none;
 }
 
-/* ---- Body images cursor hint ---- */
-.post-full__body img {
-    cursor: zoom-in;
-    transition: opacity 0.3s;
-}
-
 /* ---- Skeleton 骨架屏：图片/视频加载前的流光占位 ---- */
 
 @keyframes skeleton-shimmer {
@@ -1090,12 +1113,13 @@ pre:hover .code-copy-btn,
     100% { background-position: -200% 0; }
 }
 
-.post-full__body img.img-pending {
-    cursor: default;
-    height: auto;                 /* 配合 aspect-ratio 内联样式，占位高度 = 实际图片高度 */
-    min-height: 50px;             /* 兜底 */
+/* 所有正文图片自带 skeleton 背景 + 流光，图片加载后自然覆盖，不依赖 JS */
+.post-full__body img {
+    cursor: zoom-in;
+    transition: opacity 0.3s;
+    height: auto;
+    min-height: 50px;
     border-radius: var(--radius);
-    /* 骨架底色 + 流光扫过效果 */
     background: linear-gradient(
         90deg,
         var(--code-bg) 0%,
@@ -1108,7 +1132,7 @@ pre:hover .code-copy-btn,
     animation: skeleton-shimmer 2s ease-in-out infinite;
 }
 
-[data-theme="dark"] .post-full__body img.img-pending {
+[data-theme="dark"] .post-full__body img {
     background: linear-gradient(
         90deg,
         var(--code-bg) 0%,
@@ -1120,12 +1144,19 @@ pre:hover .code-copy-btn,
     background-size: 200% 100%;
 }
 
+/* 懒加载占位状态：关掉缩放光标 */
+.post-full__body img.img-pending {
+    cursor: default;
+}
+
+/* 图片加载完成：清除 skeleton */
 .post-full__body img.img-loaded {
     animation: none;
     background: none;
     opacity: 1;
 }
 
+/* 图片加载失败 */
 .post-full__body img.img-error {
     animation: none;
     opacity: 0.3;
@@ -1135,10 +1166,10 @@ pre:hover .code-copy-btn,
     border-radius: var(--radius);
 }
 
-/* ---- 正文视频：Skeleton 占位，加载前流光 ---- */
+/* 正文视频同理：自带 skeleton */
 .post-full__body video {
     max-width: 100%;
-    height: auto;                 /* 配合 aspect-ratio 内联样式 */
+    height: auto;
     border-radius: var(--radius);
     background: linear-gradient(
         90deg,
