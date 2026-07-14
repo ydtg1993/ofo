@@ -1,0 +1,560 @@
+/* ============================================================
+   RetroUI Admin Panel Styles
+   ============================================================ */
+
+/* ---- Admin Navbar ---- */
+.admin-navbar {
+    background: var(--bg-secondary);
+}
+
+/* 后台全宽 */
+.admin-navbar ~ .main-content {
+    max-width: none;
+    padding: 2rem 2rem 3rem;
+}
+
+.admin-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.admin-header-row h1 {
+    margin-bottom: 0;
+}
+
+.admin-flash {
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1.5rem;
+    border: var(--border-width) solid var(--border-color);
+    box-shadow: 3px 3px 0 var(--shadow-color);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.admin-flash--error {
+    background: #FFF0F0;
+    color: var(--danger);
+}
+
+.admin-flash--success {
+    background: #F0FFF0;
+    color: #2E7D32;
+}
+
+/* ---- Admin Table ---- */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table th {
+    text-align: left;
+    padding: 0.85rem 1.25rem;
+    font-weight: 800;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--bg-primary);
+    border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.admin-table td {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--code-border);
+    vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tr:hover td {
+    background: var(--bg-primary);
+}
+
+.admin-table__title {
+    font-weight: 700;
+}
+
+.admin-table__title a {
+    text-decoration: none;
+}
+
+.admin-table__title a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+}
+
+.admin-table__date {
+    white-space: nowrap;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.admin-table__actions {
+    white-space: nowrap;
+    display: flex;
+    gap: 0.4rem;
+}
+
+/* ---- Admin Badges ---- */
+.admin-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 0.2em 0.6em;
+    border: 2px solid var(--border-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-badge--published {
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.admin-badge--draft {
+    background: #FFF3E0;
+    color: #E65100;
+}
+
+/* ---- Admin Buttons ---- */
+.btn--danger {
+    background: var(--danger);
+    color: #FFFFFF;
+    border-color: #B71C1C;
+}
+
+.btn--danger:hover {
+    color: #FFFFFF;
+}
+
+.admin-form {
+    padding: 2rem;
+}
+
+/* ---- Forms ---- */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.01em;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.95rem;
+    font-family: var(--font-body);
+    font-weight: 500;
+    border: var(--border-width) solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 3px 3px 0 var(--shadow-color);
+    transition: box-shadow 0.1s ease, transform 0.1s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    line-height: 1.6;
+    border: var(--border-width) solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 3px 3px 0 var(--shadow-color);
+    resize: vertical;
+}
+
+.form-textarea:focus {
+    outline: none;
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
+.form-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.form-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--border-color);
+}
+
+/* ---- Tag Chips ---- */
+.tag-chip {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2em 0.7em;
+    border: 2px solid var(--border-color);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    font-family: inherit;
+}
+
+.tag-chip:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--shadow-color);
+    background: var(--accent);
+    color: #fff;
+}
+
+/* ---- Editor Split Layout ---- */
+.editor-layout {
+    display: grid;
+    grid-template-columns: 1fr 700px;
+    gap: 2rem;
+    align-items: start;
+}
+
+.editor-left {
+    min-width: 0;
+}
+
+.editor-right {
+    position: sticky;
+    top: 80px;
+}
+
+.editor-textarea {
+    min-height: 500px;
+    font-size: 0.9rem;
+}
+
+.editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.toolbar-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.upload-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* ---- Preview Panel ---- */
+.preview-panel {
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.preview-tabs {
+    display: flex;
+    border-bottom: var(--border-width) solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.preview-tab {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-family: var(--font-body);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.preview-tab.active {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border-bottom: 3px solid var(--accent);
+}
+
+.preview-tab:hover:not(.active) {
+    background: var(--code-bg);
+    color: var(--text-primary);
+}
+
+.preview-content {
+    padding: 1.5rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.preview-placeholder {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 2rem;
+    font-style: italic;
+}
+
+/* ---- Preview Content Styles ---- */
+.preview-content .post-card {
+    transform: none !important;
+    margin-bottom: 0;
+}
+
+.preview-content .post-card:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--shadow-color) !important;
+}
+
+.preview-content img,
+.preview-content video {
+    max-width: 100%;
+    height: auto;
+}
+
+.preview-detail h1 { font-size: 1.8rem; }
+.preview-detail h2 { font-size: 1.4rem; }
+.preview-detail h3 { font-size: 1.15rem; }
+
+/* ---- Inline Edit ---- */
+.inline-edit-form {
+    display: contents;
+}
+
+.inline-input {
+    font-size: 0.85rem !important;
+    padding: 0.4rem 0.6rem !important;
+}
+
+/* ---- 表情包管理 ---- */
+
+/* 拖拽上传区 */
+.sticker-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.sticker-drop-zone:hover,
+.sticker-drop-zone--drag-over {
+    border-color: var(--accent);
+    background: var(--tag-bg);
+}
+
+.sticker-drop-zone__text {
+    margin: 0 0 0.25rem;
+    font-weight: 700;
+}
+
+.sticker-drop-zone__hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* 上传队列 */
+.sticker-upload-queue {
+    margin-top: 1rem;
+    border-top: var(--border-width) solid var(--border-color);
+    padding-top: 0.75rem;
+}
+
+.sticker-upload-queue__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.sticker-queue-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.85rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.sticker-queue-list li {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 表格内预览 */
+.sticker-table__preview {
+    width: 50px;
+    height: 50px;
+    padding: 2px !important;
+}
+
+.sticker-table__preview img,
+.sticker-table__preview video {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border: var(--border-width) solid var(--border-color);
+    display: block;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+.sticker-table__preview img:hover,
+.sticker-table__preview video:hover {
+    transform: scale(1.15);
+    border-color: var(--accent);
+}
+
+.sticker-table__name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sticker-table__url code {
+    font-size: 0.72rem;
+    word-break: break-all;
+}
+
+.sticker-table__actions {
+    white-space: nowrap;
+}
+
+/* 预览弹窗（RetroUI 风格） */
+.sticker-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.sticker-modal__card {
+    position: relative;
+    padding: 1rem;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: var(--bg-primary);
+    cursor: default;
+}
+
+.sticker-modal__close {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.6rem;
+    font-size: 1.5rem;
+    font-weight: 900;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    z-index: 1;
+    line-height: 1;
+    padding: 0.25rem;
+    font-family: monospace;
+}
+
+.sticker-modal__close:hover {
+    color: var(--danger);
+}
+
+.sticker-modal__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+}
+
+.sticker-modal__content img,
+.sticker-modal__content video {
+    border: var(--border-width) solid var(--border-color);
+}
+
+/* ============================================================
+   Admin Responsive
+   ============================================================ */
+
+/* ---- 平板 ---- */
+@media (min-width: 641px) and (max-width: 1023px) {
+    .editor-layout {
+        grid-template-columns: 1fr;
+    }
+    .editor-right {
+        position: static;
+        order: 2;
+    }
+    .editor-left {
+        order: 1;
+    }
+}
+
+/* ---- 手机 ---- */
+@media (max-width: 640px) {
+    .admin-table__actions {
+        flex-direction: column;
+    }
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    .editor-layout {
+        grid-template-columns: 1fr;
+    }
+    .editor-right {
+        position: static;
+        order: 2;
+    }
+    .editor-left {
+        order: 1;
+    }
+}

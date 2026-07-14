@@ -114,6 +114,9 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 		protected.POST("/categories", h.AdminCreateCategory)            // 新建分类
 		protected.POST("/categories/:id", h.AdminUpdateCategory)        // 更新分类
 		protected.POST("/categories/:id/delete", h.AdminDeleteCategory) // 删除分类
+		protected.GET("/stickers", h.AdminStickers)                     // 表情包管理
+		protected.POST("/stickers", h.AdminCreateSticker)               // 上传表情包
+		protected.POST("/stickers/:id/delete", h.AdminDeleteSticker)    // 删除表情包
 		protected.POST("/upload", h.AdminUpload)                        // 文件上传
 		protected.GET("/logout", h.AdminLogout)                         // 退出登录
 	}

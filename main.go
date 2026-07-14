@@ -30,6 +30,9 @@ func main() {
 	if err := os.MkdirAll(filepath.Join(baseDir, "static", "uploads"), 0755); err != nil {
 		log.Fatalf("Failed to create uploads directory: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(baseDir, "static", "stickers"), 0755); err != nil {
+		log.Fatalf("Failed to create stickers directory: %v", err)
+	}
 
 	db, err := database.Init(cfg.DSN())
 	if err != nil {
@@ -49,6 +52,7 @@ func main() {
 	// ---- 依赖组装 ----
 	postModel := &models.PostModel{DB: db}
 	resourceModel := &models.ResourceModel{DB: db}
+	stickerModel := &models.StickerModel{DB: db}
 
 	// 启动时扫描已有上传文件，补录到资源表（幂等安全）
 	uploadsDir := filepath.Join(baseDir, "static", "uploads")
@@ -61,6 +65,7 @@ func main() {
 	h := &handlers.Handler{
 		PostModel:     postModel,
 		ResourceModel: resourceModel,
+		StickerModel:  stickerModel,
 		Cfg:           cfg,
 		BaseDir:       baseDir,
 	}

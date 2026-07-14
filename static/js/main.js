@@ -174,7 +174,7 @@
         var tagsEl = document.getElementById('tags');
         var tagNames = [];
         if (tagsEl && tagsEl.value.trim()) {
-            tagNames = tagsEl.value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+            tagNames = tagsEl.value.split(/[\r\n]+/).map(function(t) { return t.trim(); }).filter(Boolean);
         }
 
         // Extract first image for card preview
@@ -353,6 +353,182 @@
     }
 })();
 
+// 复制表情包 URL（事件委托）
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.sticker-copy-btn');
+    if (!btn) return;
+    e.preventDefault();
+    var url = btn.getAttribute('data-url');
+    if (!url) return;
+
+    // 兼容非 HTTPS 环境：先尝试 clipboard API，失败则用 execCommand
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+            btn.textContent = '✓ 已复制';
+            setTimeout(function () { btn.textContent = '📋 复制'; }, 1500);
+        }).catch(function () {
+            fallbackCopy(url, btn);
+        });
+    } else {
+        fallbackCopy(url, btn);
+    }
+});
+
+function fallbackCopy(url, btn) {
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    ta.style.pointerEvents = 'none';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        document.execCommand('copy');
+        btn.textContent = '✓ 已复制';
+    } catch (err) {
+        btn.textContent = '✗ 失败';
+    }
+    document.body.removeChild(ta);
+    setTimeout(function () { btn.textContent = '📋 复制'; }, 1500);
+}
+
+// ---- 表情包拖拽上传 ----
+(function () {
+    var dropZone = document.getElementById('sticker-drop-zone');
+    var fileInput = document.getElementById('sticker-file-input');
+    var queueDiv = document.getElementById('sticker-upload-queue');
+    var queueList = document.getElementById('sticker-queue-list');
+    var queueStatus = document.getElementById('sticker-queue-status');
+    var pendingFiles = [];
+
+    function addFiles(files) {
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            // validate type
+            var ext = f.name.split('.').pop().toLowerCase();
+            var allowed = ['jpg','jpeg','png','gif','webp','mp4','webm','ogg','mov'];
+            if (allowed.indexOf(ext) < 0) continue;
+            pendingFiles.push(f);
+            var li = document.createElement('li');
+            li.textContent = f.name + ' (' + formatSize(f.size) + ')';
+            queueList.appendChild(li);
+        }
+        if (pendingFiles.length > 0) {
+            queueDiv.style.display = 'block';
+            queueStatus.textContent = pendingFiles.length + ' 个文件待上传';
+        }
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    if (dropZone && fileInput) {
+        // Click to select
+        dropZone.addEventListener('click', function (e) {
+            if (e.target.tagName !== 'BUTTON') {
+                fileInput.click();
+            }
+        });
+
+        // Drag events
+        dropZone.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            dropZone.classList.add('sticker-drop-zone--drag-over');
+        });
+        dropZone.addEventListener('dragleave', function (e) {
+            dropZone.classList.remove('sticker-drop-zone--drag-over');
+        });
+        dropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dropZone.classList.remove('sticker-drop-zone--drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                addFiles(e.dataTransfer.files);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files.length > 0) {
+                addFiles(fileInput.files);
+                fileInput.value = '';
+            }
+        });
+    }
+
+    window.uploadStickerBatch = function () {
+        if (pendingFiles.length === 0) return;
+
+        queueStatus.textContent = '上传中…';
+        var total = pendingFiles.length;
+        var done = 0;
+        var failed = 0;
+
+        function uploadNext(idx) {
+            if (idx >= pendingFiles.length) {
+                queueStatus.textContent = '完成：' + done + ' 成功' + (failed > 0 ? '，' + failed + ' 失败' : '');
+                pendingFiles = [];
+                queueList.innerHTML = '';
+                // 刷新页面显示新资源
+                setTimeout(function () { location.reload(); }, 800);
+                return;
+            }
+
+            var file = pendingFiles[idx];
+            var formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/admin/stickers', {
+                method: 'POST',
+                body: formData
+            }).then(function (res) {
+                if (res.ok || res.redirected) {
+                    done++;
+                } else {
+                    failed++;
+                }
+                queueStatus.textContent = '上传中… ' + (done + failed) + '/' + total;
+                // 标记列表项
+                var items = queueList.querySelectorAll('li');
+                if (items[idx]) {
+                    items[idx].textContent = (res.ok || res.redirected ? '✓ ' : '✗ ') + items[idx].textContent;
+                }
+                uploadNext(idx + 1);
+            }).catch(function () {
+                failed++;
+                queueStatus.textContent = '上传中… ' + (done + failed) + '/' + total;
+                uploadNext(idx + 1);
+            });
+        }
+
+        uploadNext(0);
+    };
+})();
+
+// 点击已有标签，添加到 textarea
+window.addTag = function (btn) {
+    var tagName = btn.getAttribute('data-tag');
+    var textarea = document.getElementById('tags');
+    if (!textarea || !tagName) return;
+
+    var lines = textarea.value.split(/[\r\n]+/).filter(function (t) { return t.trim() !== ''; });
+    // 如果已存在则不重复添加
+    if (lines.indexOf(tagName) >= 0) return;
+
+    if (textarea.value.trim() === '') {
+        textarea.value = tagName;
+    } else {
+        // 确保末尾有换行
+        textarea.value = textarea.value.replace(/[\r\n]*$/, '\n') + tagName;
+    }
+    updatePreview();
+};
+
 // 全局视频播放器切换（模板 onclick 调用）
 function toggleVideoPlayer(container) {
     var video = container.querySelector('video');
@@ -363,5 +539,28 @@ function toggleVideoPlayer(container) {
     } else {
         video.pause();
         container.classList.remove('playing');
+    }
+}
+
+// 表情包预览弹窗
+function previewSticker(url, isVideo) {
+    var modal = document.getElementById('sticker-modal');
+    var content = document.getElementById('sticker-modal-content');
+    if (!modal || !content) return;
+
+    if (isVideo) {
+        content.innerHTML = '<video src="' + url + '" controls autoplay style="max-width:80vw;max-height:70vh;"></video>';
+    } else {
+        content.innerHTML = '<img src="' + url + '" style="max-width:80vw;max-height:70vh;object-fit:contain;">';
+    }
+    modal.style.display = 'flex';
+}
+
+function closeStickerPreview(e) {
+    if (!e || e.target === document.getElementById('sticker-modal') || e.target.className === 'sticker-modal__close') {
+        var modal = document.getElementById('sticker-modal');
+        var content = document.getElementById('sticker-modal-content');
+        if (modal) modal.style.display = 'none';
+        if (content) content.innerHTML = '';
     }
 }

@@ -690,223 +690,6 @@ li { margin-bottom: 0.35rem; }
 
 .footer__copy p { margin-bottom: 0; }
 
-/* ---- Admin ---- */
-.admin-navbar {
-    background: var(--bg-secondary);
-}
-
-/* 后台全宽 */
-.admin-navbar ~ .main-content {
-    max-width: none;
-    padding: 2rem 2rem 3rem;
-}
-
-.admin-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.admin-header-row h1 {
-    margin-bottom: 0;
-}
-
-.admin-flash {
-    padding: 0.75rem 1.25rem;
-    margin-bottom: 1.5rem;
-    border: var(--border-width) solid var(--border-color);
-    box-shadow: 3px 3px 0 var(--shadow-color);
-    font-weight: 700;
-    font-size: 0.9rem;
-}
-
-.admin-flash--error {
-    background: #FFF0F0;
-    color: var(--danger);
-}
-
-.admin-flash--success {
-    background: #F0FFF0;
-    color: #2E7D32;
-}
-
-/* Admin table */
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-}
-
-.admin-table th {
-    text-align: left;
-    padding: 0.85rem 1.25rem;
-    font-weight: 800;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--bg-primary);
-    border-bottom: var(--border-width) solid var(--border-color);
-}
-
-.admin-table td {
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--code-border);
-    vertical-align: middle;
-}
-
-.admin-table tr:last-child td {
-    border-bottom: none;
-}
-
-.admin-table tr:hover td {
-    background: var(--bg-primary);
-}
-
-.admin-table__title {
-    font-weight: 700;
-}
-
-.admin-table__title a {
-    text-decoration: none;
-}
-
-.admin-table__title a:hover {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-}
-
-.admin-table__date {
-    white-space: nowrap;
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
-
-.admin-table__actions {
-    white-space: nowrap;
-    display: flex;
-    gap: 0.4rem;
-}
-
-/* Admin badges */
-.admin-badge {
-    display: inline-block;
-    font-size: 0.7rem;
-    font-weight: 800;
-    padding: 0.2em 0.6em;
-    border: 2px solid var(--border-color);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.admin-badge--published {
-    background: #E8F5E9;
-    color: #2E7D32;
-}
-
-.admin-badge--draft {
-    background: #FFF3E0;
-    color: #E65100;
-}
-
-.btn--danger {
-    background: var(--danger);
-    color: #FFFFFF;
-    border-color: #B71C1C;
-}
-
-.btn--danger:hover {
-    color: #FFFFFF;
-}
-
-/* Admin form */
-.admin-form {
-    padding: 2rem;
-}
-
-.form-group {
-    margin-bottom: 1.25rem;
-}
-
-.form-label {
-    display: block;
-    font-weight: 700;
-    font-size: 0.9rem;
-    margin-bottom: 0.4rem;
-    letter-spacing: 0.01em;
-}
-
-.form-input {
-    width: 100%;
-    padding: 0.6rem 0.85rem;
-    font-size: 0.95rem;
-    font-family: var(--font-body);
-    font-weight: 500;
-    border: var(--border-width) solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    box-shadow: 3px 3px 0 var(--shadow-color);
-    transition: box-shadow 0.1s ease, transform 0.1s ease;
-}
-
-.form-input:focus {
-    outline: none;
-    transform: translate(1px, 1px);
-    box-shadow: 2px 2px 0 var(--shadow-color);
-}
-
-.form-textarea {
-    width: 100%;
-    padding: 0.85rem;
-    font-size: 0.95rem;
-    font-family: var(--font-mono);
-    font-weight: 500;
-    line-height: 1.6;
-    border: var(--border-width) solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    box-shadow: 3px 3px 0 var(--shadow-color);
-    resize: vertical;
-}
-
-.form-textarea:focus {
-    outline: none;
-    transform: translate(1px, 1px);
-    box-shadow: 2px 2px 0 var(--shadow-color);
-}
-
-.form-checkbox {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-.form-checkbox input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
-}
-
-.form-row {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-end;
-}
-
-.form-actions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 2px solid var(--border-color);
-}
-
-/* 旧响应式已合并至上方三档策略区域 */
 
 /* ---- Code Copy Button ---- */
 .code-copy-btn {
@@ -935,119 +718,6 @@ pre:hover .code-copy-btn,
     transform: translate(2px, 2px);
     box-shadow: none;
 }
-
-/* ---- Editor Split Layout ---- */
-.editor-layout {
-    display: grid;
-    grid-template-columns: 1fr 700px;
-    gap: 2rem;
-    align-items: start;
-}
-
-.editor-left {
-    min-width: 0;
-}
-
-.editor-right {
-    position: sticky;
-    top: 80px;
-}
-
-.editor-textarea {
-    min-height: 500px;
-    font-size: 0.9rem;
-}
-
-.editor-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.4rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.toolbar-buttons {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.upload-status {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    font-weight: 600;
-}
-
-/* ---- Preview Panel ---- */
-.preview-panel {
-    padding: 0 !important;
-    overflow: hidden;
-}
-
-.preview-tabs {
-    display: flex;
-    border-bottom: var(--border-width) solid var(--border-color);
-    background: var(--bg-primary);
-}
-
-.preview-tab {
-    flex: 1;
-    padding: 0.65rem 1rem;
-    font-weight: 700;
-    font-size: 0.85rem;
-    font-family: var(--font-body);
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.preview-tab.active {
-    background: var(--card-bg);
-    color: var(--text-primary);
-    border-bottom: 3px solid var(--accent);
-}
-
-.preview-tab:hover:not(.active) {
-    background: var(--code-bg);
-    color: var(--text-primary);
-}
-
-.preview-content {
-    padding: 1.5rem;
-    max-height: 70vh;
-    overflow-y: auto;
-}
-
-.preview-placeholder {
-    color: var(--text-muted);
-    text-align: center;
-    padding: 2rem;
-    font-style: italic;
-}
-
-/* ---- Preview Content Styles ---- */
-.preview-content .post-card {
-    transform: none !important;
-    margin-bottom: 0;
-}
-
-.preview-content .post-card:hover {
-    transform: none !important;
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--shadow-color) !important;
-}
-
-.preview-content img,
-.preview-content video {
-    max-width: 100%;
-    height: auto;
-}
-
-.preview-detail h1 { font-size: 1.8rem; }
-.preview-detail h2 { font-size: 1.4rem; }
-.preview-detail h3 { font-size: 1.15rem; }
 
 /* ---- Post Card Thumbnail ---- */
 .post-card--has-thumb {
@@ -1141,16 +811,6 @@ pre:hover .code-copy-btn,
     font-size: 1.25rem;
 }
 
-/* ---- Inline Edit for Categories ---- */
-.inline-edit-form {
-    display: contents;
-}
-
-.inline-input {
-    font-size: 0.85rem !important;
-    padding: 0.4rem 0.6rem !important;
-}
-
 /* ============================================================
    Responsive — 三档策略：电脑 / 平板 / 手机
    ============================================================ */
@@ -1180,16 +840,6 @@ pre:hover .code-copy-btn,
         width: 320px;
         height: auto;
         max-height: 480px;
-    }
-    .editor-layout {
-        grid-template-columns: 1fr;
-    }
-    .editor-right {
-        position: static;
-        order: 2;
-    }
-    .editor-left {
-        order: 1;
     }
     .container {
         max-width: 100%;
@@ -1249,18 +899,6 @@ pre:hover .code-copy-btn,
         font-size: 1rem;
     }
 
-    /* 编辑器全宽 */
-    .editor-layout {
-        grid-template-columns: 1fr;
-    }
-    .editor-right {
-        position: static;
-        order: 2;
-    }
-    .editor-left {
-        order: 1;
-    }
-
     /* 分页 */
     .pagination {
         flex-wrap: wrap;
@@ -1275,15 +913,6 @@ pre:hover .code-copy-btn,
     /* 页脚 */
     .footer__inner {
         grid-template-columns: 1fr;
-    }
-
-    /* 管理后台表格 */
-    .admin-table__actions {
-        flex-direction: column;
-    }
-    .form-row {
-        flex-direction: column;
-        gap: 0;
     }
 
     h1 { font-size: 1.75rem; }

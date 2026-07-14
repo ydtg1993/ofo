@@ -60,6 +60,15 @@ var migrations = []string{
 		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE INDEX IF NOT EXISTS idx_resources_post_id ON resources(post_id)`,
+	`CREATE TABLE IF NOT EXISTS stickers (
+			id INT NOT NULL AUTO_INCREMENT,
+			filename VARCHAR(255) NOT NULL,
+			url VARCHAR(512) NOT NULL,
+			file_size BIGINT NOT NULL DEFAULT 0,
+			mime_type VARCHAR(100) NOT NULL DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 }
 
 func Init(dsn string) (*sql.DB, error) {

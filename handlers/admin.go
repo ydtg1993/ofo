@@ -69,9 +69,12 @@ type AdminPageData struct {
 	Post           *models.Post
 	Categories     []models.Category
 	Tags           []models.Tag
+	AllTags        []models.Tag
 	IsEditing      bool
 	IsNew          bool
 	ShowCategories bool
+	ShowStickers   bool
+	Stickers       []models.Sticker
 }
 
 // ---- Login ----
@@ -130,12 +133,14 @@ func (h *Handler) AdminDashboard(c *gin.Context) {
 
 func (h *Handler) AdminNewPost(c *gin.Context) {
 	categories, _ := h.PostModel.AllCategoriesSimple()
+	allTags, _ := h.PostModel.AllTagsSimple()
 
 	c.HTML(http.StatusOK, "admin.html", AdminPageData{
 		Title:      "New Post",
 		Cfg:        h.Cfg,
 		IsNew:      true,
 		Categories: categories,
+		AllTags:    allTags,
 	})
 }
 
@@ -157,6 +162,7 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 
 	categories, _ := h.PostModel.AllCategoriesSimple()
 	tags, _ := h.PostModel.TagsForPost(id)
+	allTags, _ := h.PostModel.AllTagsSimple()
 
 	c.HTML(http.StatusOK, "admin.html", AdminPageData{
 		Title:      "Edit: " + post.Title,
@@ -164,6 +170,7 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 		Post:       post,
 		Categories: categories,
 		Tags:       tags,
+		AllTags:    allTags,
 		IsEditing:  true,
 	})
 }
@@ -422,6 +429,110 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/categories")
 }
 
+// ---- Sticker Management ----
+
+// AdminStickers displays the sticker management page.
+func (h *Handler) AdminStickers(c *gin.Context) {
+	stickers, _ := h.StickerModel.ListAll()
+
+	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		Title:        "表情包管理",
+		Cfg:          h.Cfg,
+		ShowStickers: true,
+		Stickers:     stickers,
+	})
+}
+
+// AdminCreateSticker handles sticker upload (single file per request, supports AJAX).
+func (h *Handler) AdminCreateSticker(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		h.stickerError(c, "请选择文件")
+		return
+	}
+	defer file.Close()
+
+	// Validate file type
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowed := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+		".mp4": true, ".webm": true, ".ogg": true, ".mov": true,
+	}
+	if !allowed[ext] {
+		h.stickerError(c, "不支持的文件类型："+ext)
+		return
+	}
+
+	// Ensure stickers directory
+	stickersDir := filepath.Join(h.BaseDir, "static", "stickers")
+	if err := os.MkdirAll(stickersDir, 0755); err != nil {
+		h.stickerError(c, "创建目录失败")
+		return
+	}
+
+	// Generate unique filename
+	savedName := uuid.New().String() + ext
+	dstPath := filepath.Join(stickersDir, savedName)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		h.stickerError(c, "创建文件失败")
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		h.stickerError(c, "写入文件失败")
+		return
+	}
+
+	url := "/static/stickers/" + savedName
+	mimeType := models.MIMEType(ext)
+	if _, err := h.StickerModel.Create(savedName, url, header.Size, mimeType); err != nil {
+		log.Printf("AdminCreateSticker: failed to record sticker %s: %v", savedName, err)
+	}
+
+	// AJAX request → JSON response; regular form → redirect
+	if c.GetHeader("X-Requested-With") == "XMLHttpRequest" || c.GetHeader("Accept") == "application/json" {
+		c.JSON(http.StatusOK, gin.H{"url": url, "filename": savedName})
+		return
+	}
+	c.Redirect(http.StatusFound, "/admin/stickers")
+}
+
+// stickerError returns an error for the sticker management page (HTML or JSON).
+func (h *Handler) stickerError(c *gin.Context, msg string) {
+	if c.GetHeader("X-Requested-With") == "XMLHttpRequest" || c.GetHeader("Accept") == "application/json" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+	c.HTML(http.StatusOK, "admin.html", AdminPageData{
+		Title:        "表情包管理",
+		Cfg:          h.Cfg,
+		ShowStickers: true,
+		Error:        msg,
+	})
+}
+
+// AdminDeleteSticker removes a sticker by ID.
+func (h *Handler) AdminDeleteSticker(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/admin/stickers")
+		return
+	}
+
+	// Build a lookup by URL (we need the filename to delete the file)
+	// Since we don't have a GetByID on StickerModel yet, let's just delete the DB row.
+	// File cleanup: we keep files on disk for safety — other articles may still reference the URL.
+	// The sticker is a public resource; the URL still works even without the DB record.
+	if err := h.StickerModel.Delete(id); err != nil {
+		log.Printf("AdminDeleteSticker: failed to delete sticker %d: %v", id, err)
+	}
+
+	c.Redirect(http.StatusFound, "/admin/stickers")
+}
+
 // ---- File Upload ----
 
 func (h *Handler) AdminUpload(c *gin.Context) {
@@ -542,7 +653,8 @@ func parseTags(tagStr string) []string {
 	if strings.TrimSpace(tagStr) == "" {
 		return nil
 	}
-	parts := strings.Split(tagStr, ",")
+	// 按换行拆分，兼容 \n 和 \r\n
+	parts := strings.FieldsFunc(tagStr, func(r rune) bool { return r == '\n' || r == '\r' })
 	var tags []string
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
