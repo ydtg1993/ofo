@@ -26,6 +26,24 @@
             <div class="neo-box post-full__body">
                 {{.Post.ContentHTML | lazyImages}}
             </div>
+            {{if .Post}}
+            <script>
+            // 严格懒加载：在浏览器开始加载前，把正文图片 src 移到 data-src
+            (function(){
+                var body = document.querySelector('.post-full__body');
+                if (!body) return;
+                var imgs = body.querySelectorAll('img[src]:not([data-src])');
+                for (var i = 0; i < imgs.length; i++) {
+                    var src = imgs[i].getAttribute('src');
+                    // 跳过已经是占位符的
+                    if (!src || src.indexOf('data:image/svg') === 0) continue;
+                    imgs[i].setAttribute('data-src', src);
+                    imgs[i].removeAttribute('src');
+                    imgs[i].classList.add('img-pending');
+                }
+            })();
+            </script>
+            {{end}}
             {{if .PostTags}}
             <div class="post-full__tags">
                 {{range .PostTags}}

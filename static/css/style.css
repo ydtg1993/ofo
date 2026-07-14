@@ -1080,6 +1080,37 @@ pre:hover .code-copy-btn,
 /* ---- Body images cursor hint ---- */
 .post-full__body img {
     cursor: zoom-in;
+    transition: opacity 0.3s;
+}
+
+/* ---- 严格懒加载状态 ---- */
+.post-full__body img.img-pending {
+    cursor: default;
+    min-height: 200px;
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    /* 脉冲动画提示用户此处有内容加载中 */
+    animation: img-pulse 2s ease-in-out infinite;
+    opacity: 0.4;
+}
+
+@keyframes img-pulse {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 0.6; }
+}
+
+.post-full__body img.img-loaded {
+    animation: none;
+    opacity: 1;
+}
+
+.post-full__body img.img-error {
+    animation: none;
+    opacity: 0.3;
+    min-height: 80px;
+    background: #fff0f0;
+    border: 1px dashed var(--danger);
+    border-radius: var(--radius);
 }
 
 /* ---- Print ---- */

@@ -727,6 +727,48 @@ function closeStickerPreview(e) {
     }
 }
 
+// ---- 严格懒加载：IntersectionObserver ----
+(function () {
+    // 如果浏览器不支持 IntersectionObserver，直接恢复所有图片
+    if (!window.IntersectionObserver) {
+        document.querySelectorAll('.post-full__body img[data-src]').forEach(function (img) {
+            img.src = img.getAttribute('data-src');
+            img.removeAttribute('data-src');
+            img.classList.remove('img-pending');
+        });
+        return;
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            var img = entry.target;
+            var src = img.getAttribute('data-src');
+            if (!src) return;
+            // 开始加载
+            img.src = src;
+            img.removeAttribute('data-src');
+            img.classList.remove('img-pending');
+            // 加载完成后的处理
+            img.addEventListener('load', function () {
+                img.classList.add('img-loaded');
+            }, { once: true });
+            img.addEventListener('error', function () {
+                img.classList.add('img-error');
+            }, { once: true });
+            observer.unobserve(img);
+        });
+    }, {
+        rootMargin: '300px',   // 提前 300px 开始加载（滑到附近就开始，避免用户等待）
+        threshold: 0
+    });
+
+    // 观察所有带 data-src 的图片
+    document.querySelectorAll('.post-full__body img[data-src]').forEach(function (img) {
+        observer.observe(img);
+    });
+})();
+
 // ---- 正文图片全屏灯箱（dialog） ----
 (function () {
     var body = document.querySelector('.post-full__body');
@@ -761,7 +803,7 @@ function closeStickerPreview(e) {
     function show(idx) {
         idx = Math.max(0, Math.min(idx, images.length - 1));
         currentIdx = idx;
-        var src = images[idx].getAttribute('src');
+        var src = images[idx].getAttribute('data-src') || images[idx].getAttribute('src');
         var alt = images[idx].getAttribute('alt') || '';
         lightImg.src = src;
         lightImg.alt = alt;
