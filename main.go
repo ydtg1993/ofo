@@ -10,6 +10,7 @@ import (
 	"ofo/handlers"
 	"ofo/models"
 	"ofo/router"
+	"ofo/storage"
 )
 
 func main() {
@@ -26,12 +27,14 @@ func main() {
 	// ---- 配置 ----
 	cfg := config.Load()
 
-	// ---- 确保必要目录存在 ----
-	if err := os.MkdirAll(filepath.Join(baseDir, "static", "uploads"), 0755); err != nil {
-		log.Fatalf("Failed to create uploads directory: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(baseDir, "static", "stickers"), 0755); err != nil {
-		log.Fatalf("Failed to create stickers directory: %v", err)
+	// ---- 确保必要目录存在（仅本地模式）----
+	if cfg.StorageBackend == "local" {
+		if err := os.MkdirAll(filepath.Join(baseDir, "static", "uploads"), 0755); err != nil {
+			log.Fatalf("Failed to create uploads directory: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(baseDir, "static", "stickers"), 0755); err != nil {
+			log.Fatalf("Failed to create stickers directory: %v", err)
+		}
 	}
 
 	db, err := database.Init(cfg.DSN())
@@ -54,12 +57,28 @@ func main() {
 	resourceModel := &models.ResourceModel{DB: db}
 	stickerModel := &models.StickerModel{DB: db}
 
-	// 启动时扫描已有上传文件，补录到资源表（幂等安全）
-	uploadsDir := filepath.Join(baseDir, "static", "uploads")
-	if n, err := resourceModel.ScanDiskAndRecord(uploadsDir); err != nil {
-		log.Printf("Warning: failed to scan uploads: %v", err)
-	} else if n > 0 {
-		log.Printf("Recorded %d previously untracked upload file(s)", n)
+	// ---- 初始化存储后端 ----
+	var store storage.Storage
+	switch cfg.StorageBackend {
+	case "qiniu":
+		s, err := storage.NewQiniuStorage(cfg.QiniuAccessKey, cfg.QiniuSecretKey,
+			cfg.QiniuBucket, cfg.QiniuDomain)
+		if err != nil {
+			log.Fatalf("Failed to init Qiniu storage: %v", err)
+		}
+		store = s
+		log.Println("Storage backend: qiniu")
+	default:
+		store = storage.NewLocalStorage(baseDir)
+		log.Println("Storage backend: local")
+
+		// 启动时扫描已有上传文件，补录到资源表（仅本地模式）
+		uploadsDir := filepath.Join(baseDir, "static", "uploads")
+		if n, err := resourceModel.ScanDiskAndRecord(uploadsDir); err != nil {
+			log.Printf("Warning: failed to scan uploads: %v", err)
+		} else if n > 0 {
+			log.Printf("Recorded %d previously untracked upload file(s)", n)
+		}
 	}
 
 	h := &handlers.Handler{
@@ -68,6 +87,7 @@ func main() {
 		StickerModel:  stickerModel,
 		Cfg:           cfg,
 		BaseDir:       baseDir,
+		Storage:       store,
 	}
 
 	// ---- 路由 & 中间件 & 启动 ----

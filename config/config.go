@@ -30,6 +30,13 @@ type Config struct {
 	HotlinkProtection bool     // 是否启用 Referer 防盗链
 	AllowedReferrers  []string // 额外允许的 Referer 域名
 	StaticRateLimit   int      // 静态资源每 IP 每秒请求上限（0=不限制）
+	// 存储后端
+	StorageBackend string // "local" 或 "qiniu"
+	// 七牛云配置（仅 StorageBackend == "qiniu" 时使用）
+	QiniuAccessKey string
+	QiniuSecretKey string
+	QiniuBucket    string
+	QiniuDomain    string // CDN 域名，含协议，如 "https://cdn.example.com"
 }
 
 // DSN returns the MariaDB/MySQL data source name.
@@ -109,6 +116,12 @@ func Load() *Config {
 		HotlinkProtection: getEnvBool("HOTLINK_PROTECTION", true),
 		AllowedReferrers:  allowedReferrers,
 		StaticRateLimit:   getEnvInt("STATIC_RATE_LIMIT", 20),
+		// 存储后端
+		StorageBackend: getEnv("STORAGE_BACKEND", "local"),
+		QiniuAccessKey: getEnv("QINIU_ACCESS_KEY", ""),
+		QiniuSecretKey: getEnv("QINIU_SECRET_KEY", ""),
+		QiniuBucket:    getEnv("QINIU_BUCKET", ""),
+		QiniuDomain:    getEnv("QINIU_DOMAIN", ""),
 	}
 }
 

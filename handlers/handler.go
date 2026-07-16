@@ -3,6 +3,7 @@ package handlers
 import (
 	"ofo/config"
 	"ofo/models"
+	"ofo/storage"
 )
 
 // Handler holds shared dependencies for all HTTP handlers.
@@ -12,6 +13,7 @@ type Handler struct {
 	StickerModel  *models.StickerModel
 	Cfg           *config.Config
 	BaseDir       string
+	Storage       storage.Storage
 }
 
 // PageData is the top-level data passed to every template.

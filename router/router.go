@@ -12,6 +12,7 @@ import (
 	"ofo/handlers"
 	"ofo/middleware"
 	"ofo/models"
+	"ofo/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,7 +41,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	// ==========================================
 	// 模板引擎配置
 	// ==========================================
-	r.SetFuncMap(templateFuncMap(cfg, baseDir))
+	r.SetFuncMap(templateFuncMap(cfg, baseDir, h.Storage))
 	// 递归加载 templates/ 下所有 .html 文件
 	tmplDir := filepath.Join(baseDir, "templates")
 	var tmplFiles []string
@@ -76,21 +77,24 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	}
 
 	// 受保护的静态资源（用户上传 / 表情包）— 中期缓存 + 防盗链
-	uploadsGroup := r.Group("/static/uploads")
-	uploadsGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
-	if cfg.StaticRateLimit > 0 {
-		uploadsGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
-	}
-	uploadsGroup.Use(middleware.HotlinkProtection(cfg))
-	uploadsGroup.Static("", filepath.Join(baseDir, "static", "uploads"))
+	// 仅在本地存储模式下启用；七牛云模式下文件由 CDN 提供
+	if h.Storage.IsLocal() {
+		uploadsGroup := r.Group("/static/uploads")
+		uploadsGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
+		if cfg.StaticRateLimit > 0 {
+			uploadsGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
+		}
+		uploadsGroup.Use(middleware.HotlinkProtection(cfg))
+		uploadsGroup.Static("", filepath.Join(baseDir, "static", "uploads"))
 
-	stickersGroup := r.Group("/static/stickers")
-	stickersGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
-	if cfg.StaticRateLimit > 0 {
-		stickersGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
+		stickersGroup := r.Group("/static/stickers")
+		stickersGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
+		if cfg.StaticRateLimit > 0 {
+			stickersGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
+		}
+		stickersGroup.Use(middleware.HotlinkProtection(cfg))
+		stickersGroup.Static("", filepath.Join(baseDir, "static", "stickers"))
 	}
-	stickersGroup.Use(middleware.HotlinkProtection(cfg))
-	stickersGroup.Static("", filepath.Join(baseDir, "static", "stickers"))
 
 	r.GET("/favicon.ico", func(c *gin.Context) { c.Status(204) })
 
@@ -171,7 +175,7 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 // ==========================================
 // 模板函数注册
 // ==========================================
-func templateFuncMap(cfg *config.Config, baseDir string) template.FuncMap {
+func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) template.FuncMap {
 	return template.FuncMap{
 		// 静态资源版本号（缓存破坏）
 		"asset": func(path string) string {
@@ -207,13 +211,13 @@ func templateFuncMap(cfg *config.Config, baseDir string) template.FuncMap {
 		// 给文章正文 <img> 注入 loading="lazy"（兼容已有旧文章）
 		"lazyImages": func(html string) template.HTML {
 			html = handlers.InjectLazyLoading(html)
-			html = handlers.InjectImageDimensions(html, baseDir)
-			html = handlers.InjectVideoDimensions(html, baseDir)
+			html = handlers.InjectImageDimensions(html, store)
+			html = handlers.InjectVideoDimensions(html, store)
 			return template.HTML(html)
 		},
 		// 缩略图：注入宽高 + aspect-ratio，配合 skeleton 骨架屏
 		"thumbnailImg": func(url, alt string) template.HTML {
-			return template.HTML(handlers.ThumbnailImage(url, alt, baseDir))
+			return template.HTML(handlers.ThumbnailImage(url, alt, store))
 		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {

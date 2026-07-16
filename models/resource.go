@@ -46,8 +46,9 @@ func MIMEType(ext string) string {
 	return "application/octet-stream"
 }
 
-// Regular expression to extract upload URLs from HTML content.
-var reStaticUpload = regexp.MustCompile(`/static/uploads/([a-f0-9\-]+\.[a-z0-9]+)`)
+// Regular expression to extract candidate upload URLs from HTML content.
+// Matches both local paths (/static/uploads/...) and CDN URLs (https://.../uploads/...).
+var reCandidateUpload = regexp.MustCompile(`(?:/static/(?:uploads|stickers)/|https?://[^/\s"'<>]+/(?:uploads|stickers)/)([a-f0-9\-]+\.[a-z0-9]+)`)
 
 // Create inserts a new resource record with post_id = NULL.
 func (m *ResourceModel) Create(filename, url string, fileSize int64, mimeType string) (int64, error) {
@@ -108,15 +109,19 @@ func (m *ResourceModel) Delete(id int) error {
 	return err
 }
 
-// SyncPostResources scans contentHTML for /static/uploads/ URLs and links/unlinks
-// resource records to the given postID.
-func (m *ResourceModel) SyncPostResources(postID int, contentHTML string) error {
-	// Extract all upload URLs from the HTML
-	matches := reStaticUpload.FindAllStringSubmatch(contentHTML, -1)
+// SyncPostResources scans contentHTML for storage-managed URLs and links/unlinks
+// resource records to the given postID. The isStorageURL callback identifies which
+// URLs belong to the configured storage backend.
+func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStorageURL func(string) bool) error {
+	// Extract all candidate upload URLs from the HTML
+	matches := reCandidateUpload.FindAllStringSubmatch(contentHTML, -1)
 	urlSet := make(map[string]bool, len(matches))
 	for _, match := range matches {
-		// match[0] is the full path like /static/uploads/uuid.ext
-		urlSet[match[0]] = true
+		// match[0] is the full URL like /static/uploads/uuid.ext or https://cdn.example.com/uploads/uuid.ext
+		u := match[0]
+		if isStorageURL(u) {
+			urlSet[u] = true
+		}
 	}
 
 	// Get currently linked resources for this post
@@ -147,50 +152,50 @@ func (m *ResourceModel) SyncPostResources(postID int, contentHTML string) error 
 	return nil
 }
 
-// ScanDiskAndRecord scans the uploads directory and creates resource records
-// for files that don't have one yet. Returns the number of newly recorded files.
+// ScanDiskAndRecord scans the uploads directory (including date-based subdirectories)
+// and creates resource records for files that don't have one yet.
+// Returns the number of newly recorded files.
 func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
-	entries, err := os.ReadDir(uploadsDir)
-	if err != nil {
-		return 0, err
-	}
-
 	count := 0
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+
+	err := filepath.Walk(uploadsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
 		}
 
-		filename := entry.Name()
-		url := "/static/uploads/" + filename
+		// Relative path from uploadsDir (e.g. "2026/07/uuid.ext" or just "uuid.ext")
+		relPath, err := filepath.Rel(uploadsDir, path)
+		if err != nil {
+			relPath = info.Name()
+		}
+		// Normalize to forward slashes
+		relPath = filepath.ToSlash(relPath)
+		url := "/static/uploads/" + relPath
 
 		// Check if record already exists
 		existing, err := m.FindByURL(url)
 		if err != nil && err != sql.ErrNoRows {
-			log.Printf("ScanDiskAndRecord: error looking up %s: %v", filename, err)
-			continue
+			log.Printf("ScanDiskAndRecord: error looking up %s: %v", relPath, err)
+			return nil
 		}
 		if existing != nil {
-			continue // already tracked
-		}
-
-		// Get file info
-		info, err := entry.Info()
-		if err != nil {
-			log.Printf("ScanDiskAndRecord: error stating %s: %v", filename, err)
-			continue
+			return nil // already tracked
 		}
 
 		fileSize := info.Size()
-		ext := filepath.Ext(filename)
+		ext := filepath.Ext(relPath)
 		mimeType := MIMEType(ext)
 
-		if _, err := m.Create(filename, url, fileSize, mimeType); err != nil {
-			log.Printf("ScanDiskAndRecord: error inserting %s: %v", filename, err)
-			continue
+		if _, err := m.Create(relPath, url, fileSize, mimeType); err != nil {
+			log.Printf("ScanDiskAndRecord: error inserting %s: %v", relPath, err)
+			return nil
 		}
 		count++
-	}
+		return nil
+	})
 
-	return count, nil
+	return count, err
 }
