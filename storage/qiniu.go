@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"ofo/logger"
+
 	"github.com/qiniu/go-sdk/v7/storagev2/credentials"
 	"github.com/qiniu/go-sdk/v7/storagev2/objects"
 	"github.com/qiniu/go-sdk/v7/storagev2/uploader"
@@ -113,7 +115,8 @@ func (s *QiniuStorage) Upload(ctx context.Context, key string, reader io.Reader,
 func (s *QiniuStorage) Delete(ctx context.Context, key string) error {
 	op := s.bucketObj.Object(key).Delete()
 	if err := s.objectsMgr.Batch(ctx, []objects.Operation{op}, nil); err != nil {
-		return fmt.Errorf("qiniu delete %s: %w", key, err)
+		// Log but don't fail — interface contract says "Must not error if the object does not exist"
+		logger.Warn("qiniu delete", "key", key, "err", err)
 	}
 	return nil
 }
@@ -141,7 +144,7 @@ func (s *QiniuStorage) Get(ctx context.Context, key string) (io.ReadCloser, erro
 
 // IsStorageURL returns true if the URL is served by this Qiniu bucket's CDN.
 func (s *QiniuStorage) IsStorageURL(url string) bool {
-	return strings.Contains(url, s.domain)
+	return strings.HasPrefix(url, s.domain+"/")
 }
 
 // IsLocal returns false — Qiniu is remote storage.

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 
 	"ofo/config"
 	"ofo/database"
 	"ofo/handlers"
+	"ofo/logger"
 	"ofo/models"
 	"ofo/router"
 	"ofo/storage"
@@ -17,9 +17,10 @@ func main() {
 	// ---- 确定项目根目录（使用当前工作目录）----
 	baseDir, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Failed to get working directory: %v", err)
+		logger.Error("Failed to get working directory", "err", err)
+		os.Exit(1)
 	}
-	log.Printf("Base directory: %s", baseDir)
+	logger.Info("Base directory", "path", baseDir)
 
 	// ---- 加载 .env 文件（如果存在）----
 	config.LoadDotenv(baseDir)
@@ -27,29 +28,41 @@ func main() {
 	// ---- 配置 ----
 	cfg := config.Load()
 
+	// ---- 初始化日志系统 ----
+	if err := logger.Init(cfg.LogLevel, cfg.LogDir); err != nil {
+		// Fall back to stderr if logger init itself fails
+		println("Failed to init logger:", err.Error())
+		os.Exit(1)
+	}
+	defer logger.Close()
+
 	// ---- 确保必要目录存在（仅本地模式）----
 	if cfg.StorageBackend == "local" {
 		if err := os.MkdirAll(filepath.Join(baseDir, "static", "uploads"), 0755); err != nil {
-			log.Fatalf("Failed to create uploads directory: %v", err)
+			logger.Error("Failed to create uploads directory", "err", err)
+			os.Exit(1)
 		}
 		if err := os.MkdirAll(filepath.Join(baseDir, "static", "stickers"), 0755); err != nil {
-			log.Fatalf("Failed to create stickers directory: %v", err)
+			logger.Error("Failed to create stickers directory", "err", err)
+			os.Exit(1)
 		}
 	}
 
 	db, err := database.Init(cfg.DSN())
 	if err != nil {
-		log.Fatalf("Failed to init database: %v", err)
+		logger.Error("Failed to init database", "err", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// ---- 种子数据 ----
 	if cfg.SeedDB {
 		if err := database.Seed(db); err != nil {
-			log.Fatalf("Failed to seed data: %v", err)
+			logger.Error("Failed to seed data", "err", err)
+			os.Exit(1)
 		}
 	} else {
-		log.Println("SeedDB is disabled, skipping seed data")
+		logger.Info("SeedDB is disabled, skipping seed data")
 	}
 
 	// ---- 依赖组装 ----
@@ -64,20 +77,21 @@ func main() {
 		s, err := storage.NewQiniuStorage(cfg.QiniuAccessKey, cfg.QiniuSecretKey,
 			cfg.QiniuBucket, cfg.QiniuDomain)
 		if err != nil {
-			log.Fatalf("Failed to init Qiniu storage: %v", err)
+			logger.Error("Failed to init Qiniu storage", "err", err)
+			os.Exit(1)
 		}
 		store = s
-		log.Println("Storage backend: qiniu")
+		logger.Info("Storage backend", "backend", "qiniu")
 	default:
-		store = storage.NewLocalStorage(baseDir)
-		log.Println("Storage backend: local")
+		store = storage.NewLocalStorage(filepath.Join(baseDir, "static"))
+		logger.Info("Storage backend", "backend", "local")
 
 		// 启动时扫描已有上传文件，补录到资源表（仅本地模式）
 		uploadsDir := filepath.Join(baseDir, "static", "uploads")
 		if n, err := resourceModel.ScanDiskAndRecord(uploadsDir); err != nil {
-			log.Printf("Warning: failed to scan uploads: %v", err)
+			logger.Warn("Failed to scan uploads", "err", err)
 		} else if n > 0 {
-			log.Printf("Recorded %d previously untracked upload file(s)", n)
+			logger.Info("Recorded previously untracked upload files", "count", n)
 		}
 	}
 
@@ -93,8 +107,9 @@ func main() {
 	// ---- 路由 & 中间件 & 启动 ----
 	r := router.Setup(cfg, h, baseDir)
 
-	log.Printf("Blog running at %s", cfg.BaseURL)
+	logger.Info("Blog starting", "url", cfg.BaseURL, "port", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		logger.Error("Failed to start server", "err", err)
+		os.Exit(1)
 	}
 }

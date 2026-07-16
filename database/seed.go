@@ -2,8 +2,9 @@ package database
 
 import (
 	"database/sql"
-	"log"
 	"strings"
+
+	"ofo/logger"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/russross/blackfriday/v2"
@@ -15,11 +16,11 @@ func Seed(db *sql.DB) error {
 		return err
 	}
 	if count > 0 {
-		log.Println("Database already seeded, skipping")
+		logger.Info("Database already seeded, skipping")
 		return nil
 	}
 
-	log.Println("Seeding database with sample data...")
+	logger.Info("Seeding database with sample data...")
 
 	// Insert categories
 	categories := map[string]string{
@@ -488,7 +489,7 @@ Generics are one of TypeScript's most powerful features. They let you write flex
 		}
 	}
 
-	log.Printf("Seeded %d posts successfully", len(posts))
+	logger.Info("Seeded posts successfully", "count", len(posts))
 	return nil
 }
 

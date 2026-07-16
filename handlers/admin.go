@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -12,6 +11,7 @@ import (
 	"time"
 	"unicode"
 
+	"ofo/logger"
 	"ofo/middleware"
 	"ofo/models"
 	"ofo/storage"
@@ -324,12 +324,17 @@ func (h *Handler) AdminLogout(c *gin.Context) {
 // ---- Dashboard ----
 
 func (h *Handler) AdminDashboard(c *gin.Context) {
-	total, _ := h.PostModel.CountAll()
+	total, err := h.PostModel.CountAll()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to count posts", "err", err)
+		total = 0
+	}
 	pg := adminPagination(c, total, 15)
 	offset := (pg.CurrentPage - 1) * pg.PerPage
 
 	posts, err := h.PostModel.ListAllPaginated(offset, pg.PerPage)
 	if err != nil {
+		logger.ErrorWithContext(c, "failed to list paginated posts", "err", err)
 		c.HTML(http.StatusInternalServerError, "admin_dashboard.html", AdminPageData{
 			Title: "Dashboard",
 			Cfg:   h.Cfg,
@@ -338,7 +343,10 @@ func (h *Handler) AdminDashboard(c *gin.Context) {
 		return
 	}
 
-	categories, _ := h.PostModel.AllCategoriesSimple()
+	categories, err := h.PostModel.AllCategoriesSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for dashboard", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_dashboard.html", AdminPageData{
 		Title:      "Dashboard",
@@ -352,8 +360,14 @@ func (h *Handler) AdminDashboard(c *gin.Context) {
 // ---- New Post Form ----
 
 func (h *Handler) AdminNewPost(c *gin.Context) {
-	categories, _ := h.PostModel.AllCategoriesSimple()
-	allTags, _ := h.PostModel.AllTagsSimple()
+	categories, err := h.PostModel.AllCategoriesSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for new post", "err", err)
+	}
+	allTags, err := h.PostModel.AllTagsSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load tags for new post", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "New Post",
@@ -376,13 +390,23 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 
 	post, err := h.PostModel.GetByID(id)
 	if err != nil {
+		logger.WarnWithContext(c, "failed to get post for edit", "id", id, "err", err)
 		c.Redirect(http.StatusFound, "/admin")
 		return
 	}
 
-	categories, _ := h.PostModel.AllCategoriesSimple()
-	tags, _ := h.PostModel.TagsForPost(id)
-	allTags, _ := h.PostModel.AllTagsSimple()
+	categories, err := h.PostModel.AllCategoriesSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for edit", "err", err)
+	}
+	tags, err := h.PostModel.TagsForPost(id)
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load tags for edit", "postID", id, "err", err)
+	}
+	allTags, err := h.PostModel.AllTagsSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load all tags for edit", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "Edit: " + post.Title,
@@ -450,8 +474,10 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 	}
 
 	// 关联上传资源到文章
-	if err := h.ResourceModel.SyncPostResources(int(postID), contentHTML, h.Storage.IsStorageURL); err != nil {
-		log.Printf("AdminCreatePost: failed to sync resources for post %d: %v", postID, err)
+	if err := h.ResourceModel.SyncPostResources(int(postID), contentHTML, h.Storage.IsStorageURL, func(filename string) error {
+		return h.Storage.Delete(c.Request.Context(), "uploads/"+filename)
+	}); err != nil {
+		logger.ErrorWithContext(c, "failed to sync resources for new post", "postID", postID, "err", err)
 	}
 
 	// Redirect to dashboard with success
@@ -520,8 +546,10 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 	}
 
 	// 同步上传资源关联
-	if err := h.ResourceModel.SyncPostResources(id, contentHTML, h.Storage.IsStorageURL); err != nil {
-		log.Printf("AdminUpdatePost: failed to sync resources for post %d: %v", id, err)
+	if err := h.ResourceModel.SyncPostResources(id, contentHTML, h.Storage.IsStorageURL, func(filename string) error {
+		return h.Storage.Delete(c.Request.Context(), "uploads/"+filename)
+	}); err != nil {
+		logger.ErrorWithContext(c, "failed to sync resources for updated post", "postID", id, "err", err)
 	}
 
 	h.adminDashboardWithSuccess(c, "文章更新成功")
@@ -536,20 +564,20 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 	// 1. 查找文章关联的资源
 	resources, err := h.ResourceModel.FindByPostID(id)
 	if err != nil {
-		log.Printf("AdminDeletePost: failed to find resources for post %d: %v", id, err)
+		logger.ErrorWithContext(c, "failed to find resources for post deletion", "postID", id, "err", err)
 	}
 
 	// 2. 删除存储中的资源文件
 	for _, r := range resources {
 		key := "uploads/" + r.Filename
 		if err := h.Storage.Delete(c.Request.Context(), key); err != nil {
-			log.Printf("AdminDeletePost: failed to delete file %s: %v", r.Filename, err)
+			logger.ErrorWithContext(c, "failed to delete resource file", "filename", r.Filename, "err", err)
 		}
 	}
 
 	// 3. 删除资源记录
 	if err := h.ResourceModel.DeleteByPostID(id); err != nil {
-		log.Printf("AdminDeletePost: failed to delete resource records for post %d: %v", id, err)
+		logger.ErrorWithContext(c, "failed to delete resource records", "postID", id, "err", err)
 	}
 
 	// 4. 删除文章本身
@@ -564,7 +592,10 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 // ---- Category Management ----
 
 func (h *Handler) AdminCategories(c *gin.Context) {
-	categories, _ := h.PostModel.AllCategoriesSimple()
+	categories, err := h.PostModel.AllCategoriesSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for management", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_categories.html", AdminPageData{
 		Title:          "Category Management",
@@ -652,11 +683,18 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 
 // AdminStickers displays the sticker management page.
 func (h *Handler) AdminStickers(c *gin.Context) {
-	total, _ := h.StickerModel.Count()
+	total, err := h.StickerModel.Count()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to count stickers", "err", err)
+		total = 0
+	}
 	pg := adminPagination(c, total, 15)
 	offset := (pg.CurrentPage - 1) * pg.PerPage
 
-	stickers, _ := h.StickerModel.ListPaginated(offset, pg.PerPage)
+	stickers, err := h.StickerModel.ListPaginated(offset, pg.PerPage)
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to list stickers", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
 		Title:        "表情包管理",
@@ -694,13 +732,13 @@ func (h *Handler) AdminCreateSticker(c *gin.Context) {
 	key := "stickers/" + savedName
 	url, err := h.Storage.Upload(c.Request.Context(), key, file, header.Size)
 	if err != nil {
-		log.Printf("AdminCreateSticker: failed to upload %s: %v", savedName, err)
+		logger.ErrorWithContext(c, "failed to upload sticker", "name", savedName, "err", err)
 		h.stickerError(c, "保存文件失败")
 		return
 	}
 	mimeType := models.MIMEType(ext)
 	if _, err := h.StickerModel.Create(savedName, url, header.Size, mimeType); err != nil {
-		log.Printf("AdminCreateSticker: failed to record sticker %s: %v", savedName, err)
+		logger.ErrorWithContext(c, "failed to record sticker in database", "name", savedName, "err", err)
 	}
 
 	// AJAX request → JSON response; regular form → redirect
@@ -717,10 +755,17 @@ func (h *Handler) stickerError(c *gin.Context, msg string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
-	total, _ := h.StickerModel.Count()
+	total, err := h.StickerModel.Count()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to count stickers", "err", err)
+		total = 0
+	}
 	pg := adminPagination(c, total, 15)
 	offset := (pg.CurrentPage - 1) * pg.PerPage
-	stickers, _ := h.StickerModel.ListPaginated(offset, pg.PerPage)
+	stickers, err := h.StickerModel.ListPaginated(offset, pg.PerPage)
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to list stickers", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
 		Title:        "表情包管理",
@@ -744,7 +789,7 @@ func (h *Handler) AdminDeleteSticker(c *gin.Context) {
 	// 先查出记录，拿到文件名
 	sticker, err := h.StickerModel.GetByID(id)
 	if err != nil {
-		log.Printf("AdminDeleteSticker: sticker %d not found: %v", id, err)
+		logger.WarnWithContext(c, "sticker not found for deletion", "stickerID", id, "err", err)
 		c.Redirect(http.StatusFound, "/admin/stickers")
 		return
 	}
@@ -752,12 +797,12 @@ func (h *Handler) AdminDeleteSticker(c *gin.Context) {
 	// 删除存储中的文件
 	key := "stickers/" + sticker.Filename
 	if err := h.Storage.Delete(c.Request.Context(), key); err != nil {
-		log.Printf("AdminDeleteSticker: failed to delete file %s: %v", sticker.Filename, err)
+		logger.ErrorWithContext(c, "failed to delete sticker file", "filename", sticker.Filename, "err", err)
 	}
 
 	// 删除数据库记录
 	if err := h.StickerModel.Delete(id); err != nil {
-		log.Printf("AdminDeleteSticker: failed to delete sticker %d: %v", id, err)
+		logger.ErrorWithContext(c, "failed to delete sticker record", "stickerID", id, "err", err)
 	}
 
 	c.Redirect(http.StatusFound, "/admin/stickers")
@@ -791,7 +836,7 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 	key := "uploads/" + savedName
 	url, err := h.Storage.Upload(c.Request.Context(), key, file, header.Size)
 	if err != nil {
-		log.Printf("AdminUpload: failed to upload %s: %v", savedName, err)
+		logger.ErrorWithContext(c, "failed to upload file", "name", savedName, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败"})
 		return
 	}
@@ -799,7 +844,7 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 	// 记录到资源表（post_id 暂时为空，保存文章时关联）
 	mimeType := models.MIMEType(ext)
 	if _, err := h.ResourceModel.Create(savedName, url, header.Size, mimeType); err != nil {
-		log.Printf("AdminUpload: failed to record resource %s: %v", savedName, err)
+		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", savedName, "err", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"url": url})
@@ -808,11 +853,21 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 // ---- Helpers ----
 
 func (h *Handler) adminDashboardWithSuccess(c *gin.Context, msg string) {
-	total, _ := h.PostModel.CountAll()
+	total, err := h.PostModel.CountAll()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to count posts for dashboard", "err", err)
+		total = 0
+	}
 	pg := adminPagination(c, total, 15)
 	offset := (pg.CurrentPage - 1) * pg.PerPage
-	posts, _ := h.PostModel.ListAllPaginated(offset, pg.PerPage)
-	categories, _ := h.PostModel.AllCategoriesSimple()
+	posts, err := h.PostModel.ListAllPaginated(offset, pg.PerPage)
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to list posts for dashboard", "err", err)
+	}
+	categories, err := h.PostModel.AllCategoriesSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for dashboard", "err", err)
+	}
 
 	c.HTML(http.StatusOK, "admin_dashboard.html", AdminPageData{
 		Title:      "Dashboard",

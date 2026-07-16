@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	"ofo/logger"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,15 +14,25 @@ func (h *Handler) Post(c *gin.Context) {
 
 	post, err := h.PostModel.GetBySlug(slug)
 	if err != nil {
+		logger.WarnWithContext(c, "post not found", "slug", slug, "err", err)
 		c.HTML(http.StatusNotFound, "post.html", PageData{
 			Title: "404 — 文章未找到", Cfg: h.Cfg, Is404: true,
 		})
 		return
 	}
 
-	tags, _ := h.PostModel.TagsForPost(post.ID)
-	categories, _ := h.PostModel.AllCategories()
-	allTags, _ := h.PostModel.AllTags()
+	tags, err := h.PostModel.TagsForPost(post.ID)
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load tags for post", "postID", post.ID, "err", err)
+	}
+	categories, err := h.PostModel.AllCategories()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for post", "err", err)
+	}
+	allTags, err := h.PostModel.AllTags()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load all tags for post", "err", err)
+	}
 
 	categoryName := h.PostModel.GetCategoryName(post.CategoryID)
 	categorySlug := h.PostModel.GetCategorySlug(post.CategoryID)

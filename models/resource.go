@@ -2,11 +2,12 @@ package models
 
 import (
 	"database/sql"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"ofo/logger"
 )
 
 // Resource represents an uploaded file tracked in the database.
@@ -47,8 +48,10 @@ func MIMEType(ext string) string {
 }
 
 // Regular expression to extract candidate upload URLs from HTML content.
-// Matches both local paths (/static/uploads/...) and CDN URLs (https://.../uploads/...).
-var reCandidateUpload = regexp.MustCompile(`(?:/static/(?:uploads|stickers)/|https?://[^/\s"'<>]+/(?:uploads|stickers)/)([a-f0-9\-]+\.[a-z0-9]+)`)
+// Matches both local paths and CDN URLs, with or without date-based subdirectories.
+// Examples: /static/uploads/uuid.jpg, /static/uploads/2026/07/uuid.jpg,
+// https://cdn.example.com/uploads/2026/07/uuid.webp
+var reCandidateUpload = regexp.MustCompile(`(?:/static/(?:uploads|stickers)/|https?://[^/\s"'<>]+/(?:uploads|stickers)/)[^"'<>\s]+`)
 
 // Create inserts a new resource record with post_id = NULL.
 func (m *ResourceModel) Create(filename, url string, fileSize int64, mimeType string) (int64, error) {
@@ -109,47 +112,91 @@ func (m *ResourceModel) Delete(id int) error {
 	return err
 }
 
-// SyncPostResources scans contentHTML for storage-managed URLs and links/unlinks
-// resource records to the given postID. The isStorageURL callback identifies which
-// URLs belong to the configured storage backend.
-func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStorageURL func(string) bool) error {
-	// Extract all candidate upload URLs from the HTML
+// SyncPostResources scans contentHTML and reconciles all resource records:
+//  1. Extract storage URLs from the HTML.
+//  2. For every resource with post_id IS NULL: if its URL appears in the HTML,
+//     link it to this post; otherwise delete the file + DB record (orphan cleanup).
+//  3. For resources already linked to this post that are no longer in the HTML,
+//     delete the file + DB record (removed from content).
+//
+// The deleteResource callback should remove the file from storage; its argument
+// is the resources.filename value (may include date subdirectories).
+func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStorageURL func(string) bool, deleteResource func(filename string) error) error {
+	// Build set of storage URLs found in the HTML
 	matches := reCandidateUpload.FindAllStringSubmatch(contentHTML, -1)
 	urlSet := make(map[string]bool, len(matches))
 	for _, match := range matches {
-		// match[0] is the full URL like /static/uploads/uuid.ext or https://cdn.example.com/uploads/uuid.ext
 		u := match[0]
 		if isStorageURL(u) {
 			urlSet[u] = true
 		}
 	}
 
-	// Get currently linked resources for this post
+	// ---- Pass 1: handle ALL unlinked resources (post_id IS NULL) ----
+	unlinked, err := m.FindUnlinked()
+	if err != nil {
+		return err
+	}
+	for _, r := range unlinked {
+		if urlSet[r.URL] {
+			// URL is referenced → link to this post
+			if _, err := m.DB.Exec(`UPDATE resources SET post_id = ? WHERE id = ?`, postID, r.ID); err != nil {
+				return err
+			}
+			logger.Info("linked resource to post", "filename", r.Filename, "postID", postID)
+		} else {
+			// URL not referenced → orphan, delete file + record
+			if err := deleteResource(r.Filename); err != nil {
+				logger.Error("failed to delete orphan resource file", "filename", r.Filename, "err", err)
+			}
+			if _, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, r.ID); err != nil {
+				return err
+			}
+			logger.Info("deleted orphan resource", "filename", r.Filename)
+		}
+	}
+
+	// ---- Pass 2: handle resources previously linked to this post ----
 	current, err := m.FindByPostID(postID)
 	if err != nil {
 		return err
 	}
-
-	// Unlink resources that are no longer in the HTML
 	for _, r := range current {
 		if !urlSet[r.URL] {
-			if _, err := m.DB.Exec(`UPDATE resources SET post_id = NULL WHERE id = ?`, r.ID); err != nil {
+			// No longer in the HTML → delete file + record
+			if err := deleteResource(r.Filename); err != nil {
+				logger.Error("failed to delete removed resource file", "filename", r.Filename, "err", err)
+			}
+			if _, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, r.ID); err != nil {
 				return err
 			}
-		}
-	}
-
-	// Link new resources found in the HTML that are currently unlinked
-	for url := range urlSet {
-		if _, err := m.DB.Exec(
-			`UPDATE resources SET post_id = ? WHERE url = ? AND post_id IS NULL`,
-			postID, url,
-		); err != nil {
-			return err
+			logger.Info("deleted removed resource", "filename", r.Filename, "postID", postID)
 		}
 	}
 
 	return nil
+}
+
+// FindUnlinked returns all resources that are not linked to any post.
+func (m *ResourceModel) FindUnlinked() ([]Resource, error) {
+	rows, err := m.DB.Query(
+		`SELECT id, post_id, filename, url, file_size, mime_type, created_at
+		 FROM resources WHERE post_id IS NULL`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resources []Resource
+	for rows.Next() {
+		var r Resource
+		if err := rows.Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		resources = append(resources, r)
+	}
+	return resources, rows.Err()
 }
 
 // ScanDiskAndRecord scans the uploads directory (including date-based subdirectories)
@@ -178,7 +225,7 @@ func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
 		// Check if record already exists
 		existing, err := m.FindByURL(url)
 		if err != nil && err != sql.ErrNoRows {
-			log.Printf("ScanDiskAndRecord: error looking up %s: %v", relPath, err)
+			logger.Warn("error looking up resource during disk scan", "path", relPath, "err", err)
 			return nil
 		}
 		if existing != nil {
@@ -190,7 +237,7 @@ func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
 		mimeType := MIMEType(ext)
 
 		if _, err := m.Create(relPath, url, fileSize, mimeType); err != nil {
-			log.Printf("ScanDiskAndRecord: error inserting %s: %v", relPath, err)
+			logger.Warn("error inserting resource during disk scan", "path", relPath, "err", err)
 			return nil
 		}
 		count++

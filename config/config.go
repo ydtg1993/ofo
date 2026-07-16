@@ -37,6 +37,9 @@ type Config struct {
 	QiniuSecretKey string
 	QiniuBucket    string
 	QiniuDomain    string // CDN 域名，含协议，如 "https://cdn.example.com"
+	// 日志
+	LogLevel string // debug, info, warn, error
+	LogDir   string // 日志文件目录，默认 "logs"
 }
 
 // DSN returns the MariaDB/MySQL data source name.
@@ -122,6 +125,9 @@ func Load() *Config {
 		QiniuSecretKey: getEnv("QINIU_SECRET_KEY", ""),
 		QiniuBucket:    getEnv("QINIU_BUCKET", ""),
 		QiniuDomain:    getEnv("QINIU_DOMAIN", ""),
+		// 日志
+		LogLevel: getEnv("LOG_LEVEL", "info"),
+		LogDir:   getEnv("LOG_DIR", "logs"),
 	}
 }
 

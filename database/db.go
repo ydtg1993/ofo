@@ -2,8 +2,9 @@ package database
 
 import (
 	"database/sql"
-	"log"
 	"strings"
+
+	"ofo/logger"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -87,12 +88,13 @@ func Init(dsn string) (*sql.DB, error) {
 			if strings.Contains(err.Error(), "Duplicate column") ||
 				strings.Contains(err.Error(), "Duplicate key") ||
 				strings.Contains(err.Error(), "already exists") {
+				logger.Warn("skipping duplicate migration", "err", err)
 				continue
 			}
 			return nil, err
 		}
 	}
 
-	log.Println("Database initialized successfully")
+	logger.Info("Database initialized successfully")
 	return db, nil
 }

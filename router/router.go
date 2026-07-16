@@ -10,6 +10,7 @@ import (
 
 	"ofo/config"
 	"ofo/handlers"
+	"ofo/logger"
 	"ofo/middleware"
 	"ofo/models"
 	"ofo/storage"
@@ -47,6 +48,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	var tmplFiles []string
 	filepath.Walk(tmplDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			logger.Error("failed to walk template directory", "path", path, "err", err)
 			return err
 		}
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".html") {

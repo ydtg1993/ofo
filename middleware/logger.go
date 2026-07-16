@@ -1,15 +1,21 @@
 package middleware
 
 import (
-	"log"
 	"time"
+
+	"ofo/logger"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 )
 
-// Logger 记录请求方法、路径、状态码、耗时、客户端 IP。
-// 依赖 requestid 中间件提供的请求 ID。
+// Logger records the request method, path, status code, latency, and client IP.
+// Log level is determined by HTTP status:
+//   - 5xx → Error
+//   - 4xx → Warn
+//   - other → Info
+//
+// Requires RequestID middleware to be registered first.
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -28,8 +34,22 @@ func Logger() gin.HandlerFunc {
 			path = path + "?" + query
 		}
 
-		log.Printf("[%s] | %3d | %12v | %-15s | %-7s | %s",
-			reqID, statusCode, latency, clientIP, method, path,
-		)
+		attrs := []any{
+			"req_id", reqID,
+			"status", statusCode,
+			"latency", latency,
+			"ip", clientIP,
+			"method", method,
+			"path", path,
+		}
+
+		switch {
+		case statusCode >= 500:
+			logger.Error("request", attrs...)
+		case statusCode >= 400:
+			logger.Warn("request", attrs...)
+		default:
+			logger.Info("request", attrs...)
+		}
 	}
 }
