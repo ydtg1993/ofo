@@ -112,6 +112,39 @@ func (m *ResourceModel) Delete(id int) error {
 	return err
 }
 
+// FindOrphanedByURL returns an unlinked resource (post_id IS NULL) by its URL.
+// Returns nil if not found or if the resource is already linked to a post.
+func (m *ResourceModel) FindOrphanedByURL(url string) (*Resource, error) {
+	var r Resource
+	err := m.DB.QueryRow(
+		`SELECT id, post_id, filename, url, file_size, mime_type, created_at
+		 FROM resources WHERE url = ? AND post_id IS NULL`, url,
+	).Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// DeleteOrphanedByURL deletes an unlinked resource record by URL.
+// Returns the filename (for storage cleanup) and whether a row was actually deleted.
+func (m *ResourceModel) DeleteOrphanedByURL(url string) (filename string, deleted bool, err error) {
+	// Find first to get the filename for storage cleanup
+	row := m.DB.QueryRow(`SELECT filename FROM resources WHERE url = ? AND post_id IS NULL`, url)
+	if err := row.Scan(&filename); err != nil {
+		if err == sql.ErrNoRows {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	result, err := m.DB.Exec(`DELETE FROM resources WHERE url = ? AND post_id IS NULL`, url)
+	if err != nil {
+		return "", false, err
+	}
+	n, _ := result.RowsAffected()
+	return filename, n > 0, nil
+}
+
 // SyncPostResources scans contentHTML and reconciles all resource records:
 //  1. Extract storage URLs from the HTML.
 //  2. For every resource with post_id IS NULL: if its URL appears in the HTML,

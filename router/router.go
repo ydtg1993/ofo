@@ -170,6 +170,7 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 		protected.POST("/stickers", h.AdminCreateSticker)               // 上传表情包
 		protected.POST("/stickers/:id/delete", h.AdminDeleteSticker)    // 删除表情包
 		protected.POST("/upload", h.AdminUpload)                        // 文件上传
+		protected.POST("/upload/cleanup", h.AdminCleanupUploads)        // 清理未关联的上传文件
 		protected.GET("/logout", h.AdminLogout)                         // 退出登录
 	}
 }

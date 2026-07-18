@@ -1117,6 +1117,7 @@ pre:hover .code-copy-btn,
 .post-full__body img {
     cursor: zoom-in;
     transition: opacity 0.3s;
+    max-width: 100%;
     height: auto;
     min-height: 50px;
     border-radius: var(--radius);
@@ -1164,6 +1165,14 @@ pre:hover .code-copy-btn,
     background: #fff0f0;
     border: 1px dashed var(--danger);
     border-radius: var(--radius);
+}
+
+/* 正文中任何容器内的图片：覆盖 flex 默认 min-width:auto，允许收缩适配容器 */
+.post-full__body div > img,
+.post-full__body section > img,
+.post-full__body figure > img,
+.post-full__body article > img {
+    min-width: 0;
 }
 
 /* 正文视频同理：自带 skeleton */

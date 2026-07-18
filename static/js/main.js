@@ -145,6 +145,19 @@
 
     // --- Markdown Preview ---
 
+    // looksLikePureHTML: 判断内容是否纯 HTML（无 Markdown 语法），避免 <img> 被套 <p>
+    function looksLikePureHTML(s) {
+        // 必须以 HTML 标签开头
+        if (!/^\s*<[a-zA-Z]/.test(s)) return false;
+        // 不含 Markdown 块级语法（标题、引用、列表、代码块）
+        if (/^#{1,6}\s|^>\s|^[\-\*\+]\s|^\d+\.\s|^```/m.test(s)) return false;
+        // 不含常见内联 Markdown 语法
+        if (/\*\*|__|!\[/.test(s)) return false;
+        // 不含 [text](url) 链接语法
+        if (/\[[^\]]+\]\([^)]+\)/.test(s)) return false;
+        return true;
+    }
+
     // preprocessMarkdown: 递归渲染 HTML 容器标签内的 Markdown（前端预览用）
     function preprocessMarkdown(md) {
         // 先把 width="100px" 等属性转为 style
@@ -161,6 +174,10 @@
             var before = md;
             md = md.replace(re, function(match, openTag, attrs, content, closeTag) {
                 if (openTag !== closeTag) return match;
+                // 纯 HTML 内容跳过 Markdown 渲染，避免 <img> 等被套上 <p>
+                if (looksLikePureHTML(content)) {
+                    return '<' + openTag + attrs + '>\n' + content + '\n</' + openTag + '>';
+                }
                 var rendered;
                 try {
                     if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
@@ -311,6 +328,7 @@
     var editorQueueList = document.getElementById('editor-queue-list');
     var editorQueueStatus = document.getElementById('editor-queue-status');
     var editorPendingFiles = [];
+    var editorUploadedURLs = [];   // 本次编辑已上传的 URL，取消时用于清理
 
     function addEditorFiles(files) {
         for (var i = 0; i < files.length; i++) {
@@ -395,6 +413,25 @@
         var done = 0;
         var failed = 0;
 
+        // 给每个队列项加上进度条骨架
+        var allItems = editorQueueList.querySelectorAll('li');
+        for (var i = 0; i < editorPendingFiles.length; i++) {
+            var f = editorPendingFiles[i];
+            var li = allItems[i];
+            if (li) {
+                li.innerHTML = '<div class="upload-item">' +
+                    '<div class="upload-item__info">' +
+                        '<span class="upload-item__name">' + escapeHtml(f.name) + '</span>' +
+                        '<span class="upload-item__size">' + formatSize(f.size) + '</span>' +
+                    '</div>' +
+                    '<div class="upload-item__progress">' +
+                        '<div class="upload-item__bar" id="editor-bar-' + i + '"></div>' +
+                    '</div>' +
+                    '<span class="upload-item__pct" id="editor-pct-' + i + '">0%</span>' +
+                '</div>';
+            }
+        }
+
         function uploadNext(idx) {
             if (idx >= editorPendingFiles.length) {
                 editorQueueStatus.textContent = '完成：' + done + ' 成功' + (failed > 0 ? '，' + failed + ' 失败' : '');
@@ -410,52 +447,124 @@
             var formData = new FormData();
             formData.append('file', file);
 
-            fetch('/admin/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(function (res) { return res.json().then(function (data) { return {ok: res.ok, data: data}; }); })
-            .then(function (result) {
-                if (result.ok && result.data.url) {
-                    done++;
-                    var url = result.data.url;
-                    var ext = url.split('.').pop().toLowerCase();
-                    var isVideo = ['mp4','webm','ogg','mov'].indexOf(ext) > -1;
-                    var insertText = isVideo
-                        ? '<video src="' + url + '" controls></video>'
-                        : '![' + file.name.replace(/\.[^.]+$/, '') + '](' + url + ')';
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/admin/upload');
 
-                    var textarea = document.getElementById('content');
-                    if (textarea) {
-                        var start = textarea.selectionStart;
-                        var after = textarea.value.substring(textarea.selectionEnd);
-                        textarea.value = textarea.value.substring(0, start) + insertText + '\n' + after;
-                        textarea.focus();
-                        textarea.selectionStart = textarea.selectionEnd = start + insertText.length + 1;
-                        updatePreview();
+            // 上传进度
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    var pct = Math.round((e.loaded / e.total) * 100);
+                    var bar = document.getElementById('editor-bar-' + idx);
+                    var pctEl = document.getElementById('editor-pct-' + idx);
+                    if (bar) bar.style.width = pct + '%';
+                    if (pctEl) pctEl.textContent = pct + '%';
+                }
+            };
+
+            xhr.onload = function () {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (xhr.status === 200 && data.url) {
+                        done++;
+                        var url = data.url;
+                        editorUploadedURLs.push(url);   // 记录以便取消时清理
+                        var ext = url.split('.').pop().toLowerCase();
+                        var isVideo = ['mp4','webm','ogg','mov'].indexOf(ext) > -1;
+                        var insertText = isVideo
+                            ? '<video src="' + url + '" controls></video>'
+                            : '![' + file.name.replace(/\.[^.]+$/, '') + '](' + url + ')';
+
+                        var textarea = document.getElementById('content');
+                        if (textarea) {
+                            var start = textarea.selectionStart;
+                            var after = textarea.value.substring(textarea.selectionEnd);
+                            textarea.value = textarea.value.substring(0, start) + insertText + '\n' + after;
+                            textarea.focus();
+                            textarea.selectionStart = textarea.selectionEnd = start + insertText.length + 1;
+                            updatePreview();
+                        }
+
+                        var items = editorQueueList.querySelectorAll('li');
+                        if (items[idx]) {
+                            items[idx].innerHTML = '<span style="color:var(--success,#22c55e)">✓ ' + escapeHtml(file.name) + ' — 上传成功</span>';
+                        }
+                    } else {
+                        failed++;
+                        var items2 = editorQueueList.querySelectorAll('li');
+                        if (items2[idx]) {
+                            items2[idx].innerHTML = '<span style="color:var(--danger,#ef4444)">✗ ' + escapeHtml(file.name) + ' — ' + escapeHtml(data.error || '上传失败') + '</span>';
+                        }
                     }
-
-                    var items = editorQueueList.querySelectorAll('li');
-                    if (items[idx]) items[idx].textContent = '✓ ' + file.name;
-                } else {
+                } catch (e) {
                     failed++;
-                    var items2 = editorQueueList.querySelectorAll('li');
-                    if (items2[idx]) items2[idx].textContent = '✗ ' + file.name;
+                    var items3 = editorQueueList.querySelectorAll('li');
+                    if (items3[idx]) {
+                        items3[idx].innerHTML = '<span style="color:var(--danger,#ef4444)">✗ ' + escapeHtml(file.name) + ' — 响应异常</span>';
+                    }
                 }
                 editorQueueStatus.textContent = '上传中… ' + (done + failed) + '/' + total;
                 uploadNext(idx + 1);
-            })
-            .catch(function () {
+            };
+
+            xhr.onerror = function () {
                 failed++;
+                var items4 = editorQueueList.querySelectorAll('li');
+                if (items4[idx]) {
+                    items4[idx].innerHTML = '<span style="color:var(--danger,#ef4444)">✗ ' + escapeHtml(file.name) + ' — 网络错误</span>';
+                }
                 editorQueueStatus.textContent = '上传中… ' + (done + failed) + '/' + total;
                 uploadNext(idx + 1);
-            });
+            };
+
+            xhr.send(formData);
         }
 
         uploadNext(0);
     };
 
+    // 取消按钮：使用 sendBeacon 清理已上传但未保存的资源（不阻塞导航）
+    window.cancelEditor = function () {
+        if (editorUploadedURLs.length > 0) {
+            var blob = new Blob(
+                [JSON.stringify({ urls: editorUploadedURLs.slice() })],
+                { type: 'application/json' }
+            );
+            navigator.sendBeacon('/admin/upload/cleanup', blob);
+            editorUploadedURLs = [];
+        }
+        // 跳转到管理后台 — sendBeacon 在后台保证送达
+        window._ofoCleanupDone = true;
+        window.location.href = '/admin';
+    };
+
+    // 表单提交时清除追踪，避免 beforeunload 误拦
+    var editorForm = document.getElementById('editor-form');
+    if (editorForm) {
+        editorForm.addEventListener('submit', function () {
+            window._ofoCleanupDone = true;
+            editorUploadedURLs = [];
+            editorPendingFiles = [];
+        });
+    }
+
+    // 离开页面前提醒（有待上传文件 或 已上传但未保存的文件）
+    window.addEventListener('beforeunload', function (e) {
+        if (window._ofoCleanupDone) return;
+        if (editorPendingFiles.length > 0 || editorUploadedURLs.length > 0) {
+            var msg = '你还有未保存的上传文件，离开后将被清理。确定离开吗？';
+            e.preventDefault();
+            e.returnValue = msg; // Chrome 需要
+            return msg;
+        }
+    });
+
     // --- Helpers ---
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+    }
 
     function escapeHtmlForPreview(text) {
         return text

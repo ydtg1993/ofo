@@ -47,7 +47,16 @@ func renderMarkdown(md string) string {
 	md = normalizeMarkdown(md)
 	// 预处理：递归渲染 HTML 容器标签内的 Markdown（如 <div>![](url)</div>）
 	md = renderHTMLContainers(md)
-	unsafe := blackfriday.Run([]byte(md))
+
+	// 若全文都是纯 HTML（无 Markdown 语法），直接传给 sanitizer，
+	// 跳过 blackfriday，避免 <img> 等被套上 <p>。
+	var unsafe []byte
+	if looksLikePureHTML(md) {
+		unsafe = []byte(md)
+	} else {
+		unsafe = blackfriday.Run([]byte(md))
+	}
+
 	html := string(sanitizePolicy().SanitizeBytes(unsafe))
 	// 给正文图片加懒加载
 	html = InjectLazyLoading(html)
@@ -206,6 +215,37 @@ var reHTMLContainer = regexp.MustCompile(
 )
 
 // renderHTMLContainers 递归渲染 HTML 容器内的 Markdown 内容。
+// reStartsWithHTMLTag 检测内容是否以 HTML 标签开头。
+var reStartsWithHTMLTag = regexp.MustCompile(`^\s*<[a-zA-Z]`)
+
+// reHasMarkdownBlock 检测内容是否含 Markdown 块级语法（标题、引用、列表、代码块）。
+var reHasMarkdownBlock = regexp.MustCompile(`(?m)^(#{1,6}\s|>\s|[\-\*\+]\s|\d+\.\s|\x60\x60\x60)`)
+
+// looksLikePureHTML 判断内容是否纯 HTML（无需 Markdown 渲染）。
+// 条件：以 < 标签开头 且 不含 Markdown 块级/内联语法。
+func looksLikePureHTML(s string) bool {
+	if !reStartsWithHTMLTag.MatchString(s) {
+		return false
+	}
+	// 检查块级 Markdown 语法
+	if reHasMarkdownBlock.MatchString(s) {
+		return false
+	}
+	// 检查常见内联 Markdown 语法（加粗 ** __，链接 [text](url)，图片 ![alt](url)）
+	if strings.Contains(s, "**") || strings.Contains(s, "__") ||
+		strings.Contains(s, "![") {
+		return false
+	}
+	// 检查 [text](url) 链接语法（排除 HTML 中的方括号属性如 [style]）
+	if reMarkdownLink.MatchString(s) {
+		return false
+	}
+	return true
+}
+
+// reMarkdownLink 匹配 Markdown 链接语法 [text](url)。
+var reMarkdownLink = regexp.MustCompile(`\[[^\]]+\]\([^)]+\)`)
+
 func renderHTMLContainers(md string) string {
 	for i := 0; i < 10; i++ {
 		before := md
@@ -227,8 +267,15 @@ func renderHTMLContainers(md string) string {
 			// 把 width="100px" 等属性转为内联 style
 			attrs = normalizeHTMLAttrs(attrs)
 
-			rendered := blackfriday.Run([]byte(content))
-			return "<" + openTag + attrs + ">\n" + string(rendered) + "\n</" + openTag + ">"
+			// 如果内容看起来是纯 HTML（无 Markdown 语法），跳过渲染，
+			// 避免 <img> 等标签被 blackfriday 套上 <p>。
+			var rendered string
+			if looksLikePureHTML(content) {
+				rendered = content
+			} else {
+				rendered = string(blackfriday.Run([]byte(content)))
+			}
+			return "<" + openTag + attrs + ">\n" + rendered + "\n</" + openTag + ">"
 		})
 		if md == before {
 			break
@@ -848,6 +895,45 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"url": url})
+}
+
+// AdminCleanupUploads deletes orphaned uploads (post_id IS NULL).
+// Accepts JSON: {"urls": ["url1", "url2", ...]}
+// Only deletes resources that are NOT linked to any post (safety check).
+func (h *Handler) AdminCleanupUploads(c *gin.Context) {
+	var body struct {
+		URLs []string `json:"urls"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.URLs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing or invalid urls"})
+		return
+	}
+
+	deleted := 0
+	for _, url := range body.URLs {
+		if url == "" {
+			continue
+		}
+		filename, ok, err := h.ResourceModel.DeleteOrphanedByURL(url)
+		if err != nil {
+			logger.ErrorWithContext(c, "failed to cleanup upload", "url", url, "err", err)
+			continue
+		}
+		if !ok {
+			continue // already linked to a post, or already cleaned up
+		}
+
+		// Delete from storage (filename may include date subdirectories like "2026/07/uuid.ext")
+		storageKey := "uploads/" + filename
+		if err := h.Storage.Delete(c.Request.Context(), storageKey); err != nil {
+			logger.ErrorWithContext(c, "failed to delete upload file from storage", "key", storageKey, "err", err)
+		} else {
+			deleted++
+			logger.Info("cleaned up orphan upload", "filename", filename)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"deleted": deleted})
 }
 
 // ---- Helpers ----
