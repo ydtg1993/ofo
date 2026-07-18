@@ -23,6 +23,9 @@
     {{template "jsonld" .}}
 
     <script src="{{asset "/static/js/main.js"}}"></script>
+    {{mediaURLScript}}
+    {{if .Cfg.MediaProtection}}<script src="{{asset "/static/js/media-blob.js"}}"></script>{{end}}
+    {{if not .Cfg.Debug}}<script src="{{asset "/static/js/protect.js"}}"></script>{{end}}
 </body>
 </html>
 {{end}}

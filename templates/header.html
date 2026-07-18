@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}}</title>
+    {{if .Cfg.MediaProtection}}<meta name="ofo-media-protection" content="enabled">{{end}}
     <meta name="description" content="{{.Description}}">
     <meta name="keywords" content="{{.Keywords}}">
     <meta name="robots" content="index, follow">
@@ -25,6 +26,7 @@
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
     <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
     <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
+    {{mediaConfigScript}}
 </head>
 <body>
     <!-- 导航栏 -->

@@ -29,14 +29,15 @@
             {{if .Post}}
             <script>
             // 严格懒加载：在浏览器开始加载前，把正文图片 src 移到 data-src
+            // 注意：blob 方式加载的图片使用 data-media-src，不受此脚本影响
             (function(){
                 var body = document.querySelector('.post-full__body');
                 if (!body) return;
-                var imgs = body.querySelectorAll('img[src]:not([data-src])');
+                var imgs = body.querySelectorAll('img[src]:not([data-src]):not([data-media-src])');
                 for (var i = 0; i < imgs.length; i++) {
                     var src = imgs[i].getAttribute('src');
-                    // 跳过已经是占位符的
-                    if (!src || src.indexOf('data:image/svg') === 0) continue;
+                    // 跳过占位符、blob URL、data URI
+                    if (!src || src.indexOf('data:image/svg') === 0 || src.indexOf('blob:') === 0) continue;
                     imgs[i].setAttribute('data-src', src);
                     imgs[i].removeAttribute('src');
                     imgs[i].classList.add('img-pending');

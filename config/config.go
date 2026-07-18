@@ -37,6 +37,12 @@ type Config struct {
 	QiniuSecretKey string
 	QiniuBucket    string
 	QiniuDomain    string // CDN 域名，含协议，如 "https://cdn.example.com"
+	// 媒体保护（Blob 方式加载，防止爬取）
+	MediaProtection bool   // 是否启用以 blob 方式加载图片/视频
+	MediaSecret     string // HMAC 签名密钥（留空则自动生成）
+	MediaTokenTTL   int    // 媒体代理 URL 有效期（秒），默认 1800
+	// 运行模式
+	Debug bool // true=开发环境，false=生产环境（禁止右键/F12/复制）
 	// 日志
 	LogLevel string // debug, info, warn, error
 	LogDir   string // 日志文件目录，默认 "logs"
@@ -125,6 +131,12 @@ func Load() *Config {
 		QiniuSecretKey: getEnv("QINIU_SECRET_KEY", ""),
 		QiniuBucket:    getEnv("QINIU_BUCKET", ""),
 		QiniuDomain:    getEnv("QINIU_DOMAIN", ""),
+		// 媒体保护
+		MediaProtection: getEnvBool("MEDIA_PROTECTION", true),
+		MediaSecret:     getEnv("MEDIA_SECRET", ""),
+		MediaTokenTTL:   getEnvInt("MEDIA_TOKEN_TTL", 1800),
+		// 运行模式
+		Debug: getEnvBool("DEBUG", true),
 		// 日志
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 		LogDir:   getEnv("LOG_DIR", "logs"),

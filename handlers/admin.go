@@ -16,6 +16,8 @@ import (
 	"ofo/models"
 	"ofo/storage"
 
+	"ofo/config"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/microcosm-cc/bluemonday"
@@ -190,14 +192,62 @@ func InjectVideoDimensions(html string, store storage.Storage) string {
 	})
 }
 
-// ThumbnailImage generates an <img> tag for a thumbnail URL with skeleton-ready
-// attributes (width, height, aspect-ratio) injected for storage-managed files.
-// Used by the homepage card thumbnails.
-func ThumbnailImage(url, alt string, store storage.Storage) string {
+// ThumbnailMidImage generates an <img> tag with data-mid index + dimensions.
+// The actual proxy URL is stored in the page's MediaMap (JS array).
+func ThumbnailMidImage(url, alt string, store storage.Storage, cfg *config.Config) string {
 	if url == "" {
 		return ""
 	}
-	html := fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, url, alt)
+	dimURL := url
+	if IsStorageOrMediaURL(url, store) {
+		dimURL = GetMediaURLForDimension(url)
+	}
+
+	if cfg.MediaProtection && store.IsStorageURL(url) {
+		mm := CurrentMediaMap()
+		mid := AddThumbMid(url, mm, store, cfg)
+		w, h, _ := store.GetMediaInfo(dimURL)
+		dims := ""
+		if w > 0 && h > 0 {
+			dims = fmt.Sprintf(` width="%d" height="%d" style="aspect-ratio:%d/%d"`, w, h, w, h)
+		}
+		return fmt.Sprintf(`<img data-mid="%s" alt="%s" loading="lazy"%s>`, mid, alt, dims)
+	}
+
+	html := fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, dimURL, alt)
+	html = InjectImageDimensions(html, store)
+	return html
+}
+
+// ThumbnailImage generates an <img> tag for a thumbnail URL with skeleton-ready
+// attributes (width, height, aspect-ratio) injected for storage-managed files.
+// Used by the homepage card thumbnails.
+// When media protection is enabled, emits data-media-src with a signed proxy URL
+// instead of a direct src, so JS can load it as a blob.
+func ThumbnailImage(url, alt string, store storage.Storage, cfg *config.Config) string {
+	if url == "" {
+		return ""
+	}
+	// Resolve the URL for dimension injection (use the underlying storage URL)
+	dimURL := url
+	if IsStorageOrMediaURL(url, store) {
+		dimURL = GetMediaURLForDimension(url)
+	}
+
+	// Build tag with data-media-src (or src if protection disabled)
+	if cfg.MediaProtection && store.IsStorageURL(url) {
+		proxyURL := ProxyMediaURL(url, store, cfg)
+		// Get dimensions from storage for skeleton placeholder
+		w, h, _ := store.GetMediaInfo(dimURL)
+		dims := ""
+		if w > 0 && h > 0 {
+			dims = fmt.Sprintf(` width="%d" height="%d" style="aspect-ratio:%d/%d"`, w, h, w, h)
+		}
+		return fmt.Sprintf(`<img data-media-src="%s" alt="%s" loading="lazy"%s>`,
+			proxyURL, alt, dims)
+	}
+
+	html := fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, dimURL, alt)
 	html = InjectImageDimensions(html, store)
 	return html
 }

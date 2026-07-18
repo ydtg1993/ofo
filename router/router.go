@@ -101,6 +101,17 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	r.GET("/favicon.ico", func(c *gin.Context) { c.Status(204) })
 
 	// ==========================================
+	// 媒体代理路由（Blob 方式加载，防止爬取）
+	// ==========================================
+	if cfg.MediaProtection {
+		mediaGroup := r.Group("/media")
+		if cfg.StaticRateLimit > 0 {
+			mediaGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
+		}
+		mediaGroup.GET("/*filepath", h.MediaProxy)
+	}
+
+	// ==========================================
 	// 公开路由
 	// ==========================================
 	{
@@ -212,15 +223,34 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 		},
 		// 根据 category ID 查名称
 		// 给文章正文 <img> 注入 loading="lazy"（兼容已有旧文章）
+		// 同时将存储 URL 替换为 data-mid 索引（URL 存入当前页面的共享 MediaMap）
 		"lazyImages": func(html string) template.HTML {
 			html = handlers.InjectLazyLoading(html)
 			html = handlers.InjectImageDimensions(html, store)
 			html = handlers.InjectVideoDimensions(html, store)
-			return template.HTML(html)
+			return template.HTML(handlers.BuildMediaMapWith(html, store, cfg, handlers.CurrentMediaMap()))
 		},
-		// 缩略图：注入宽高 + aspect-ratio，配合 skeleton 骨架屏
+		// 缩略图：输出 data-mid 索引 + 宽高，URL 存在 JS 数组里
 		"thumbnailImg": func(url, alt string) template.HTML {
-			return template.HTML(handlers.ThumbnailImage(url, alt, store))
+			return template.HTML(handlers.ThumbnailMidImage(url, alt, store, cfg))
+		},
+		// 将存储 URL 转为 data-mid 索引（URL 存入当前页面的 MediaMap）
+		"mediaID": func(url string) string {
+			return handlers.AddThumbMid(url, handlers.CurrentMediaMap(), store, cfg)
+		},
+		// 媒体保护 JS 配置脚本 + 初始化当前页面的 MediaMap
+		"mediaConfigScript": func() template.HTML {
+			mm := handlers.NewMediaMap()
+			handlers.SetCurrentMediaMap(mm)
+			return template.HTML(handlers.BuildMediaConfigScript(cfg))
+		},
+		// 当前页面 MediaMap 的 URL 数组脚本（放在 </body> 前）
+		"mediaURLScript": func() template.HTML {
+			mm := handlers.CurrentMediaMap()
+			if mm == nil {
+				return ""
+			}
+			return mm.Script()
 		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {

@@ -908,14 +908,57 @@ function closeStickerPreview(e) {
     var counterEl  = dialog.querySelector('.img-lightbox__counter');
 
     var currentIdx = 0;
+    var lightboxBlobURL = null; // track blob URL for cleanup
 
     function show(idx) {
         idx = Math.max(0, Math.min(idx, images.length - 1));
         currentIdx = idx;
-        var src = images[idx].getAttribute('data-src') || images[idx].getAttribute('src');
-        var alt = images[idx].getAttribute('alt') || '';
-        lightImg.src = src;
-        lightImg.alt = alt;
+        var img = images[idx];
+        var alt = img.getAttribute('alt') || '';
+
+        // Revoke previous lightbox blob URL
+        if (lightboxBlobURL) {
+            URL.revokeObjectURL(lightboxBlobURL);
+            lightboxBlobURL = null;
+        }
+
+        // If this image uses blob loading, always re-fetch a fresh blob URL
+        // (the original was revoked after page load to prevent new-tab access)
+        // data-mid may have been removed after load; also check blob-loaded class
+        var isBlob = img.getAttribute('data-mid') !== null || img.classList.contains('blob-loaded');
+        if (isBlob && typeof window.loadBlobMedia === 'function') {
+            window.loadBlobMedia(img).then(function (result) {
+                lightboxBlobURL = result.blobURL;
+                lightImg.src = result.blobURL;
+                lightImg.alt = alt;
+                // Only revoke actual blob URLs (videos use proxy URL directly)
+                if (result.blobURL && result.blobURL.indexOf('blob:') === 0) {
+                    lightImg.onload = function () {
+                        URL.revokeObjectURL(result.blobURL);
+                        lightboxBlobURL = null;
+                    };
+                    lightImg.onerror = function () {
+                        URL.revokeObjectURL(result.blobURL);
+                        lightboxBlobURL = null;
+                    };
+                }
+            }).catch(function () {
+                lightImg.src = img.getAttribute('src') || '';
+                lightImg.alt = alt;
+            });
+            // Show loading state: use current src (might be revoked, so show alt text)
+            var currentSrc = img.getAttribute('src');
+            if (currentSrc && currentSrc.indexOf('blob:') === 0) {
+                // Don't set a revoked blob URL; image will update when fetch completes
+            } else if (currentSrc) {
+                lightImg.src = currentSrc;
+            }
+        } else {
+            // Non-blob image: use data-src or src directly
+            var src = img.getAttribute('data-src') || img.getAttribute('src');
+            lightImg.src = src || '';
+            lightImg.alt = alt;
+        }
 
         // 导航按钮显隐
         prevBtn.hidden = (images.length <= 1);
@@ -933,7 +976,13 @@ function closeStickerPreview(e) {
     function close() {
         dialog.close();
         // 关闭后释放图片内存（避免大图滞留）
-        setTimeout(function () { lightImg.src = ''; }, 200);
+        setTimeout(function () {
+            if (lightboxBlobURL && lightboxBlobURL.indexOf('blob:') === 0) {
+                URL.revokeObjectURL(lightboxBlobURL);
+                lightboxBlobURL = null;
+            }
+            lightImg.src = '';
+        }, 200);
     }
 
     function next() { show(currentIdx + 1); }
