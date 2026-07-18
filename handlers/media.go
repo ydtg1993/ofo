@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -213,17 +216,42 @@ func (mm *MediaMap) Add(url string) string {
 	return id
 }
 
-// Script returns a <script> tag that sets window.__OFO_MEDIA__.urls
-// as a JS object mapping random IDs to proxy URLs.
-func (mm *MediaMap) Script() template.HTML {
-	if len(mm.entries) == 0 {
+// Script returns a <script> tag with AES-256-GCM encrypted URL mapping.
+// The key is injected separately via BuildMediaConfigScript. Decryption
+// happens in media-blob.js using the Web Crypto API.
+func (mm *MediaMap) Script(key []byte) template.HTML {
+	if len(mm.entries) == 0 || key == nil {
 		return ""
 	}
-	js, _ := json.Marshal(mm.entries)
+	plain, _ := json.Marshal(mm.entries)
+	enc, err := aesEncrypt(plain, key)
+	if err != nil {
+		return ""
+	}
+	// enc = base64(nonce || ciphertext) — nonce is 12 bytes for GCM
 	return template.HTML(fmt.Sprintf(
-		`<script>window.__OFO_MEDIA__=window.__OFO_MEDIA__||{};window.__OFO_MEDIA__.urls=%s;</script>`,
-		js,
+		`<script>window.__OFO_MEDIA__=window.__OFO_MEDIA__||{};window.__OFO_MEDIA__.d=%q;</script>`,
+		enc,
 	))
+}
+
+// aesEncrypt encrypts plaintext with AES-256-GCM and returns base64(nonce || ciphertext).
+func aesEncrypt(plain, key []byte) (string, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	// Seal appends ciphertext to nonce: nonce || ciphertext || tag
+	out := gcm.Seal(nonce, nonce, plain, nil)
+	return base64.StdEncoding.EncodeToString(out), nil
 }
 
 // randomMID generates a short random hex ID for data-mid attributes.
@@ -329,8 +357,9 @@ func AddThumbMid(url string, mm *MediaMap, store storage.Storage, cfg *config.Co
 }
 
 // extractStorageKey extracts the storage key from a URL.
-//   /static/uploads/path.jpg → uploads/path.jpg
-//   /static/stickers/path.gif → stickers/path.gif
+//
+//	/static/uploads/path.jpg → uploads/path.jpg
+//	/static/stickers/path.gif → stickers/path.gif
 func extractStorageKey(url string, store storage.Storage) string {
 	// Local storage: /static/uploads/path → uploads/path
 	if strings.HasPrefix(url, "/static/uploads/") {
@@ -440,15 +469,43 @@ func GeneratePageToken(cfg *config.Config) string {
 	return window + ":" + hex.EncodeToString(mac.Sum(nil))
 }
 
-// BuildMediaConfigScript returns a <script> tag that sets window.__OFO_MEDIA__
-// with the configuration needed by media-blob.js.
+// BuildMediaConfigScript returns a <script> tag that sets the session cookie
+// and window.__OFO_MEDIA__ with config + AES decryption key.
 func BuildMediaConfigScript(cfg *config.Config) string {
 	if !cfg.MediaProtection {
 		return ""
 	}
 	pageToken := GeneratePageToken(cfg)
+	// Generate a random AES-256 key per page render
+	aesKey := make([]byte, 32) // AES-256
+	rand.Read(aesKey)
+	keyB64 := base64.StdEncoding.EncodeToString(aesKey)
+
+	// Store key for Script() to use
+	setPageAESKey(aesKey)
+
 	return fmt.Sprintf(
-		`<script>document.cookie="ofo_m=%s;path=/;max-age=%d;SameSite=Strict";window.__OFO_MEDIA__={enabled:true,ttl:%d};</script>`,
-		pageToken, cfg.MediaTokenTTL, cfg.MediaTokenTTL,
+		`<script>document.cookie="ofo_m=%s;path=/;max-age=%d;SameSite=Strict";window.__OFO_MEDIA__={enabled:true,ttl:%d,k:%q};</script>`,
+		pageToken, cfg.MediaTokenTTL, cfg.MediaTokenTTL, keyB64,
 	)
 }
+
+// ---- Per-page AES key storage ----
+var currentAESKey atomic.Pointer[[]byte]
+
+func setPageAESKey(key []byte) {
+	k := make([]byte, len(key))
+	copy(k, key)
+	currentAESKey.Store(&k)
+}
+
+func getPageAESKey() []byte {
+	p := currentAESKey.Load()
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+// PageAESKey returns the current page's AES decryption key (for template use).
+func PageAESKey() []byte { return getPageAESKey() }

@@ -21,7 +21,14 @@ import (
 // Setup 配置并返回完整的 Gin 引擎。
 // 包含：模板函数、中间件链、静态资源、公开路由、管理后台路由、404 处理。
 // baseDir: 项目根目录的绝对路径，用于解析模板和静态资源。
+// swJSContent is loaded from static/js/sw.js at startup.
+var swJSContent string
+
 func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine {
+	// Load Service Worker file
+	if data, err := os.ReadFile(filepath.Join(baseDir, "static", "js", "sw.js")); err == nil {
+		swJSContent = string(data)
+	}
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -99,6 +106,12 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	}
 
 	r.GET("/favicon.ico", func(c *gin.Context) { c.Status(204) })
+
+	// Service Worker（拦截 blob: 导航）
+	r.GET("/sw.js", func(c *gin.Context) {
+		c.Header("Service-Worker-Allowed", "/")
+		c.Data(200, "application/javascript; charset=utf-8", []byte(swJSContent))
+	})
 
 	// ==========================================
 	// 媒体代理路由（Blob 方式加载，防止爬取）
@@ -244,13 +257,13 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 			handlers.SetCurrentMediaMap(mm)
 			return template.HTML(handlers.BuildMediaConfigScript(cfg))
 		},
-		// 当前页面 MediaMap 的 URL 数组脚本（放在 </body> 前）
+		// 当前页面 MediaMap 的加密 URL 脚本（放在 </body> 前）
 		"mediaURLScript": func() template.HTML {
 			mm := handlers.CurrentMediaMap()
 			if mm == nil {
 				return ""
 			}
-			return mm.Script()
+			return mm.Script(handlers.PageAESKey())
 		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {
