@@ -219,6 +219,21 @@ func ThumbnailMidImage(url, alt string, store storage.Storage, cfg *config.Confi
 	return html
 }
 
+// VideoThumb generates a <video> tag for a thumbnail URL.
+// When media protection is on, emits data-mid for blob loading.
+// When off, emits src with the direct URL (CDN-friendly).
+func VideoThumb(url string, store storage.Storage, cfg *config.Config) string {
+	if url == "" {
+		return ""
+	}
+	if cfg.MediaProtection && store.IsStorageURL(url) {
+		mm := CurrentMediaMap()
+		mid := AddThumbMid(url, mm, store, cfg)
+		return fmt.Sprintf(`<video data-mid="%s" preload="none"></video>`, mid)
+	}
+	return fmt.Sprintf(`<video src="%s" preload="none"></video>`, url)
+}
+
 // ThumbnailImage generates an <img> tag for a thumbnail URL with skeleton-ready
 // attributes (width, height, aspect-ratio) injected for storage-managed files.
 // Used by the homepage card thumbnails.

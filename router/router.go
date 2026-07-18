@@ -251,6 +251,10 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 		"mediaID": func(url string) string {
 			return handlers.AddThumbMid(url, handlers.CurrentMediaMap(), store, cfg)
 		},
+		// 视频缩略图：Blob 模式用 data-mid，直连模式用 src
+		"videoThumb": func(url string) template.HTML {
+			return template.HTML(handlers.VideoThumb(url, store, cfg))
+		},
 		// 媒体保护 JS 配置脚本 + 初始化当前页面的 MediaMap
 		"mediaConfigScript": func() template.HTML {
 			mm := handlers.NewMediaMap()
