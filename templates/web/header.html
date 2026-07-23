@@ -24,7 +24,7 @@
     <!-- Canonical -->
     <link rel="canonical" href="{{.CanonicalURL}}">
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
-    <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
+    <link rel="stylesheet" href="{{asset "/static/css/web.css"}}">
     <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
     {{mediaConfigScript}}
     <script>window._ofoFishModeTitle = '{{.FishModeTitle}}';</script>
@@ -41,6 +41,11 @@
                 <li><a href="/" class="{{if eq .CurrentPath "/"}}active{{end}}">首页</a></li>
                 <li><a href="/about" class="{{if eq .CurrentPath "/about"}}active{{end}}">关于</a></li>
                 <li><a href="/rss.xml" title="RSS 订阅">RSS</a></li>
+                <li>
+                    <a href="/fullscreen" class="fish-mode-toggle" aria-label="刷屏模式" title="刷屏模式">
+                        <span class="fish-mode-toggle__icon">&#x1F4FA;</span>
+                    </a>
+                </li>
                 <li>
                     <button class="fish-mode-toggle" id="fish-mode-toggle" aria-label="切换摸鱼模式" title="摸鱼模式 (Ctrl+B)">
                         <span class="fish-mode-toggle__icon">&#x1F41F;</span>

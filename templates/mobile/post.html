@@ -1,0 +1,47 @@
+{{define "mobile_post"}}
+{{template "mobile_header" .}}
+
+<div class="mobile-card" style="min-height:auto;">
+    {{if .Post.ThumbnailURL}}
+    <div class="mobile-card__media">
+        {{if isVideoURL .Post.ThumbnailURL}}
+        <video src="{{.Post.ThumbnailURL}}" preload="none" controls playsinline class="mobile-card__video"></video>
+        {{else}}
+        <img src="{{.Post.ThumbnailURL}}" alt="{{.Post.Title}}" loading="lazy">
+        {{end}}
+    </div>
+    {{end}}
+
+    <div class="mobile-card__body">
+        <div class="mobile-card__meta">
+            {{catEmoji .PostCategorySlug}} {{.PostCategoryName}} · {{.ReadTime}}
+            <span style="margin-left:0.5rem;">{{.Post.CreatedAt | formatDate}}</span>
+        </div>
+
+        <h2 class="mobile-card__title">{{.Post.Title}}</h2>
+
+        <div class="mobile-card__content">
+            {{.Post.ContentHTML | lazyImages}}
+        </div>
+
+        {{if .PostTags}}
+        <div class="mobile-card__tags">
+            {{range .PostTags}}
+            <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+            {{end}}
+        </div>
+        {{end}}
+
+        <div style="margin-top:1.5rem;display:flex;gap:0.5rem;">
+        {{if .PrevPost}}
+            <a href="/post/{{.PrevPost.Slug}}" style="font-size:0.8rem;color:var(--accent-2);">← 上一篇</a>
+        {{end}}
+        {{if .NextPost}}
+            <a href="/post/{{.NextPost.Slug}}" style="font-size:0.8rem;color:var(--accent-2);margin-left:auto;">下一篇 →</a>
+        {{end}}
+        </div>
+    </div>
+</div>
+
+{{template "mobile_footer" .}}
+{{end}}

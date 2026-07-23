@@ -133,6 +133,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		r.GET("/post/:slug", h.Post)         // 文章详情
 		r.GET("/category/:slug", h.Category) // 分类筛选
 		r.GET("/tag/:slug", h.Tag)           // 标签筛选
+		r.GET("/fullscreen", h.Fullscreen)   // 全屏刷屏模式
 		r.GET("/about", h.About)             // 关于页面
 		r.GET("/rss.xml", h.RSS)             // RSS 订阅
 		r.GET("/feed.xml", h.RSS)            // RSS 别名

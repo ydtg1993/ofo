@@ -1,0 +1,46 @@
+{{template "header" .}}
+
+        <div class="post-feed swipe-feed" id="post-feed">
+            {{range $i, $post := .Posts}}
+            <article class="feed-card neo-box" data-post-index="{{$i}}">
+                {{if $post.ThumbnailURL}}
+                <div class="feed-card__media">
+                    {{if isVideoURL $post.ThumbnailURL}}
+                    <video src="{{$post.ThumbnailURL}}" preload="none" controls playsinline class="feed-card__video"></video>
+                    {{else}}
+                    <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
+                    {{end}}
+                </div>
+                {{end}}
+                <div class="feed-card__body">
+                    <header class="feed-card__header">
+                        {{if $post.CategoryName}}
+                        <a href="/category/{{$post.CategorySlug}}" class="feed-card__category">
+                            {{catEmoji $post.CategorySlug}} {{$post.CategoryName}} · {{readTime $post.CategorySlug}}
+                        </a>
+                        {{end}}
+                        <time datetime="{{$post.CreatedAt | formatDateShort}}">{{$post.CreatedAt | formatDate}}</time>
+                    </header>
+                    <h2 class="feed-card__title">
+                        <a href="/post/{{$post.Slug}}">{{$post.Title}}</a>
+                    </h2>
+                    <div class="feed-card__content">
+                        {{$post.ContentHTML | lazyImages}}
+                    </div>
+                    {{if $post.Tags}}
+                    <div class="feed-card__tags">
+                        {{range $post.Tags}}
+                        <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            </article>
+            {{end}}
+        </div>
+
+        <div class="swipe-progress" id="swipe-progress">
+            <span id="swipe-current">1</span>/<span id="swipe-total">{{len .Posts}}</span>
+        </div>
+
+{{template "footer" .}}

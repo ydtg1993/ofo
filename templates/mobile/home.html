@@ -1,0 +1,49 @@
+{{define "mobile_home"}}
+{{template "mobile_header" .}}
+
+<div class="mobile-feed" id="mobile-feed">
+{{range $i, $post := .Posts}}
+<article class="mobile-card" data-post-index="{{$i}}">
+    {{if $post.ThumbnailURL}}
+    <div class="mobile-card__media">
+        {{if isVideoURL $post.ThumbnailURL}}
+        <video src="{{$post.ThumbnailURL}}" preload="none" controls playsinline class="mobile-card__video"></video>
+        {{else}}
+        <img src="{{$post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
+        {{end}}
+    </div>
+    {{end}}
+
+    <div class="mobile-card__body">
+        {{if $post.CategoryName}}
+        <div class="mobile-card__meta">
+            {{catEmoji $post.CategorySlug}} {{$post.CategoryName}} · {{readTime $post.CategorySlug}}
+        </div>
+        {{end}}
+
+        <h2 class="mobile-card__title">
+            <a href="/post/{{$post.Slug}}">{{$post.Title}}</a>
+        </h2>
+
+        <div class="mobile-card__content">
+            {{$post.ContentHTML | lazyImages}}
+        </div>
+
+        {{if $post.Tags}}
+        <div class="mobile-card__tags">
+            {{range $post.Tags}}
+            <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+</article>
+{{else}}
+<div class="mobile-empty">
+    <p>暂无内容，敬请期待！</p>
+</div>
+{{end}}
+</div>
+
+{{template "mobile_footer" .}}
+{{end}}

@@ -41,7 +41,7 @@ func (h *Handler) Category(c *gin.Context) {
 		}
 	}
 
-	c.HTML(http.StatusOK, "home.html", PageData{
+	pd := PageData{
 		Title:         "Category: " + categoryName + " — " + h.Cfg.Title,
 		Description:   "Posts in category " + categoryName,
 		Keywords:      categoryName + "," + h.Cfg.Keywords,
@@ -53,5 +53,11 @@ func (h *Handler) Category(c *gin.Context) {
 		FilterName:    categoryName,
 		FishModeTitle: h.Cfg.FishModeTitle,
 		CurrentPath:   "/category/" + slug,
-	})
+	}
+
+	tmpl := "home.html"
+	if isMobileDevice(c.GetHeader("User-Agent")) {
+		tmpl = "mobile_home"
+	}
+	c.HTML(http.StatusOK, tmpl, pd)
 }

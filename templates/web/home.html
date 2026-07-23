@@ -6,7 +6,6 @@
             {{range .Categories}}{{if gt .Count 0}}
             <a href="/category/{{.Slug}}" class="category-tab{{if eq $.CurrentPath (printf "/category/%s" .Slug)}} active{{end}}">{{catEmoji .Slug}} {{.Name}}</a>
             {{end}}{{end}}
-            <button class="category-tab swipe-toggle" id="swipe-toggle" onclick="toggleSwipeMode()" title="全屏刷屏模式">📺 刷屏</button>
         </nav>
 
         <!-- 信息流 -->

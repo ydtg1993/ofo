@@ -76,7 +76,7 @@ func (h *Handler) Post(c *gin.Context) {
 	// 上一篇 / 下一篇导航
 	prevPost, nextPost, _ := h.PostModel.GetAdjacentPosts(slug)
 
-	c.HTML(http.StatusOK, "post.html", PageData{
+	pd := PageData{
 		Title:            post.Title + " — " + h.Cfg.Title,
 		Description:      post.Excerpt,
 		Keywords:         keywords,
@@ -94,7 +94,13 @@ func (h *Handler) Post(c *gin.Context) {
 		NextPost:         nextPost,
 		FishModeTitle:    h.Cfg.FishModeTitle,
 		CurrentPath:      "/post/" + slug,
-	})
+	}
+
+	tmpl := "post.html"
+	if isMobileDevice(c.GetHeader("User-Agent")) {
+		tmpl = "mobile_post"
+	}
+	c.HTML(http.StatusOK, tmpl, pd)
 }
 
 // readTimeForCategory 根据分类 slug 计算估算阅读时长。

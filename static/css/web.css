@@ -1659,64 +1659,44 @@ pre:hover .code-copy-btn,
         gap: 0;
     }
     .footer__brand,
-    .footer__links,
-    .footer__copy {
+    .footer__links {
         display: none;
     }
-    .footer__inner::after {
-        content: '摸鱼日报 · 摸鱼虽好可不要贪杯哦';
-        white-space: nowrap;
+    .footer__copy {
+        text-align: center;
+        line-height: 35px;
     }
+    .footer__copy p {
+        margin: 0;
+        font-size: 0.7rem;
+    }
+}
+/* 移动端 media 结束 */
 }
 
 /* ============================================================
-   桌面端全屏刷屏模式（手动切换）
+   全屏刷屏页 (/fullscreen)
    ============================================================ */
-.swipe-mode .post-feed {
+.swipe-feed {
     scroll-snap-type: y mandatory;
     height: 100vh;
     overflow-y: scroll;
     max-width: 100%;
+    gap: 10px;
 }
 
-.swipe-mode .feed-card {
+.swipe-feed .feed-card {
     scroll-snap-align: start;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    margin-bottom: 0;
+    margin-bottom: 10px;
     border-radius: 0;
     border-left: none;
     border-right: none;
 }
 
-.swipe-mode .feed-card__media {
-    flex-shrink: 0;
-    max-height: 50vh;
-}
-
-.swipe-mode .feed-card__body {
-    flex: 1;
-    overflow-y: auto;
-    max-width: 700px;
-    margin: 0 auto;
-    width: 100%;
-}
-
-.swipe-mode .category-tabs {
-    display: none;
-}
-
-.swipe-mode .load-more-wrap {
-    display: none;
-}
-
-.swipe-mode .footer {
-    display: none;
-}
-
-.swipe-mode .swipe-progress {
-    display: block !important;
+.swipe-feed ~ .swipe-progress {
     position: fixed;
     bottom: 0;
     left: 0;
@@ -1730,3 +1710,7 @@ pre:hover .code-copy-btn,
     color: var(--text-muted);
     z-index: 80;
 }
+
+/* ============================================================
+   手机端独立模板 (home_mobile.html) — 全屏刷屏
+   ============================================================ */

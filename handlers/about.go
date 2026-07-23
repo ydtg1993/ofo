@@ -10,9 +10,9 @@ func (h *Handler) About(c *gin.Context) {
 	categories, _ := h.PostModel.AllCategories()
 	tags, _ := h.PostModel.AllTags()
 
-	c.HTML(http.StatusOK, "about.html", PageData{
+	pd := PageData{
 		Title:         "关于 — " + h.Cfg.Title,
-		Description:   "关于摸鱼日报和作者",
+		Description:   "关于蹬车摸鱼和作者",
 		Keywords:      h.Cfg.Keywords,
 		CanonicalURL:  h.Cfg.BaseURL + "/about",
 		Cfg:           h.Cfg,
@@ -21,5 +21,11 @@ func (h *Handler) About(c *gin.Context) {
 		IsAbout:       true,
 		FishModeTitle: h.Cfg.FishModeTitle,
 		CurrentPath:   "/about",
-	})
+	}
+
+	tmpl := "about.html"
+	if isMobileDevice(c.GetHeader("User-Agent")) {
+		tmpl = "mobile_about"
+	}
+	c.HTML(http.StatusOK, tmpl, pd)
 }

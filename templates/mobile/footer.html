@@ -1,0 +1,16 @@
+{{define "mobile_footer"}}
+    <div class="mobile-progress" id="mobile-progress">
+        <span id="mobile-current">1</span>/<span id="mobile-total">{{len .Posts}}</span>
+    </div>
+
+    <footer class="mobile-footer">
+        <p>蹬车摸鱼 · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">蜀ICP备2026040688号</a></p>
+    </footer>
+
+    <script src="{{asset "/static/js/main.js"}}"></script>
+    {{mediaURLScript}}
+    {{if .Cfg.MediaProtection}}<script src="{{asset "/static/js/media-blob.js"}}"></script>{{end}}
+    {{if not .Cfg.Debug}}<script src="{{asset "/static/js/protect.js"}}"></script>{{end}}
+</body>
+</html>
+{{end}}

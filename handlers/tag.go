@@ -41,7 +41,7 @@ func (h *Handler) Tag(c *gin.Context) {
 		}
 	}
 
-	c.HTML(http.StatusOK, "home.html", PageData{
+	pd := PageData{
 		Title:         "Tag: " + tagName + " — " + h.Cfg.Title,
 		Description:   "Posts tagged with " + tagName,
 		Keywords:      tagName + "," + h.Cfg.Keywords,
@@ -53,5 +53,11 @@ func (h *Handler) Tag(c *gin.Context) {
 		FilterName:    tagName,
 		FishModeTitle: h.Cfg.FishModeTitle,
 		CurrentPath:   "/tag/" + slug,
-	})
+	}
+
+	tmpl := "home.html"
+	if isMobileDevice(c.GetHeader("User-Agent")) {
+		tmpl = "mobile_home"
+	}
+	c.HTML(http.StatusOK, tmpl, pd)
 }

@@ -1,0 +1,39 @@
+{{define "mobile_header"}}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{.Title}}</title>
+    {{if .Cfg.MediaProtection}}<meta name="ofo-media-protection" content="enabled">{{end}}
+    <meta name="description" content="{{.Description}}">
+    <meta name="keywords" content="{{.Keywords}}">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="{{.Cfg.Author}}">
+    {{if .Cfg.BaiduVerify}}<meta name="baidu-site-verification" content="{{.Cfg.BaiduVerify}}">{{end}}
+    {{if .Cfg.Verify360}}<meta name="360-site-verification" content="{{.Cfg.Verify360}}">{{end}}
+    {{if .Cfg.SogouVerify}}<meta name="sogou-site-verification" content="{{.Cfg.SogouVerify}}">{{end}}
+    <meta property="og:title" content="{{.Title}}">
+    <meta property="og:description" content="{{.Description}}">
+    <meta property="og:url" content="{{.CanonicalURL}}">
+    <meta property="og:site_name" content="{{.Cfg.Title}}">
+    <meta property="og:locale" content="zh_CN">
+    {{if .OGImage}}<meta property="og:image" content="{{.OGImage}}">{{end}}
+    <meta property="og:type" content="website">
+    <link rel="canonical" href="{{.CanonicalURL}}">
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml">
+    <link rel="stylesheet" href="{{asset "/static/css/mobile.css"}}">
+    <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
+    {{mediaConfigScript}}
+    <script>window._ofoFishModeTitle = '{{.FishModeTitle}}';</script>
+</head>
+<body class="mobile-app">
+    <nav class="navbar mobile-nav">
+        <div class="container navbar__inner">
+            <a href="/" class="navbar__brand">{{.Cfg.Title}}</a>
+            <ul class="navbar__links">
+                <li><a href="/about">关于</a></li>
+            </ul>
+        </div>
+    </nav>
+{{end}}
