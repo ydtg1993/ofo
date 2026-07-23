@@ -3,6 +3,7 @@ package router
 import (
 	"database/sql"
 	"html/template"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,6 +138,9 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		r.GET("/feed.xml", h.RSS)            // RSS 别名
 		r.GET("/robots.txt", h.RobotsTXT)    // 搜索引擎爬虫规则
 		r.GET("/sitemap.xml", h.SitemapXML)  // 站点地图
+		r.GET("/verification.html", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "verification.html", gin.H{})
+		})
 	}
 
 	// ==========================================
