@@ -120,24 +120,49 @@
     })();
 
     // ==========================================
-    // 全屏刷屏页 (/fullscreen) — 进度计数器
+    // 全屏刷屏页 (/fullscreen) — 进度计数器 + 导航栏自动隐藏
     // ==========================================
     (function () {
         var feed = document.querySelector('.swipe-feed');
         if (!feed) return;
         var current = document.getElementById('swipe-current');
         var total = document.getElementById('swipe-total');
-        if (!current || !total) return;
-        var observer = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-                if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-                    var cards = feed.querySelectorAll('.feed-card');
-                    var idx = Array.prototype.indexOf.call(cards, entry.target) + 1;
-                    if (idx > 0) current.textContent = idx;
+        var navbar = document.querySelector('.navbar');
+        var lastScrollY = 0;
+
+        // 进度计数器
+        if (current && total) {
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+                        var cards = feed.querySelectorAll('.feed-card');
+                        var idx = Array.prototype.indexOf.call(cards, entry.target) + 1;
+                        if (idx > 0) current.textContent = idx;
+                    }
+                });
+            }, { threshold: 0.5 });
+            feed.querySelectorAll('.feed-card').forEach(function (c) { observer.observe(c); });
+        }
+
+        // 导航栏改为固定定位 + 下拉消失/上拉出现
+        if (navbar) {
+            navbar.style.position = 'fixed';
+            navbar.style.top = '0';
+            navbar.style.left = '0';
+            navbar.style.right = '0';
+            navbar.style.zIndex = '100';
+            navbar.style.transition = 'transform 0.3s ease';
+
+            feed.addEventListener('scroll', function () {
+                var sy = feed.scrollTop;
+                if (sy > lastScrollY && sy > 60) {
+                    navbar.style.transform = 'translateY(-100%)';
+                } else if (sy < lastScrollY) {
+                    navbar.style.transform = 'translateY(0)';
                 }
-            });
-        }, { threshold: 0.5 });
-        feed.querySelectorAll('.feed-card').forEach(function (c) { observer.observe(c); });
+                lastScrollY = sy;
+            }, { passive: true });
+        }
     })();
 
     // ==========================================
@@ -367,6 +392,29 @@
     });
 
     // ==========================================
+    // 刷屏模式快捷键 — Ctrl+Z 切换
+    // ==========================================
+    document.addEventListener('keydown', function (e) {
+        if (e.ctrlKey && e.key === 'z' && !e.target.closest('input,textarea,[contenteditable]')) {
+            e.preventDefault();
+            if (window.location.pathname === '/fullscreen') {
+                window.history.back();
+            } else {
+                window.location.href = '/fullscreen';
+            }
+        }
+    });
+
+    // 切换刷屏的通用函数（按钮也用）
+    window.toggleFullscreen = function () {
+        if (window.location.pathname === '/fullscreen') {
+            window.history.back();
+        } else {
+            window.location.href = '/fullscreen';
+        }
+    };
+
+    // ==========================================
     // 摸鱼模式 (Fish Mode) — Ctrl+B
     // ==========================================
     (function () {
@@ -403,7 +451,7 @@
 
         if (toggle) toggle.addEventListener('click', function () { active ? off() : on(); });
         document.addEventListener('keydown', function (e) {
-            if (e.ctrlKey && e.key === 'b') { e.preventDefault(); active ? off() : on(); }
+            if (e.ctrlKey && e.key === 'x') { e.preventDefault(); active ? off() : on(); }
         });
         if (localStorage.getItem('ofo-fish-mode') === 'true') on();
     })();
@@ -431,7 +479,7 @@
         function on() { if (!overlay) create(); active = true; overlay.style.display = 'flex'; document.title = '工作周报 - 2024'; }
         function off() { active = false; overlay.style.display = 'none'; document.title = document.body.classList.contains('fish-mode') ? '工作周报 - 2024' : '蹬车摸鱼'; }
         document.addEventListener('keydown', function (e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); active ? off() : on(); }
+            if (e.ctrlKey && e.key === 'q') { e.preventDefault(); active ? off() : on(); }
             if (active && e.key === 'Escape') { e.preventDefault(); off(); }
         });
         var btn = document.getElementById('boss-key-btn');

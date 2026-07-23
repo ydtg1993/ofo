@@ -1373,15 +1373,22 @@ pre:hover .code-copy-btn,
    摸鱼按钮 — .fish-mode-toggle
    ============================================================ */
 .fish-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.2rem;
     background: var(--bg-secondary);
     border: 2px solid var(--border-color);
     border-radius: var(--radius);
     cursor: pointer;
-    padding: 0.3rem 0.5rem;
+    padding: 0;
     font-size: 1.1rem;
     line-height: 1;
     box-shadow: 2px 2px 0 var(--shadow-color);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
+    text-decoration: none;
+    color: var(--text-primary);
 }
 
 .fish-mode-toggle:hover {
@@ -1392,6 +1399,10 @@ pre:hover .code-copy-btn,
 .fish-mode-toggle:active {
     transform: translate(3px, 3px);
     box-shadow: none;
+}
+.fish-mode-toggle.active {
+    background: var(--accent);
+    color: #000;
 }
 
 .fish-mode-toggle__icon {
@@ -1683,6 +1694,17 @@ pre:hover .code-copy-btn,
     overflow-y: scroll;
     max-width: 100%;
     gap: 10px;
+}
+.swipe-feed-page { overflow: hidden; }
+.swipe-feed-page .footer { display: none; }
+.swipe-feed-page .swipe-feed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: scroll;
+    max-width: 100%;
 }
 
 .swipe-feed .feed-card {
