@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	gopinyin "github.com/mozillazg/go-pinyin"
 )
 
 // Post represents a full blog post from the database.
@@ -573,19 +575,35 @@ func ExtractThumbnail(html string) string {
 
 // slugify converts a string to a URL-safe slug.
 func slugify(s string) string {
+	// 先将中文转换为拼音，再只保留字母和数字（小写），去掉所有符号和空格
+	s = chineseToPinyin(s)
+
 	result := ""
 	for _, r := range s {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			result += strings.ToLower(string(r))
-		} else if r == ' ' || r == '-' || r == '_' {
-			if len(result) > 0 && result[len(result)-1] != '-' {
-				result += "-"
-			}
 		}
 	}
-	slug := strings.TrimRight(result, "-")
-	if slug == "" {
-		slug = fmt.Sprintf("tag-%d", time.Now().Unix())
+	if result == "" {
+		result = fmt.Sprintf("tag%d", time.Now().Unix())
 	}
-	return slug
+	return result
+}
+
+// chineseToPinyin 将字符串中的中文转换为拼音（小写，不含声调），非中文原样保留。
+func chineseToPinyin(s string) string {
+	args := gopinyin.NewArgs()
+	args.Style = gopinyin.Normal // 小写，不带声调
+	var b strings.Builder
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff { // CJK Unified Ideographs
+			py := gopinyin.SinglePinyin(r, args)
+			if len(py) > 0 {
+				b.WriteString(py[0])
+			}
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

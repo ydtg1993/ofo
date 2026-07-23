@@ -10,6 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/qiniu/go-sdk/v7 v7.26.16
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/ulule/limiter/v3 v3.11.2

@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/microcosm-cc/bluemonday"
+	gopinyin "github.com/mozillazg/go-pinyin"
 	"github.com/russross/blackfriday/v2"
 )
 
@@ -1056,22 +1057,37 @@ func adminPagination(c *gin.Context, total int, perPage int) *models.Pagination 
 }
 
 func slugifyStr(s string) string {
+	// 先将中文转换为拼音，再只保留字母和数字（小写），去掉所有符号和空格
+	s = chineseToPinyin(s)
+
 	result := ""
 	for _, r := range s {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			result += strings.ToLower(string(r))
-		} else if r == ' ' || r == '-' || r == '_' {
-			if len(result) > 0 && result[len(result)-1] != '-' {
-				result += "-"
-			}
 		}
 	}
-	slug := strings.Trim(result, "-")
-	// 兜底：纯中文等标题 slugify 后为空时，用时间戳
-	if slug == "" {
-		slug = fmt.Sprintf("post-%d", time.Now().Unix())
+	if result == "" {
+		result = fmt.Sprintf("post%d", time.Now().Unix())
 	}
-	return slug
+	return result
+}
+
+// chineseToPinyin 将字符串中的中文转换为拼音（小写，不含声调），非中文原样保留。
+func chineseToPinyin(s string) string {
+	args := gopinyin.NewArgs()
+	args.Style = gopinyin.Normal // 小写，不带声调
+	var b strings.Builder
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff { // CJK Unified Ideographs
+			py := gopinyin.SinglePinyin(r, args)
+			if len(py) > 0 {
+				b.WriteString(py[0])
+			}
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func extractExcerptStr(md string, maxLen int) string {
