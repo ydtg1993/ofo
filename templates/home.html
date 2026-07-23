@@ -1,90 +1,76 @@
 {{template "header" .}}
 
-        <!-- 文章列表（首页、分类、标签） -->
-        <div class="home-layout">
-            <section class="post-list">
-                <div class="post-list__header">
-                    <h1>
-                    {{if .FilterName}}
-                        {{.FilterName}}
-                    {{else}}
-                        最新内容
-                    {{end}}
-                    </h1>
-                    <span class="post-list__count">共 <span id="post-total">{{len .Posts}}</span> 篇</span>
-                </div>
+        <!-- 分类筛选标签栏 -->
+        <nav class="category-tabs" id="category-tabs">
+            <a href="/" class="category-tab{{if eq .CurrentPath "/"}} active{{end}}">全部</a>
+            {{range .Categories}}{{if gt .Count 0}}
+            <a href="/category/{{.Slug}}" class="category-tab{{if eq $.CurrentPath (printf "/category/%s" .Slug)}} active{{end}}">{{catEmoji .Slug}} {{.Name}}</a>
+            {{end}}{{end}}
+            <button class="category-tab swipe-toggle" id="swipe-toggle" onclick="toggleSwipeMode()" title="全屏刷屏模式">📺 刷屏</button>
+        </nav>
 
-                {{range $i, $post := .Posts}}
-                <article class="post-card neo-box{{if $post.ThumbnailURL}} post-card--has-thumb{{end}} lazy-post{{if ge $i 10}} post-card--hidden{{end}}" data-post-index="{{$i}}">
-                    {{if $post.ThumbnailURL}}
-                    <a href="/post/{{$post.Slug}}" class="post-card__thumb" aria-hidden="true" tabindex="-1">
-                        {{if isVideoURL $post.ThumbnailURL}}
-                        <div class="video-player">
-                            {{videoThumb $post.ThumbnailURL}}
-                            <div class="video-player__play"></div>
-                        </div>
-                        {{else}}
-                        {{thumbnailImg $post.ThumbnailURL $post.Title}}
-                        {{end}}
-                    </a>
+        <!-- 信息流 -->
+        <div class="post-feed" id="post-feed">
+            {{range $i, $post := .Posts}}
+            <article class="feed-card neo-box" data-category="{{$post.CategorySlug}}" data-post-index="{{$i}}">
+                <!-- 媒体区（图片/视频） -->
+                {{if $post.ThumbnailURL}}
+                <div class="feed-card__media">
+                    {{if isVideoURL $post.ThumbnailURL}}
+                    <video {{mediaID $post.ThumbnailURL}} preload="none" controls playsinline
+                        class="feed-card__video"></video>
+                    {{else}}
+                    {{thumbnailImg $post.ThumbnailURL $post.Title}}
                     {{end}}
-                    <div class="post-card__body">
-                    <h2 class="post-card__title">
+                </div>
+                {{end}}
+
+                <!-- 内容区 -->
+                <div class="feed-card__body">
+                    <header class="feed-card__header">
+                        {{if $post.CategoryName}}
+                        <a href="/category/{{$post.CategorySlug}}" class="feed-card__category">
+                            {{catEmoji $post.CategorySlug}} {{$post.CategoryName}} · {{readTime $post.CategorySlug}}
+                        </a>
+                        {{end}}
+                        <time datetime="{{$post.CreatedAt | formatDateShort}}">{{$post.CreatedAt | formatDate}}</time>
+                    </header>
+
+                    <h2 class="feed-card__title">
                         <a href="/post/{{$post.Slug}}">{{$post.Title}}</a>
                     </h2>
-                    <div class="post-card__meta">
-                        <time datetime="{{$post.CreatedAt | formatDateShort}}">{{$post.CreatedAt | formatDate}}</time>
-                        {{if $post.CategoryName}}
-                        <span>&middot;</span>
-                        <a href="/category/{{$post.CategorySlug}}" class="post-card__category">{{$post.CategoryName}}</a>
-                        {{end}}
+
+                    <div class="feed-card__content">
+                        {{$post.ContentHTML | lazyImages}}
                     </div>
-                    <p class="post-card__excerpt">{{$post.Excerpt}}</p>
+
                     {{if $post.Tags}}
-                    <div class="post-card__tags">
+                    <div class="feed-card__tags">
                         {{range $post.Tags}}
                         <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
                         {{end}}
                     </div>
                     {{end}}
-                    </div>
-                </article>
-                {{else}}
-                <div class="neo-box" style="text-align:center;padding:3rem;">
-                    <p style="font-size:1.25rem;">暂无内容，敬请期待！</p>
                 </div>
-                {{end}}
+            </article>
+            {{else}}
+            <div class="neo-box" style="text-align:center;padding:3rem;">
+                <p style="font-size:1.25rem;">暂无内容，敬请期待！</p>
+            </div>
+            {{end}}
+        </div>
 
-                <!-- 加载更多 -->
-                <div id="load-more-wrap" class="load-more-wrap" style="display:none;">
-                    <button id="load-more-btn" class="btn load-more-btn">加载更多 <span id="load-more-remaining"></span></button>
-                </div>
-            </section>
+        <!-- 加载哨兵（IntersectionObserver 触发点） -->
+        {{if .HasMore}}
+        <div id="load-sentinel" style="height:1px;"></div>
+        <div class="load-more-wrap" id="load-more-wrap">
+            <button id="load-more-btn" class="btn load-more-btn">加载更多</button>
+        </div>
+        {{end}}
 
-            <!-- 侧边栏 -->
-            <aside class="sidebar">
-                {{if .Categories}}
-                <div class="sidebar__section neo-box">
-                    <h3 class="sidebar__title">分类</h3>
-                    <ul class="sidebar__list">
-                        {{range .Categories}}{{if gt .Count 0}}
-                        <li><a href="/category/{{.Slug}}">{{.Name}} <span class="count">{{.Count}}</span></a></li>
-                        {{end}}{{end}}
-                    </ul>
-                </div>
-                {{end}}
-
-                {{if .Tags}}
-                <div class="sidebar__section neo-box">
-                    <h3 class="sidebar__title">标签</h3>
-                    <div class="tag-cloud">
-                        {{range .Tags}}{{if gt .Count 0}}
-                        <a href="/tag/{{.Slug}}" class="tag">{{.Name}}</a>
-                        {{end}}{{end}}
-                    </div>
-                </div>
-                {{end}}
-            </aside>
+        <!-- 移动端进度指示器 -->
+        <div class="swipe-progress" id="swipe-progress" style="display:none;">
+            <span id="swipe-current">1</span>/<span id="swipe-total">{{len .Posts}}</span>
         </div>
 
 {{template "footer" .}}

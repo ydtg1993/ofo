@@ -84,55 +84,145 @@
         // Initial preview
         updatePreview();
 
-        // --- Lazy Load Posts ---
-        var POSTS_PER_BATCH = 15;
-        var allPosts = document.querySelectorAll('.lazy-post');
-        var loadMoreWrap = document.getElementById('load-more-wrap');
-        var loadMoreBtn = document.getElementById('load-more-btn');
-        var loadMoreRemaining = document.getElementById('load-more-remaining');
+        // ==========================================
+        // 信息流：AJAX 无限滚动 + 分类筛选 + 刷屏模式
+        // ==========================================
+        (function () {
+            var currentPage = 1;
+            var loading = false;
+            var hasMore = true;
+            var activeCategory = '';
+            var perPage = 15;
+            var feedEl = document.getElementById('post-feed');
+            var sentinel = document.getElementById('load-sentinel');
+            var loadMoreWrap = document.getElementById('load-more-wrap');
+            var loadMoreBtn = document.getElementById('load-more-btn');
+            var swipeProgress = document.getElementById('swipe-progress');
+            var swipeCurrent = document.getElementById('swipe-current');
+            var swipeTotal = document.getElementById('swipe-total');
+            var isMobile = window.matchMedia('(max-width: 640px)').matches;
 
-        // 恢复上次浏览位置：读取 sessionStorage 中已展示的文章数
-        var storageKey = 'ofo-posts-visible';
-        var savedCount = parseInt(sessionStorage.getItem(storageKey), 10);
-        var visibleCount = Math.max(POSTS_PER_BATCH, savedCount || POSTS_PER_BATCH);
+            // ---- 卡片渲染 ----
+            function renderCard(post) {
+                var catEmoji = { 'quick-peek': '⚡', 'bathroom-break': '☕', 'lunch-break': '🍱', 'daily-highlight': '🔥' };
+                var readTime = { 'quick-peek': '30秒', 'bathroom-break': '3-5分钟', 'lunch-break': '10-15分钟', 'daily-highlight': '5-10分钟' };
+                var emoji = catEmoji[post.CategorySlug] || '';
+                var time = readTime[post.CategorySlug] || '';
 
-        function updateLoadMore() {
-            var hiddenPosts = document.querySelectorAll('.lazy-post.post-card--hidden');
-            if (hiddenPosts.length === 0) {
-                if (loadMoreWrap) loadMoreWrap.style.display = 'none';
-            } else {
-                if (loadMoreWrap) loadMoreWrap.style.display = 'block';
-                if (loadMoreRemaining) {
-                    loadMoreRemaining.textContent = '（还有 ' + hiddenPosts.length + ' 篇）';
+                var tagsHTML = '';
+                if (post.Tags) {
+                    tagsHTML = '<div class="feed-card__tags">' + post.Tags.map(function (t) {
+                        return '<a href="/tag/' + t.Slug + '" class="tag">' + t.Name + '</a>';
+                    }).join('') + '</div>';
                 }
-            }
-        }
 
-        // 展示前 visibleCount 篇，隐藏其余
-        allPosts.forEach(function (post, i) {
-            if (i < visibleCount) {
-                post.classList.remove('post-card--hidden');
-            }
-        });
-        updateLoadMore();
-
-        // 每次展开后存一下状态
-        function saveVisibleState() {
-            var shown = document.querySelectorAll('.lazy-post:not(.post-card--hidden)').length;
-            sessionStorage.setItem(storageKey, shown);
-        }
-
-        if (loadMoreBtn) {
-            loadMoreBtn.addEventListener('click', function () {
-                var hidden = document.querySelectorAll('.lazy-post.post-card--hidden');
-                var toShow = Math.min(POSTS_PER_BATCH, hidden.length);
-                for (var i = 0; i < toShow; i++) {
-                    hidden[i].classList.remove('post-card--hidden');
+                var mediaHTML = '';
+                if (post.ThumbnailURL) {
+                    var isVideo = post.ThumbnailURL.match(/\.(mp4|webm|ogg|mov)$/i) || post.ThumbnailURL.indexOf('/video/') > -1;
+                    if (isVideo) {
+                        mediaHTML = '<div class="feed-card__media"><video src="' + post.ThumbnailURL + '" preload="none" controls playsinline class="feed-card__video"></video></div>';
+                    } else {
+                        mediaHTML = '<div class="feed-card__media"><img src="' + post.ThumbnailURL + '" alt="' + post.Title + '" loading="lazy"></div>';
+                    }
                 }
-                updateLoadMore();
-                saveVisibleState();
-            });
-        }
+
+                var dateStr = new Date(post.CreatedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+
+                return '<article class="feed-card neo-box" data-category="' + (post.CategorySlug || '') + '">' +
+                    mediaHTML +
+                    '<div class="feed-card__body">' +
+                    '<header class="feed-card__header">' +
+                    (post.CategoryName ? '<a href="/category/' + post.CategorySlug + '" class="feed-card__category">' + emoji + ' ' + post.CategoryName + (time ? ' · ' + time : '') + '</a>' : '') +
+                    '<time datetime="' + post.CreatedAt + '">' + dateStr + '</time>' +
+                    '</header>' +
+                    '<h2 class="feed-card__title"><a href="/post/' + post.Slug + '">' + post.Title + '</a></h2>' +
+                    '<div class="feed-card__content">' + (post.ContentHTML || post.Excerpt) + '</div>' +
+                    tagsHTML +
+                    '</div></article>';
+            }
+
+            // ---- AJAX 加载 ----
+            function loadMore() {
+                if (loading || !hasMore) return;
+                loading = true;
+                currentPage++;
+                var url = '/api/posts?page=' + currentPage + '&per_page=' + perPage;
+                if (activeCategory) url += '&category=' + encodeURIComponent(activeCategory);
+
+                fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                    var posts = data.posts || [];
+                    posts.forEach(function (p) {
+                        feedEl.insertAdjacentHTML('beforeend', renderCard(p));
+                    });
+                    hasMore = data.page < data.total_pages;
+                    if (!hasMore && loadMoreWrap) loadMoreWrap.style.display = 'none';
+                    updateSwipeTotal();
+                    observeNewCards(feedEl);
+                    loading = false;
+                }).catch(function () {
+                    loading = false;
+                });
+            }
+
+            // ---- 哨兵观察（桌面端自动加载） ----
+            if (sentinel) {
+                var sentinelObserver = new IntersectionObserver(function (entries) {
+                    if (entries[0].isIntersecting && hasMore && !isMobile) {
+                        loadMore();
+                    }
+                }, { rootMargin: '400px' });
+                sentinelObserver.observe(sentinel);
+            }
+
+            // ---- 加载更多按钮（桌面端手动） ----
+            if (loadMoreBtn) {
+                loadMoreBtn.addEventListener('click', loadMore);
+            }
+
+            // 从 URL 检测当前分类（如 /category/quick-peek）
+            var pathMatch = window.location.pathname.match(/^\/category\/(.+)$/);
+            if (pathMatch) activeCategory = pathMatch[1];
+
+            // ---- 移动端 snap 进度 ----
+            function updateSwipeTotal() {
+                var total = document.querySelectorAll('.feed-card' + (activeCategory ? '[data-category="' + activeCategory + '"]' : '')).length;
+                if (swipeTotal) swipeTotal.textContent = total;
+            }
+
+            var snapObserver = null;
+            if (isMobile && swipeProgress) {
+                swipeProgress.style.display = 'block';
+                snapObserver = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+                            var idx = parseInt(entry.target.getAttribute('data-post-index') || '0', 10) + 1;
+                            if (swipeCurrent && !isNaN(idx)) swipeCurrent.textContent = idx;
+                        }
+                    });
+                }, { threshold: 0.5 });
+
+                document.querySelectorAll('.feed-card').forEach(function (card) {
+                    snapObserver.observe(card);
+                });
+            }
+
+            // 将新卡片加入 snap 观察器
+            function observeNewCards(container) {
+                if (!snapObserver) return;
+                container.querySelectorAll('.feed-card').forEach(function (card) {
+                    snapObserver.observe(card);
+                });
+            }
+
+            // ---- 刷屏模式切换 ----
+            window.toggleSwipeMode = function () {
+                document.body.classList.toggle('swipe-mode');
+                var isSwipe = document.body.classList.contains('swipe-mode');
+                if (isSwipe && swipeProgress) swipeProgress.style.display = 'block';
+                if (!isSwipe && !isMobile && swipeProgress) swipeProgress.style.display = 'none';
+                if (isSwipe && feedEl) feedEl.scrollTop = 0;
+            };
+        })();
 
         // --- File Upload ---
         var fileInput = document.getElementById('file-upload');
@@ -1040,4 +1130,123 @@ function closeStickerPreview(e) {
             dx > 0 ? prev() : next();
         }
     });
+})();
+
+// ==========================================
+// 摸鱼模式 (Fish Mode) — Ctrl+B 切换
+// ==========================================
+(function () {
+	'use strict';
+
+	var fishModeActive = false;
+	var originalTitle = document.title;
+	var fishModeTitle = window._ofoFishModeTitle || '工作周报 - 2024';
+
+	function showToast(msg) {
+		var t = document.createElement('div');
+		t.textContent = msg;
+		t.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;' +
+			'background:#000;color:#FFD740;padding:0.5rem 1.5rem;border-radius:5px;font-weight:700;' +
+			'font-size:0.95rem;transition:opacity 0.3s;pointer-events:none;';
+		document.body.appendChild(t);
+		setTimeout(function () { t.style.opacity = '0'; }, 1500);
+		setTimeout(function () { t.remove(); }, 2000);
+	}
+
+	function enableFishMode() {
+		fishModeActive = true;
+		document.title = fishModeTitle;
+		document.body.classList.add('fish-mode');
+		document.documentElement.setAttribute('data-fish-mode', 'true');
+		localStorage.setItem('ofo-fish-mode', 'true');
+		var btn = document.getElementById('fish-mode-toggle');
+		if (btn) btn.querySelector('.fish-mode-toggle__icon').textContent = '\u2713';
+		showToast('\u6478\u9C7C\u6A21\u5F0F\u5DF2\u5F00\u542F \u2014 \u6807\u9898\u680F\u5DF2\u4F2A\u88C5');
+	}
+
+	function disableFishMode() {
+		fishModeActive = false;
+		document.title = originalTitle;
+		document.body.classList.remove('fish-mode');
+		document.documentElement.setAttribute('data-fish-mode', 'false');
+		localStorage.setItem('ofo-fish-mode', 'false');
+		var btn = document.getElementById('fish-mode-toggle');
+		if (btn) btn.querySelector('.fish-mode-toggle__icon').textContent = '\uD83D\uDC1F';
+		showToast('\u6478\u9C7C\u6A21\u5F0F\u5DF2\u5173\u95ED');
+	}
+
+	var fishToggle = document.getElementById('fish-mode-toggle');
+	if (fishToggle) {
+		fishToggle.addEventListener('click', function () {
+			fishModeActive ? disableFishMode() : enableFishMode();
+		});
+	}
+
+	document.addEventListener('keydown', function (e) {
+		if (e.ctrlKey && e.key === 'b') {
+			e.preventDefault();
+			fishModeActive ? disableFishMode() : enableFishMode();
+		}
+	});
+
+	if (localStorage.getItem('ofo-fish-mode') === 'true') {
+		enableFishMode();
+	}
+
+	// ==========================================
+	// 老板键 (Boss Key) — Ctrl+Shift+H 一键伪装
+	// ==========================================
+	var bossModeActive = false;
+	var bossOverlay = null;
+
+	function createBossOverlay() {
+		bossOverlay = document.createElement('div');
+		bossOverlay.id = 'boss-overlay';
+		bossOverlay.style.cssText =
+			'position:fixed;inset:0;z-index:999999;background:var(--bg-secondary,#fff);' +
+			'display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font-body);';
+		bossOverlay.innerHTML =
+			'<div style="max-width:600px;padding:2rem;text-align:center;">' +
+			'<h1 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text-primary);">工作周报 - 2024年第30周</h1>' +
+			'<table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:0.9rem;color:var(--text-primary);">' +
+			'<tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:0.5rem;">项目</th><th style="padding:0.5rem;">进度</th></tr>' +
+			'<tr><td style="padding:0.5rem;">系统优化</td><td style="padding:0.5rem;text-align:center;color:green;">85%</td></tr>' +
+			'<tr><td style="padding:0.5rem;">接口开发</td><td style="padding:0.5rem;text-align:center;color:green;">90%</td></tr>' +
+			'<tr><td style="padding:0.5rem;">文档更新</td><td style="padding:0.5rem;text-align:center;color:orange;">60%</td></tr>' +
+			'</table>' +
+			'<p style="color:var(--text-muted);margin-top:2rem;font-size:0.85rem;">按 <kbd>Esc</kbd> 返回摸鱼</p>' +
+			'</div>';
+		document.body.appendChild(bossOverlay);
+	}
+
+	function activateBossKey() {
+		if (!bossOverlay) createBossOverlay();
+		bossModeActive = true;
+		bossOverlay.style.display = 'flex';
+		document.title = '工作周报 - 2024';
+	}
+
+	function deactivateBossKey() {
+		bossModeActive = false;
+		bossOverlay.style.display = 'none';
+		document.title = fishModeActive ? fishModeTitle : originalTitle;
+	}
+
+	document.addEventListener('keydown', function (e) {
+		if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+			e.preventDefault();
+			bossModeActive ? deactivateBossKey() : activateBossKey();
+		}
+		if (e.key === 'Escape' && bossModeActive) {
+			e.preventDefault();
+			deactivateBossKey();
+		}
+	});
+
+	var bossKeyBtn = document.getElementById('boss-key-btn');
+	if (bossKeyBtn) {
+		bossKeyBtn.addEventListener('click', function () {
+			bossModeActive ? deactivateBossKey() : activateBossKey();
+		});
+	}
 })();

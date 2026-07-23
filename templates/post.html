@@ -19,7 +19,10 @@
                     <span class="post-full__date">{{.Post.CreatedAt | formatDate}}</span>
                     {{if .PostCategoryName}}
                     <span>&middot;</span>
-                    <a href="/category/{{.PostCategorySlug}}" class="post-full__category">{{.PostCategoryName}}</a>
+                    <a href="/category/{{.PostCategorySlug}}" class="post-full__category">{{catEmoji .PostCategorySlug}} {{.PostCategoryName}}</a>
+                    {{end}}
+                    {{if .ReadTime}}
+                    <span class="post-full__read-time">阅读时长：{{.ReadTime}}</span>
                     {{end}}
                 </div>
             </header>
@@ -53,6 +56,22 @@
             </div>
             {{end}}
             <footer class="post-full__footer">
+                {{if or .PrevPost .NextPost}}
+                <nav class="post-nav">
+                    {{if .PrevPost}}
+                    <a href="/post/{{.PrevPost.Slug}}" class="post-nav__prev">
+                        <span class="post-nav__label">&larr; 上一篇</span>
+                        <span class="post-nav__title">{{.PrevPost.Title}}</span>
+                    </a>
+                    {{end}}
+                    {{if .NextPost}}
+                    <a href="/post/{{.NextPost.Slug}}" class="post-nav__next">
+                        <span class="post-nav__label">下一篇 &rarr;</span>
+                        <span class="post-nav__title">{{.NextPost.Title}}</span>
+                    </a>
+                    {{end}}
+                </nav>
+                {{end}}
                 <a href="/" class="btn">&larr; 全部文章</a>
             </footer>
         </article>

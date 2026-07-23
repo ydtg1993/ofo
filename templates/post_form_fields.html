@@ -43,10 +43,19 @@
     </div>
 
     <!-- 发布时间 -->
-    <div class="form-group">
-        <label for="created_at" class="form-label">发布时间</label>
-        <input type="date" id="created_at" name="created_at" class="form-input" style="max-width:220px;"
-            value="{{if .Post}}{{.Post.CreatedAt | formatDateShort}}{{end}}">
+    <div class="form-row">
+        <div class="form-group" style="flex:1;">
+            <label for="created_at" class="form-label">发布日期</label>
+            <input type="date" id="created_at" name="created_at" class="form-input" style="max-width:220px;"
+                value="{{if .Post}}{{.Post.CreatedAt | formatDateShort}}{{end}}">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label for="publish_at" class="form-label">定时发布（可选）</label>
+            <input type="datetime-local" id="publish_at" name="publish_at" class="form-input" style="max-width:260px;"
+                value="{{if .Post}}{{if .Post.PublishAt.Valid}}{{printf "%d-%02d-%02dT%02d:%02d" .Post.PublishAt.Time.Year .Post.PublishAt.Time.Month .Post.PublishAt.Time.Day .Post.PublishAt.Time.Hour .Post.PublishAt.Time.Minute}}{{end}}{{end}}"
+                placeholder="留空则立即/手动发布">
+            <span class="form-hint" style="font-size:0.8rem;color:var(--text-muted);">设置未来时间可定时发布</span>
+        </div>
     </div>
 
     <div class="form-group">

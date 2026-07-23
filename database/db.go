@@ -70,6 +70,9 @@ var migrations = []string{
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+	// 定时发布：NULL = 立即发布
+	`ALTER TABLE posts ADD COLUMN publish_at DATETIME DEFAULT NULL`,
+	`CREATE INDEX IF NOT EXISTS idx_posts_publish_at ON posts(publish_at)`,
 }
 
 func Init(dsn string) (*sql.DB, error) {

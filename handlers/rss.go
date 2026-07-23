@@ -21,7 +21,7 @@ func (h *Handler) RSS(c *gin.Context) {
 <channel>
 <title>` + h.Cfg.Title + `</title>
 <link>` + h.Cfg.BaseURL + `</link>
-<description>搞笑图片、趣味短片、奇闻趣事 —— 内容来源于网络，快乐来源于分享。</description>
+<description>摸鱼日报 — 为办公室打工人准备的轻娱乐内容站。速览、摸一会、午休档、每日精选。内容来源于网络，快乐来源于分享。</description>
 <language>zh-CN</language>
 <lastBuildDate>` + time.Now().Format(time.RFC1123Z) + `</lastBuildDate>
 <atom:link href="` + h.Cfg.BaseURL + `/rss.xml" rel="self" type="application/rss+xml"/>

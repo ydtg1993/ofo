@@ -1,6 +1,48 @@
 {{template "admin_header" .}}
 
-        <!-- ============ 编辑器（分栏布局） ============ -->
+        {{if .IsQuick}}
+        <!-- 快速发布模式 -->
+        <h1>&#x26A1; 快速发布</h1>
+        <form method="POST" action="/admin/posts/quick" class="editor-layout" id="editor-form">
+            <div class="editor-left" style="grid-column: 1 / -1; max-width: 700px;">
+                <div class="form-group">
+                    <label class="form-label">图片/视频 <span style="color: var(--danger);">*</span></label>
+                    <div class="editor-drop-zone" id="editor-drop-zone">
+                        <p><strong>拖拽图片/视频到此处</strong> 或点击上传</p>
+                        <p style="font-size:0.8rem;color:var(--text-muted);">支持 JPG / PNG / GIF / WebP / MP4 / WebM</p>
+                        <input type="file" id="file-upload" accept="image/*,video/*" multiple style="display:none;">
+                        <div id="editor-queue-list" class="editor-queue"></div>
+                    </div>
+                    <input type="hidden" id="image_url" name="image_url" value="">
+                </div>
+                <div class="form-group">
+                    <label for="caption" class="form-label">一句话描述 <span style="color: var(--danger);">*</span></label>
+                    <textarea id="caption" name="caption" class="form-textarea" rows="4" required autofocus
+                        placeholder="写一句话描述这张图/视频。标题和摘要会自动生成。"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                        <label for="category_id" class="form-label">分类</label>
+                        <select id="category_id" name="category_id" class="form-input">
+                            <option value="">— 选择分类 —</option>
+                            {{range .Categories}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label for="publish_at" class="form-label">定时发布（可选）</label>
+                        <input type="datetime-local" id="publish_at" name="publish_at" class="form-input" style="max-width:260px;">
+                        <span class="form-hint" style="font-size:0.8rem;color:var(--text-muted);">留空立即发布</span>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn">&#x26A1; 立即发布</button>
+                    <a href="/admin" class="btn btn--accent">取消</a>
+                </div>
+            </div>
+        </form>
+        {{else}}
         {{if .IsNew}}
         <h1>写新文章</h1>
         <form method="POST" action="/admin/posts" class="editor-layout" id="editor-form">
@@ -31,5 +73,6 @@
                 </div>
             </div>
         </form>
+        {{end}}
 
 {{template "admin_footer" .}}

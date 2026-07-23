@@ -20,15 +20,14 @@ func Seed(db *sql.DB) error {
 		return nil
 	}
 
-	logger.Info("Seeding database with sample data...")
+	logger.Info("Seeding database with 摸鱼 sample data...")
 
-	// Insert categories
+	// Insert categories — 按摸鱼场景分类
 	categories := map[string]string{
-		"Go":           "go",
-		"DevOps":       "devops",
-		"Architecture": "architecture",
-		"JavaScript":   "javascript",
-		"Tools":        "tools",
+		"速览":   "quick-peek",
+		"摸一会":  "bathroom-break",
+		"午休档":  "lunch-break",
+		"今日精选": "daily-highlight",
 	}
 	for name, slug := range categories {
 		if _, err := db.Exec("INSERT IGNORE INTO categories (name, slug) VALUES (?, ?)", name, slug); err != nil {
@@ -36,20 +35,15 @@ func Seed(db *sql.DB) error {
 		}
 	}
 
-	// Insert tags
+	// Insert tags — 按内容题材分类
 	tags := map[string]string{
-		"golang":      "golang",
-		"gin":         "gin",
-		"api":         "api",
-		"concurrency": "concurrency",
-		"goroutines":  "goroutines",
-		"sqlite":      "sqlite",
-		"database":    "database",
-		"docker":      "docker",
-		"devops":      "devops",
-		"typescript":  "typescript",
-		"javascript":  "javascript",
-		"react":       "react",
+		"程序员":   "cheng-xu-yuan",
+		"打工人":   "da-gong-ren",
+		"甲方乙方":  "jia-fang-yi-fang",
+		"社死现场":  "she-si-xian-chang",
+		"离谱设计":  "li-pu-she-ji",
+		"动物":    "dong-wu",
+		"互联网考古": "hu-lian-wang-kao-gu",
 	}
 	for name, slug := range tags {
 		if _, err := db.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", name, slug); err != nil {
@@ -67,388 +61,215 @@ func Seed(db *sql.DB) error {
 		Tags     []string
 	}{
 		{
-			Title:    "Building REST APIs with Go and Gin",
-			Slug:     "building-rest-apis-with-go-and-gin",
-			Category: "go",
-			Tags:     []string{"golang", "gin", "api"},
-			Content: `## Introduction
+			Title:    "产品经理又提了个离谱需求",
+			Slug:     "chan-pin-jing-li-you-ti-liao-ge-li-pu-xu-qiu",
+			Category: "bathroom-break",
+			Tags:     []string{"程序员", "甲方乙方", "离谱设计"},
+			Content: `## 场景还原
 
-Go is an excellent choice for building REST APIs. Combined with the Gin framework, you can create fast, maintainable, and scalable web services. In this post, I'll walk through building a complete REST API from scratch.
+周五下午 5:55，你正准备收拾东西下班。产品经理端着咖啡走过来：
 
-## Why Go for APIs?
+> "那个，用户说我们的 App 打开太慢了，能不能让它秒开？"
 
-Go's standard library already includes a production-ready HTTP server. Its concurrency model makes it easy to handle thousands of simultaneous connections. And the language's simplicity means your codebase stays readable as it grows.
+你刚想说「我们已经优化到 1.2 秒了」，他又补充了一句：
 
-## Setting Up the Project
+> "就是那个，页面上所有的数据也要提前加载好，用户点任何按钮都能瞬间跳转。对了，后台最好能预测用户下一步想干什么。"
 
-First, initialize a new Go module:
+## 经典需求集锦
 
-` + "```bash\n" + `mkdir myapi && cd myapi
-go mod init myapi
-go get github.com/gin-gonic/gin
-` + "```\n\n" + `## Your First Handler
+产品圈的经典语录，你听过几句？
 
-Gin makes routing intuitive. Here's a simple "Hello World" endpoint:
+### 1. "这个需求很简单"
 
-` + "```go\n" + `package main
+*「简单」* = 重构整个后端架构
+*「小改动」* = 改 47 个页面
+*「就加个按钮」* = 需要新开一张表、写一套 API、改前端三个组件
 
-import (
-    "net/http"
-    "github.com/gin-gonic/gin"
-)
+### 2. "我看竞品有这个功能"
 
-func main() {
-    r := gin.Default()
+竞品有 500 人的研发团队，你们有 3 个后端 + 1.5 个前端（那个 0.5 还在兼职运维）。
 
-    r.GET("/api/hello", func(c *gin.Context) {
-        c.JSON(http.StatusOK, gin.H{
-            "message": "Hello, World!",
-        })
-    })
+### 3. "能不能做成百度那样的？"
 
-    r.Run(":8080")
-}
-` + "```\n\n" + `## Structuring Your API
+这是最危险的一句话。接下来你会听到关键词：智能推荐、千人千面、大数据分析。
 
-As your API grows, you'll want to organize it into handlers, models, and middleware. A common structure looks like:
+## 程序员生存法则
 
-- ` + "`handlers/`" + ` — HTTP request handlers
-- ` + "`models/`" + ` — data structures and DB logic
-- ` + "`middleware/`" + ` — authentication, logging, CORS
+1. **永远不要在周五下午部署** — 除非你想周末加班
+2. **QA 说"我随便点点"的时候，请保持警觉** — 他能点出八个你没想到的 bug
+3. **"线上没问题"这句话有魔力** — 说出来就等于在召唤事故
+4. **产品经理说"就最后一个需求"** — 这不是最后一个，永远不会是
 
-## Error Handling
+## 小编点评
 
-Always return meaningful error messages:
-
-` + "```go\n" + `func GetUser(c *gin.Context) {
-    id := c.Param("id")
-    user, err := db.FindUser(id)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{
-            "error": "User not found",
-        })
-        return
-    }
-    c.JSON(http.StatusOK, user)
-}
-` + "```\n\n" + `## Conclusion
-
-Go and Gin give you everything you need to build robust REST APIs. The performance is excellent, the code is clean, and the ecosystem is mature. Give it a try on your next project!`,
+当产品经理说"这个需求很简单"的时候，建议你回复："那你写个 demo 给我看看？" —— 这句话能为你争取至少三天的清净时间。`,
 		},
 		{
-			Title:    "Understanding Goroutines and Channels",
-			Slug:     "understanding-goroutines-and-channels",
-			Category: "go",
-			Tags:     []string{"golang", "concurrency", "goroutines"},
-			Content: `## What Are Goroutines?
+			Title:    "同事在周会上不小心共享了屏幕",
+			Slug:     "tong-shi-zai-zhou-hui-shang-bu-xiao-xin-gong-xiang-liao-ping-mu",
+			Category: "lunch-break",
+			Tags:     []string{"社死现场", "打工人"},
+			Content: `## 事发经过
 
-A goroutine is a lightweight thread managed by the Go runtime. They're cheap to create — you can spawn thousands of them without breaking a sweat. Just prefix any function call with ` + "`go`" + `:
+周二早上 10 点，全组周会。技术负责人老张在投屏讲 Q3 技术规划。
 
-` + "```go\n" + `func sayHello() {
-    fmt.Println("Hello from goroutine!")
-}
+突然他的微信弹窗出现在大屏幕上——
 
-func main() {
-    go sayHello()
-    time.Sleep(time.Second) // give it time to finish
-}
-` + "```\n\n" + `## The Power of Channels
+> **老婆**：你今天出门前是不是没冲厕所？
 
-Channels are the pipes that connect goroutines. They let you safely pass data between concurrent operations without explicit locks.
+整个会议室安静了整整三秒钟。那是比任何技术难题都长的三秒钟。
 
-` + "```go\n" + `func main() {
-    ch := make(chan string)
+## 远程会议生存法则
 
-    go func() {
-        ch <- "Hello from goroutine!"
-    }()
+疫情之后，在家开视频会的翻车现场层出不穷：
 
-    msg := <-ch
-    fmt.Println(msg)
-}
-` + "```\n\n" + `## Buffered vs Unbuffered Channels
+### 经典案例 1：上半身西装，下半身花裤衩
 
-Unbuffered channels block until both sender and receiver are ready — they're a synchronization primitive. Buffered channels let you queue up values:
+你以为只露出上半身就安全了。直到快递小哥按门铃，你站起来的一瞬间……
 
-` + "```go\n" + `// Unbuffered: synchronous
-ch := make(chan int)
+### 经典案例 2：以为已经静音了
 
-// Buffered: capacity of 3
-ch := make(chan int, 3)
-` + "```\n\n" + `## Select Statement
+「这个方案也太菜了吧」—— 你的这句话通过 Zoom 传到了方案提出者本人耳中。
 
-The ` + "`select`" + ` statement lets a goroutine wait on multiple channel operations:
+### 经典案例 3：虚拟背景翻车
 
-` + "```go\n" + `select {
-case msg1 := <-ch1:
-    fmt.Println("Received from ch1:", msg1)
-case msg2 := <-ch2:
-    fmt.Println("Received from ch2:", msg2)
-case <-time.After(time.Second):
-    fmt.Println("Timeout!")
-}
-` + "```\n\n" + `## Common Patterns
+你精心设置的虚拟背景，在你转头拿杯子的时候，识别算法把你的脖子也替换成了蓝天白云。
 
-### Worker Pool
+## 会议保命清单
 
-Limit concurrency by using a pool of worker goroutines:
+- ✅ 共享屏幕前，关闭微信、QQ、钉钉、飞书、Slack、Teams……
+- ✅ 检查浏览器标签页（那个"面试技巧"的搜索记录……）
+- ✅ 确认已静音（哪怕你以为已经静音了）
+- ✅ 穿好裤子（远程会议第一铁律）
+- ✅ 虚拟背景靠得住，但别完全依赖它
 
-` + "```go\n" + `func worker(id int, jobs <-chan int, results chan<- int) {
-    for j := range jobs {
-        results <- j * 2
-    }
-}
+## 小编点评
 
-func main() {
-    jobs := make(chan int, 100)
-    results := make(chan int, 100)
-
-    for w := 1; w <= 3; w++ {
-        go worker(w, jobs, results)
-    }
-}
-` + "```\n\n" + `## Key Takeaways
-
-- Goroutines are cheap, lightweight threads
-- Channels enable safe communication between goroutines
-- Use ` + "`select`" + ` to handle multiple channels
-- Always make sure channels are properly closed to avoid goroutine leaks`,
+老张后来在群里说了一句话：「没事，至少不是在跟甲方开会的时候弹出的。」这句话让他重新获得了同事们的尊重。真正的社死，永远在下一场会议里等着你。`,
 		},
 		{
-			Title:    "Why I Switched from PostgreSQL to SQLite",
-			Slug:     "why-i-switched-from-postgresql-to-sqlite",
-			Category: "architecture",
-			Tags:     []string{"sqlite", "database"},
-			Content: `## The Database That Surprised Me
+			Title:    "这只猫写代码比我快",
+			Slug:     "zhe-zhi-mao-xie-dai-ma-bi-wo-kuai",
+			Category: "quick-peek",
+			Tags:     []string{"动物", "程序员"},
+			Content: `## 程序员的终极内卷对手
 
-For years, I used PostgreSQL for every project by default. It's powerful, reliable, and battle-tested. But recently, I made a surprising switch — and I'm not going back.
+*（图片：一只猫趴在键盘上，屏幕上出现了一串合法的 Python 代码）*
 
-## The Realization
+办公室的编程猫又火了。这只名叫 Glitch 的橘猫在主人离开时，趴在 MacBook 键盘上睡了一觉。主人回来发现，这只猫「写」了 47 行 Python 代码。
 
-Most applications don't need a client-server database. Here's what I discovered:
+最离谱的是：代码居然能跑。
 
-- **My blog gets ~1000 visitors/day.** SQLite handles 100x that easily.
-- **I'm the only writer.** There's no concurrent write contention.
-- **Deployment simplicity matters.** One binary, one file, zero configuration.
+## 实测
 
-## SQLite's Hidden Strengths
+主人把代码跑了一下，发现是一段图片处理的脚本——恰好主人前一天在写这个功能。猫踩键盘的过程莫名其妙补全了缺失的参数。
 
-### Performance
+程序员们集体破防：
 
-For read-heavy workloads, SQLite often outperforms PostgreSQL because there's no network overhead:
+> 「我读了四年计算机，不如一只猫踩键盘。」
 
-` + "```bash\n" + `# SQLite: direct function calls
-# PostgreSQL: TCP round-trip per query
-` + "```\n\n" + `### Zero Administration
+> 「建议把 Glitch 的 GitHub 贡献图挂出来。」
 
-No ` + "`pg_hba.conf`" + `, no user management, no ` + "`VACUUM`" + ` cron jobs. The database is just a file:
+> 「所以这就是传说中的『cat』命令？」
 
-` + "```bash\n" + `ls -lh blog.db
-# -rw-r--r-- 1 kyle staff 2.4M blog.db
-` + "```\n\n" + `Back up the entire database with ` + "`cp blog.db backup.db`" + `. Try doing that with a 50GB PostgreSQL cluster.
+## 网友神评
 
-### Reliability
+> 「这只猫的代码肯定没有 bug——它根本不需要写注释，因为只有上帝和猫自己知道代码在干什么。」
 
-SQLite is the most tested software component in the world. The test suite has over 100 million lines of test code. It's used in every iPhone, Android device, and web browser.
+> 「建议 Code Review。我赌这猫没写单元测试。」
 
-## When NOT to Use SQLite
+## 小编点评
 
-SQLite isn't right for everything:
-
-1. **High write concurrency** — SQLite serializes writes
-2. **Multiple application servers** — you need network access to the DB file
-3. **Very large datasets** — while SQLite supports terabytes, administrative tools are sparse
-
-## My Setup
-
-` + "```go\n" + `import "github.com/mattn/go-sqlite3"
-
-db, err := sql.Open("sqlite3", "blog.db?_journal_mode=WAL&_foreign_keys=on")
-` + "```\n\n" + `WAL mode gives me concurrent reads while a write is happening — perfect for a blog where writes are rare and reads are constant.
-
-## Conclusion
-
-SQLite is not a toy. For single-server applications, it's often the right choice. Don't reach for PostgreSQL just because it's what you've always used. Think about what your application actually needs.`,
+当你花了一上午 debug 的时候，一只猫已经超越了你的生产力。建议各位程序员在工位上养一只猫。代码质量不一定提升，但至少能帮你吸引同事来围观——增加了社交价值。`,
 		},
 		{
-			Title:    "A Practical Guide to Docker Multi-Stage Builds",
-			Slug:     "a-practical-guide-to-docker-multi-stage-builds",
-			Category: "devops",
-			Tags:     []string{"docker", "devops"},
-			Content: `## The Problem with Docker Images
+			Title:    "甲方说「很简单」的时候",
+			Slug:     "jia-fang-shuo-hen-jian-dan-de-shi-hou",
+			Category: "bathroom-break",
+			Tags:     []string{"甲方乙方", "打工人"},
+			Content: `## 危险信号识别
 
-A typical Go application compiles to a 10MB binary. But a naive Docker image can easily balloon to 800MB+ because it includes the entire Go toolchain and build dependencies.
+甲方说的每一个平凡词汇，都有另一层含义。来对个暗号：
 
-## Enter Multi-Stage Builds
+| 甲方说的 | 实际意思 |
+|----------|----------|
+| "很简单" | 我不知道怎么实现，但我觉得你应该能搞定 |
+| "调一下" | 要把整个设计翻一遍 |
+| "高端一点" | 加个渐变、阴影、动画，反正要多点东西 |
+| "参考一下" | 我要你做一个一模一样但法律上不算抄袭的东西 |
+| "先做着，后面再定" | 你做好了我会说"不是我想要的" |
+| "预算有限" | 要用 500 块钱做 500 万的效果 |
 
-Multi-stage builds let you use one image to build your application and a different, minimal image to run it:
+## 五阶段情绪变化
 
-` + "```dockerfile\n" + `# Stage 1: Build
-FROM golang:1.23-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -o server .
+和甲方合作的过程，本质上是一个情绪过山车：
 
-# Stage 2: Run
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates
-COPY --from=builder /app/server /server
-EXPOSE 8080
-CMD ["/server"]
-` + "```\n\n" + `The final image is only ~15MB — the size of Alpine plus your binary.
+1. **兴奋期**：「这次是个好项目！甲方很有想法！」
+2. **困惑期**：「等等，他的意思是……要做 NFT + 元宇宙 + AI？」
+3. **愤怒期**：「这是第七版方案了，他又改回了第一版！？」
+4. **麻木期**：「好的，改。好的，再改。好的……」
+5. **超脱期**：「您说什么就是什么吧，我都行。」
 
-## Why This Matters
+## 最后的倔强
 
-Smaller images mean:
+甲方："你这个设计……感觉少了点『灵魂』。"
 
-- **Faster deployments** — pulling 15MB vs 800MB is a huge difference
-- **Better security** — fewer packages = fewer CVEs
-- **Lower costs** — less storage and bandwidth in your container registry
+你内心：「灵魂？」
+你嘴上：「您说得对，我再调整一下配色和氛围。」
 
-## A More Advanced Example
+所谓的「灵魂」，翻译过来就是：**我自己也不知道要什么，但你必须做出来让我看了觉得对。**
 
-For a React frontend with a Go backend:
+## 小编点评
 
-` + "```dockerfile\n" + `# Stage 1: Build frontend
-FROM node:20-alpine AS frontend
-WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ .
-RUN npm run build
-
-# Stage 2: Build backend
-FROM golang:1.23-alpine AS backend
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-COPY --from=frontend /app/dist ./static
-RUN CGO_ENABLED=0 go build -o server .
-
-# Stage 3: Run
-FROM scratch
-COPY --from=backend /app/server /server
-COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-EXPOSE 8080
-CMD ["/server"]
-` + "```\n\n" + `Using ` + "`FROM scratch`" + ` gives you the absolute minimal image — just your binary and nothing else.
-
-## Pro Tips
-
-1. **Order your COPY commands carefully** — Docker caches layers. Copy ` + "`go.mod`" + ` and ` + "`go.sum`" + ` first, then run ` + "`go mod download`" + `, THEN copy source code. This way, dependency downloads are cached unless dependencies change.
-
-2. **Use ` + "`.dockerignore`" + `** — exclude ` + "`node_modules`" + `, ` + "`.git`" + `, and build artifacts from your build context:
-
-` + "```\n" + `node_modules
-.git
-*.log
-dist
-` + "```\n\n" + `3. **Don't run as root** — add a non-root user in your final stage:
-
-` + "```dockerfile\n" + `RUN addgroup -S app && adduser -S app -G app
-USER app
-` + "```\n\n" + `## Wrapping Up
-
-Multi-stage builds are one of Docker's best features. They keep your images small, secure, and production-ready without complex build scripts. If you're not using them yet, start today!`,
+当你学会在甲方说"很简单"的时候保持微笑，你就已经从初级乙方升级为资深乙方了。这个行业最核心的能力不是技术，是**情绪管理**。`,
 		},
 		{
-			Title:    "TypeScript Generics Explained Simply",
-			Slug:     "typescript-generics-explained-simply",
-			Category: "javascript",
-			Tags:     []string{"typescript", "javascript", "react"},
-			Content: `## Why Generics?
+			Title:    "厕所里的神秘代码",
+			Slug:     "ce-suo-li-de-shen-mi-dai-ma",
+			Category: "lunch-break",
+			Tags:     []string{"程序员", "互联网考古"},
+			Content: `## 互联网遗迹
 
-Without generics, you write code like this:
+有人在公司厕所隔间的门板上，发现了一行用马克笔写的文字：
 
-` + "```typescript\n" + `function getFirst(arr: any[]): any {
-    return arr[0];
-}
+` + "```\n" + `rm -rf /  # 这是最后的手段
+` + "```\n\n" + `下面是另一行笔迹，显然来自后来的某个人：
 
-const num = getFirst([1, 2, 3]); // type is 'any' — we lost information!
-` + "```\n\n" + `We know it returns a number, but TypeScript doesn't. This is where generics come in.
+` + "```\n" + `你不用 sudo 是删不掉的，菜鸡
+` + "```\n\n" + `第三个笔迹：
 
-## Your First Generic
+` + "```\n" + `你们就不能好好写文档吗？
+` + "```\n\n" + `## 互联网考古学：那些年我们挖出来的神贴
 
-` + "```typescript\n" + `function getFirst<T>(arr: T[]): T | undefined {
-    return arr[0];
-}
+### 1. StackOverflow の「删除法国」
 
-const num = getFirst([1, 2, 3]);    // type is 'number'
-const str = getFirst(["a", "b"]);    // type is 'string'
-` + "```\n\n" + `The ` + "`<T>`" + ` is a type parameter — it captures whatever type the caller provides, and uses it in the return type.
+一个用户问：「如何在 JavaScript 中判断时区？」
 
-## Generic Constraints
+下面最高赞回答：「首先，你要知道法国在哪个时区……」
 
-Sometimes you want to restrict what types are allowed:
+下面有人回复：「为什么我们要删除法国？」
 
-` + "```typescript\n" + `interface HasLength {
-    length: number;
-}
+原答主：「什么？我没说要删除法国啊。」
 
-function logLength<T extends HasLength>(item: T): T {
-    console.log(item.length);
-    return item;
-}
+——这是 StackOverflow 上最著名的「错别字引发的国际事件」。
 
-logLength("hello");     // OK, string has .length
-logLength([1, 2, 3]);   // OK, array has .length
-logLength(42);          // Error! number doesn't have .length
-` + "```\n\n" + `## Generic Interfaces
+### 2. 产品经理 vs 工程师的史诗级 GitHub Issue
 
-This is where generics really shine:
+某个开源项目里，有人提了个 Issue：「能不能让这个按钮更大一点？」
 
-` + "```typescript\n" + `interface ApiResponse<T> {
-    data: T;
-    status: number;
-    message: string;
-}
+开发者正儿八经回复：「按钮的大小是 W3C 标准建议的 44px 触摸交互最小尺寸乘以 1.2 倍的人机工程学黄金比例……」
 
-interface User {
-    id: number;
-    name: string;
-}
+楼下另一个开发者：「他就是想让你加个 <code>padding: 20px</code>。」
 
-// fetchUser returns ApiResponse<User>
-async function fetchUser(id: number): Promise<ApiResponse<User>> {
-    const res = await fetch(` + "`/api/users/${id}`" + `);
-    return res.json();
-}
-` + "```\n\n" + `## Real-World Example: A useFetch Hook
+### 3. 最古老的"hello world"
 
-` + "```typescript\n" + `function useFetch<T>(url: string) {
-    const [data, setData] = useState<T | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
+1974 年，《C 程序设计语言》的作者 Brian Kernighan 在一份内部备忘录里第一次用了 <code>"hello, world"</code> 作为示例输出。
 
-    useEffect(() => {
-        fetch(url)
-            .then(res => res.json())
-            .then((json: T) => {
-                setData(json);
-                setLoading(false);
-            })
-            .catch(err => {
-                setError(err);
-                setLoading(false);
-            });
-    }, [url]);
+半个世纪后，全世界每个程序员的第一行代码都是这句话。而它的前身其实是 Kernighan 在 B 语言教程里写的一个叫 <code>hello</code> 的程序……那程序里根本没有 <code>"world"</code>。
 
-    return { data, loading, error };
-}
+## 小编点评
 
-// Usage — TypeScript infers User[] automatically
-const { data, loading } = useFetch<User[]>("/api/users");
-` + "```\n\n" + `## Key Takeaways
-
-- **` + "`<T>`" + `** is a placeholder for a type that the caller provides
-- Use **constraints** (` + "`extends`" + `) to limit what types are accepted
-- Generics compose beautifully — ` + "`Promise<ApiResponse<User[]>>`" + ` is perfectly valid
-- **Don't overuse generics** — if your function only ever works with strings, just use ` + "`string`" + `
-
-Generics are one of TypeScript's most powerful features. They let you write flexible, reusable code while keeping full type safety. Start using them today!`,
+互联网考古最有意思的地方在于：当年写下那些东西的人，根本不知道自己正在创造 meme。厕所门板上的 <code>rm -rf /</code> 和 GitHub 上的第一条 issue 一样，都是数字时代的岩画。建议各位以后上厕所带支笔。`,
 		},
 	}
 
@@ -489,7 +310,7 @@ Generics are one of TypeScript's most powerful features. They let you write flex
 		}
 	}
 
-	logger.Info("Seeded posts successfully", "count", len(posts))
+	logger.Info("Seeded 摸鱼 posts successfully", "count", len(posts))
 	return nil
 }
 

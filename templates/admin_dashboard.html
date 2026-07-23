@@ -4,6 +4,7 @@
         <div class="admin-header-row">
             <h1>文章列表</h1>
             <a href="/admin/posts/new" class="btn">+ 写文章</a>
+            <a href="/admin/posts/quick" class="btn btn--accent">&#x26A1; 快速发布</a>
         </div>
 
         <div class="neo-box" style="padding:0;overflow-x:auto;">
@@ -27,10 +28,12 @@
                             {{catName .CategoryID $.Categories}}
                         </td>
                         <td>
-                        {{if .IsPublished}}
-                            <span class="admin-badge admin-badge--published">已发布</span>
-                        {{else}}
+                        {{if not .IsPublished}}
                             <span class="admin-badge admin-badge--draft">草稿</span>
+                        {{else if and .PublishAt.Valid (isFuture .PublishAt)}}
+                            <span class="admin-badge admin-badge--scheduled">定时发布</span>
+                        {{else}}
+                            <span class="admin-badge admin-badge--published">已发布</span>
                         {{end}}
                         </td>
                         <td class="admin-table__date">{{.CreatedAt | formatDate}}</td>

@@ -38,9 +38,18 @@ type PageData struct {
 	PostTags         []models.Tag
 	// Category/Tag filter name
 	FilterName string
+	// 阅读时长（根据分类计算）
+	ReadTime string
+	// 上一篇/下一篇导航
+	PrevPost *models.PostCard
+	NextPost *models.PostCard
+	// 摸鱼模式标题
+	FishModeTitle string
 	// SEO fields
 	Keywords     string
 	CanonicalURL string
 	OGImage      string
 	IsHome       bool
+	TotalPosts   int  // 总文章数
+	HasMore      bool // 是否有更多文章（用于首次加载判断）
 }

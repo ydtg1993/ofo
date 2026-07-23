@@ -138,6 +138,16 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		r.GET("/feed.xml", h.RSS)            // RSS 别名
 		r.GET("/robots.txt", h.RobotsTXT)    // 搜索引擎爬虫规则
 		r.GET("/sitemap.xml", h.SitemapXML)  // 站点地图
+		// ==========================================
+		// API（为桌面客户端准备）
+		// ==========================================
+		api := r.Group("/api")
+		api.Use(middleware.CacheControl(5 * time.Minute)) // 5 min
+		{
+			api.GET("/posts", h.APIPosts)
+			api.GET("/posts/:slug", h.APIPost)
+		}
+
 		r.GET("/verification.html", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "verification.html", gin.H{})
 		})
@@ -190,6 +200,8 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 		protected.GET("/posts/:id/edit", h.AdminEditPost)               // 编辑文章
 		protected.POST("/posts/:id", h.AdminUpdatePost)                 // 更新文章
 		protected.POST("/posts/:id/delete", h.AdminDeletePost)          // 删除文章
+		protected.GET("/posts/quick", h.AdminQuickPublish)              // 快速发布表单
+		protected.POST("/posts/quick", h.AdminQuickCreatePost)          // 保存快速发布          // 删除文章
 		protected.GET("/categories", h.AdminCategories)                 // 分类管理
 		protected.POST("/categories", h.AdminCreateCategory)            // 新建分类
 		protected.POST("/categories/:id", h.AdminUpdateCategory)        // 更新分类
@@ -272,6 +284,40 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 				return ""
 			}
 			return mm.Script(handlers.PageAESKey())
+		},
+		// 阅读时长（根据分类 slug）
+		"readTime": func(categorySlug string) string {
+			switch categorySlug {
+			case "quick-peek":
+				return "30秒"
+			case "bathroom-break":
+				return "3-5分钟"
+			case "lunch-break":
+				return "10-15分钟"
+			case "daily-highlight":
+				return "5-10分钟"
+			default:
+				return "约5分钟"
+			}
+		},
+		// 分类 Emoji
+		"catEmoji": func(categorySlug string) string {
+			switch categorySlug {
+			case "quick-peek":
+				return "⚡"
+			case "bathroom-break":
+				return "☕"
+			case "lunch-break":
+				return "🍱"
+			case "daily-highlight":
+				return "🔥"
+			default:
+				return ""
+			}
+		},
+		// 是否未来时间（管理后台判断定时发布）
+		"isFuture": func(nt sql.NullTime) bool {
+			return nt.Valid && nt.Time.After(time.Now())
 		},
 		"catName": func(catID sql.NullInt64, categories []models.Category) string {
 			if !catID.Valid {

@@ -403,6 +403,7 @@ type AdminPageData struct {
 	ShowStickers   bool
 	Stickers       []models.Sticker
 	Pagination     *models.Pagination
+	IsQuick        bool // 快速发布模式（简化表单）
 }
 
 // ---- Login ----
@@ -491,6 +492,98 @@ func (h *Handler) AdminNewPost(c *gin.Context) {
 	})
 }
 
+// ---- Quick Publish (速览模式) ----
+
+func (h *Handler) AdminQuickPublish(c *gin.Context) {
+	categories, err := h.PostModel.AllCategoriesSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load categories for quick publish", "err", err)
+	}
+
+	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
+		Title:      "快速发布",
+		Cfg:        h.Cfg,
+		IsNew:      true,
+		IsQuick:    true,
+		Categories: categories,
+	})
+}
+
+func (h *Handler) AdminQuickCreatePost(c *gin.Context) {
+	caption := strings.TrimSpace(c.PostForm("caption"))
+	imageURL := strings.TrimSpace(c.PostForm("image_url"))
+	categoryIDStr := c.PostForm("category_id")
+
+	if caption == "" {
+		categories, _ := h.PostModel.AllCategoriesSimple()
+		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
+			Title:      "快速发布",
+			Cfg:        h.Cfg,
+			IsNew:      true,
+			IsQuick:    true,
+			Categories: categories,
+			Error:      "请输入内容描述",
+		})
+		return
+	}
+
+	// 标题：caption 前 30 字
+	title := caption
+	runes := []rune(title)
+	if len(runes) > 30 {
+		title = string(runes[:30])
+	}
+
+	slug := slugifyStr(title)
+
+	// 内容：图片 + 文字
+	contentMD := caption
+	if imageURL != "" {
+		contentMD = "![" + title + "](" + imageURL + ")\n\n" + caption
+	}
+	contentHTML := renderMarkdown(contentMD)
+	excerpt := extractExcerptStr(caption, 200)
+
+	// 自动提取缩略图
+	thumbnailURL := imageURL
+	if thumbnailURL == "" {
+		thumbnailURL = models.ExtractThumbnail(contentHTML)
+	}
+
+	var categoryID sql.NullInt64
+	if categoryIDStr != "" {
+		if cid, err := strconv.ParseInt(categoryIDStr, 10, 64); err == nil {
+			categoryID = sql.NullInt64{Int64: cid, Valid: true}
+		}
+	}
+
+	createdAt := time.Now()
+	publishAt := parseDateTime(c.PostForm("publish_at"))
+
+	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, publishAt, createdAt, nil)
+	if err != nil {
+		categories, _ := h.PostModel.AllCategoriesSimple()
+		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
+			Title:      "快速发布",
+			Cfg:        h.Cfg,
+			IsNew:      true,
+			IsQuick:    true,
+			Categories: categories,
+			Error:      "保存失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 关联上传资源
+	if err := h.ResourceModel.SyncPostResources(int(postID), contentHTML, h.Storage.IsStorageURL, func(filename string) error {
+		return h.Storage.Delete(c.Request.Context(), "uploads/"+filename)
+	}); err != nil {
+		logger.ErrorWithContext(c, "failed to sync resources for quick post", "postID", postID, "err", err)
+	}
+
+	h.adminDashboardWithSuccess(c, "快速发布成功")
+}
+
 // ---- Edit Post Form ----
 
 func (h *Handler) AdminEditPost(c *gin.Context) {
@@ -572,8 +665,9 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 
 	// 发布时间（默认当天）
 	createdAt := parseDate(c.PostForm("created_at"))
+	publishAt := parseDateTime(c.PostForm("publish_at"))
 
-	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames)
+	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagNames)
 	if err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
@@ -641,8 +735,9 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 
 	// 发布时间（默认当天）
 	createdAt := parseDate(c.PostForm("created_at"))
+	publishAt := parseDateTime(c.PostForm("publish_at"))
 
-	if err := h.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, createdAt, tagNames); err != nil {
+	if err := h.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagNames); err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		tags, _ := h.PostModel.TagsForPost(id)
 		post, _ := h.PostModel.GetByID(id)
@@ -1132,6 +1227,20 @@ func parseTags(tagStr string) []string {
 		}
 	}
 	return tags
+}
+
+// parseDateTime parses a form datetime-local string, returns NullTime (NULL if empty).
+func parseDateTime(s string) sql.NullTime {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return sql.NullTime{}
+	}
+	for _, layout := range []string{"2006-01-02T15:04", "2006-01-02"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return sql.NullTime{Time: t, Valid: true}
+		}
+	}
+	return sql.NullTime{}
 }
 
 // parseDate parses a form date string, defaults to today.

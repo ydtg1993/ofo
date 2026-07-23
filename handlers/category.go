@@ -42,15 +42,16 @@ func (h *Handler) Category(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "home.html", PageData{
-		Title:        "Category: " + categoryName + " — " + h.Cfg.Title,
-		Description:  "Posts in category " + categoryName,
-		Keywords:     categoryName + "," + h.Cfg.Keywords,
-		CanonicalURL: h.Cfg.BaseURL + "/category/" + slug,
-		Cfg:          h.Cfg,
-		Categories:   categories,
-		Tags:         tags,
-		Posts:        posts,
-		FilterName:   categoryName,
-		CurrentPath:  "/category/" + slug,
+		Title:         "Category: " + categoryName + " — " + h.Cfg.Title,
+		Description:   "Posts in category " + categoryName,
+		Keywords:      categoryName + "," + h.Cfg.Keywords,
+		CanonicalURL:  h.Cfg.BaseURL + "/category/" + slug,
+		Cfg:           h.Cfg,
+		Categories:    categories,
+		Tags:          tags,
+		Posts:         posts,
+		FilterName:    categoryName,
+		FishModeTitle: h.Cfg.FishModeTitle,
+		CurrentPath:   "/category/" + slug,
 	})
 }

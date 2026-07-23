@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="{{asset "/static/css/style.css"}}">
     <link rel="icon" type="image/x-icon" href="{{asset "/static/resources/ofo.ico"}}">
     {{mediaConfigScript}}
+    <script>window._ofoFishModeTitle = '{{.FishModeTitle}}';</script>
 </head>
 <body>
     <!-- 导航栏 -->
@@ -40,6 +41,16 @@
                 <li><a href="/" class="{{if eq .CurrentPath "/"}}active{{end}}">首页</a></li>
                 <li><a href="/about" class="{{if eq .CurrentPath "/about"}}active{{end}}">关于</a></li>
                 <li><a href="/rss.xml" title="RSS 订阅">RSS</a></li>
+                <li>
+                    <button class="fish-mode-toggle" id="fish-mode-toggle" aria-label="切换摸鱼模式" title="摸鱼模式 (Ctrl+B)">
+                        <span class="fish-mode-toggle__icon">&#x1F41F;</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="fish-mode-toggle" id="boss-key-btn" aria-label="老板键" title="老板键 (Ctrl+Shift+H)">
+                        <span class="fish-mode-toggle__icon">&#x1F6A8;</span>
+                    </button>
+                </li>
                 <li>
                     <button class="theme-toggle" id="theme-toggle" aria-label="切换深色模式" title="切换主题">
                         <span class="theme-toggle__icon">&#9788;</span>

@@ -21,6 +21,7 @@ type Post struct {
 	CategoryID   sql.NullInt64
 	IsPublished  bool
 	ThumbnailURL string
+	PublishAt    sql.NullTime // NULL = 立即发布（当 is_published=1 时）
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -31,9 +32,11 @@ type PostCard struct {
 	Title        string
 	Slug         string
 	Excerpt      string
+	ContentHTML  string // 全文 HTML（信息流直展用）
 	ThumbnailURL string
 	CategoryName string
 	CategorySlug string
+	PublishAt    sql.NullTime
 	CreatedAt    time.Time
 	Tags         []Tag
 }
@@ -74,17 +77,17 @@ type PostModel struct {
 // ListPublished returns paginated published posts with their categories and tags.
 func (m *PostModel) ListPublished(offset, limit int) ([]PostCard, int, error) {
 	total := 0
-	if err := m.DB.QueryRow("SELECT COUNT(*) FROM posts WHERE is_published = 1").Scan(&total); err != nil {
+	if err := m.DB.QueryRow("SELECT COUNT(*) FROM posts WHERE is_published = 1 AND (publish_at IS NULL OR publish_at <= NOW())").Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := m.DB.Query(`
-		SELECT p.id, p.title, p.slug, p.excerpt, p.thumbnail_url, p.created_at,
+		SELECT p.id, p.title, p.slug, p.excerpt, p.content_html, p.thumbnail_url, p.publish_at, p.created_at,
 			   COALESCE(c.name, '') AS category_name,
 			   COALESCE(c.slug, '') AS category_slug
 		FROM posts p
 		LEFT JOIN categories c ON p.category_id = c.id
-		WHERE p.is_published = 1
+		WHERE p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 		ORDER BY p.created_at DESC
 		LIMIT ? OFFSET ?
 	`, limit, offset)
@@ -96,7 +99,7 @@ func (m *PostModel) ListPublished(offset, limit int) ([]PostCard, int, error) {
 	var cards []PostCard
 	for rows.Next() {
 		var card PostCard
-		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ThumbnailURL, &card.CreatedAt,
+		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ContentHTML, &card.ThumbnailURL, &card.PublishAt, &card.CreatedAt,
 			&card.CategoryName, &card.CategorySlug); err != nil {
 			return nil, 0, err
 		}
@@ -113,10 +116,10 @@ func (m *PostModel) ListPublished(offset, limit int) ([]PostCard, int, error) {
 func (m *PostModel) GetBySlug(slug string) (*Post, error) {
 	p := &Post{}
 	err := m.DB.QueryRow(`
-		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at, updated_at
-		FROM posts WHERE slug = ? AND is_published = 1
+		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, publish_at, created_at, updated_at
+		FROM posts WHERE slug = ? AND is_published = 1 AND (publish_at IS NULL OR publish_at <= NOW())
 	`, slug).Scan(&p.ID, &p.Title, &p.Slug, &p.Excerpt, &p.ContentMD,
-		&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.CreatedAt, &p.UpdatedAt)
+		&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.PublishAt, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -129,18 +132,18 @@ func (m *PostModel) ListByCategory(slug string, offset, limit int) ([]PostCard, 
 	if err := m.DB.QueryRow(`
 		SELECT COUNT(*) FROM posts p
 		JOIN categories c ON p.category_id = c.id
-		WHERE c.slug = ? AND p.is_published = 1
+		WHERE c.slug = ? AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 	`, slug).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := m.DB.Query(`
-		SELECT p.id, p.title, p.slug, p.excerpt, p.thumbnail_url, p.created_at,
+		SELECT p.id, p.title, p.slug, p.excerpt, p.content_html, p.thumbnail_url, p.publish_at, p.created_at,
 			   COALESCE(c.name, '') AS category_name,
 			   COALESCE(c.slug, '') AS category_slug
 		FROM posts p
 		JOIN categories c ON p.category_id = c.id
-		WHERE c.slug = ? AND p.is_published = 1
+		WHERE c.slug = ? AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 		ORDER BY p.created_at DESC
 		LIMIT ? OFFSET ?
 	`, slug, limit, offset)
@@ -152,7 +155,7 @@ func (m *PostModel) ListByCategory(slug string, offset, limit int) ([]PostCard, 
 	var cards []PostCard
 	for rows.Next() {
 		var card PostCard
-		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ThumbnailURL, &card.CreatedAt,
+		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ContentHTML, &card.ThumbnailURL, &card.PublishAt, &card.CreatedAt,
 			&card.CategoryName, &card.CategorySlug); err != nil {
 			return nil, 0, err
 		}
@@ -170,20 +173,20 @@ func (m *PostModel) ListByTag(slug string, offset, limit int) ([]PostCard, int, 
 		SELECT COUNT(*) FROM posts p
 		JOIN post_tags pt ON p.id = pt.post_id
 		JOIN tags t ON pt.tag_id = t.id
-		WHERE t.slug = ? AND p.is_published = 1
+		WHERE t.slug = ? AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 	`, slug).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := m.DB.Query(`
-		SELECT p.id, p.title, p.slug, p.excerpt, p.thumbnail_url, p.created_at,
+		SELECT p.id, p.title, p.slug, p.excerpt, p.content_html, p.thumbnail_url, p.publish_at, p.created_at,
 			   COALESCE(c.name, '') AS category_name,
 			   COALESCE(c.slug, '') AS category_slug
 		FROM posts p
 		LEFT JOIN categories c ON p.category_id = c.id
 		JOIN post_tags pt ON p.id = pt.post_id
 		JOIN tags t ON pt.tag_id = t.id
-		WHERE t.slug = ? AND p.is_published = 1
+		WHERE t.slug = ? AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 		ORDER BY p.created_at DESC
 		LIMIT ? OFFSET ?
 	`, slug, limit, offset)
@@ -195,7 +198,7 @@ func (m *PostModel) ListByTag(slug string, offset, limit int) ([]PostCard, int, 
 	var cards []PostCard
 	for rows.Next() {
 		var card PostCard
-		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ThumbnailURL, &card.CreatedAt,
+		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ContentHTML, &card.ThumbnailURL, &card.PublishAt, &card.CreatedAt,
 			&card.CategoryName, &card.CategorySlug); err != nil {
 			return nil, 0, err
 		}
@@ -236,7 +239,7 @@ func (m *PostModel) AllCategories() ([]Category, error) {
 	rows, err := m.DB.Query(`
 		SELECT c.id, c.name, c.slug, COUNT(p.id) AS count
 		FROM categories c
-		LEFT JOIN posts p ON p.category_id = c.id AND p.is_published = 1
+		LEFT JOIN posts p ON p.category_id = c.id AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 		GROUP BY c.id
 		ORDER BY c.name
 	`)
@@ -262,7 +265,7 @@ func (m *PostModel) AllTags() ([]Tag, error) {
 		SELECT t.id, t.name, t.slug, COUNT(pt.post_id) AS count
 		FROM tags t
 		LEFT JOIN post_tags pt ON t.id = pt.tag_id
-		LEFT JOIN posts p ON pt.post_id = p.id AND p.is_published = 1
+		LEFT JOIN posts p ON pt.post_id = p.id AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
 		GROUP BY t.id
 		ORDER BY t.name
 	`)
@@ -309,8 +312,8 @@ func (m *PostModel) GetCategorySlug(categoryID sql.NullInt64) string {
 // RecentPosts returns the most recent n published posts for RSS.
 func (m *PostModel) RecentPosts(n int) ([]Post, error) {
 	rows, err := m.DB.Query(`
-		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at, updated_at
-		FROM posts WHERE is_published = 1
+		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, publish_at, created_at, updated_at
+		FROM posts WHERE is_published = 1 AND (publish_at IS NULL OR publish_at <= NOW())
 		ORDER BY created_at DESC LIMIT ?
 	`, n)
 	if err != nil {
@@ -322,7 +325,7 @@ func (m *PostModel) RecentPosts(n int) ([]Post, error) {
 	for rows.Next() {
 		var p Post
 		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Excerpt, &p.ContentMD,
-			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.PublishAt, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -335,7 +338,7 @@ func (m *PostModel) RecentPosts(n int) ([]Post, error) {
 // ListAll returns all posts (including drafts) for the admin dashboard.
 func (m *PostModel) ListAll() ([]Post, error) {
 	rows, err := m.DB.Query(`
-		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at, updated_at
+		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, publish_at, created_at, updated_at
 		FROM posts ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -347,7 +350,7 @@ func (m *PostModel) ListAll() ([]Post, error) {
 	for rows.Next() {
 		var p Post
 		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Excerpt, &p.ContentMD,
-			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.PublishAt, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -365,7 +368,7 @@ func (m *PostModel) CountAll() (int, error) {
 // ListAllPaginated returns posts (including drafts) with offset/limit for admin dashboard.
 func (m *PostModel) ListAllPaginated(offset, limit int) ([]Post, error) {
 	rows, err := m.DB.Query(`
-		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at, updated_at
+		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, publish_at, created_at, updated_at
 		FROM posts ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`, limit, offset)
@@ -378,7 +381,7 @@ func (m *PostModel) ListAllPaginated(offset, limit int) ([]Post, error) {
 	for rows.Next() {
 		var p Post
 		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Excerpt, &p.ContentMD,
-			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.PublishAt, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -390,10 +393,10 @@ func (m *PostModel) ListAllPaginated(offset, limit int) ([]Post, error) {
 func (m *PostModel) GetByID(id int) (*Post, error) {
 	p := &Post{}
 	err := m.DB.QueryRow(`
-		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at, updated_at
+		SELECT id, title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, publish_at, created_at, updated_at
 		FROM posts WHERE id = ?
 	`, id).Scan(&p.ID, &p.Title, &p.Slug, &p.Excerpt, &p.ContentMD,
-		&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.CreatedAt, &p.UpdatedAt)
+		&p.ContentHTML, &p.CategoryID, &p.IsPublished, &p.ThumbnailURL, &p.PublishAt, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -401,16 +404,16 @@ func (m *PostModel) GetByID(id int) (*Post, error) {
 }
 
 // Create inserts a new post and returns its ID.
-func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, createdAt time.Time, tagNames []string) (int64, error) {
+func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, publishAt sql.NullTime, createdAt time.Time, tagNames []string) (int64, error) {
 	pubInt := 0
 	if published {
 		pubInt = 1
 	}
 
 	result, err := m.DB.Exec(`
-		INSERT INTO posts (title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, createdAt)
+		INSERT INTO posts (title, slug, excerpt, content_md, content_html, category_id, is_published, thumbnail_url, publish_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, publishAt, createdAt)
 	if err != nil {
 		return 0, err
 	}
@@ -435,16 +438,16 @@ func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbna
 }
 
 // Update modifies an existing post.
-func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, createdAt time.Time, tagNames []string) error {
+func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, publishAt sql.NullTime, createdAt time.Time, tagNames []string) error {
 	pubInt := 0
 	if published {
 		pubInt = 1
 	}
 
 	_, err := m.DB.Exec(`
-		UPDATE posts SET title=?, slug=?, excerpt=?, content_md=?, content_html=?, category_id=?, is_published=?, thumbnail_url=?, created_at=?, updated_at=CURRENT_TIMESTAMP
+		UPDATE posts SET title=?, slug=?, excerpt=?, content_md=?, content_html=?, category_id=?, is_published=?, thumbnail_url=?, publish_at=?, created_at=?, updated_at=CURRENT_TIMESTAMP
 		WHERE id=?
-	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, createdAt, id)
+	`, title, slug, excerpt, contentMD, contentHTML, categoryID, pubInt, thumbnailURL, publishAt, createdAt, id)
 	if err != nil {
 		return err
 	}
@@ -606,4 +609,47 @@ func chineseToPinyin(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// GetAdjacentPosts returns the previous and next published posts for navigation.
+func (m *PostModel) GetAdjacentPosts(currentSlug string) (*PostCard, *PostCard, error) {
+	var current Post
+	err := m.DB.QueryRow(`SELECT id, created_at FROM posts WHERE slug = ? AND is_published = 1 AND (publish_at IS NULL OR publish_at <= NOW())`, currentSlug).Scan(&current.ID, &current.CreatedAt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var prev, next *PostCard
+
+	// Previous post (older)
+	prevRow := m.DB.QueryRow(`
+		SELECT p.id, p.title, p.slug, p.excerpt, p.content_html, p.thumbnail_url, p.publish_at, p.created_at,
+			   COALESCE(c.name, '') AS category_name, COALESCE(c.slug, '') AS category_slug
+		FROM posts p
+		LEFT JOIN categories c ON p.category_id = c.id
+		WHERE p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
+		  AND p.created_at < ?
+		ORDER BY p.created_at DESC LIMIT 1
+	`, current.CreatedAt)
+	pc := &PostCard{}
+	if err := prevRow.Scan(&pc.ID, &pc.Title, &pc.Slug, &pc.Excerpt, &pc.ContentHTML, &pc.ThumbnailURL, &pc.PublishAt, &pc.CreatedAt, &pc.CategoryName, &pc.CategorySlug); err == nil {
+		prev = pc
+	}
+
+	// Next post (newer)
+	nextRow := m.DB.QueryRow(`
+		SELECT p.id, p.title, p.slug, p.excerpt, p.content_html, p.thumbnail_url, p.publish_at, p.created_at,
+			   COALESCE(c.name, '') AS category_name, COALESCE(c.slug, '') AS category_slug
+		FROM posts p
+		LEFT JOIN categories c ON p.category_id = c.id
+		WHERE p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
+		  AND p.created_at > ?
+		ORDER BY p.created_at ASC LIMIT 1
+	`, current.CreatedAt)
+	nc := &PostCard{}
+	if err := nextRow.Scan(&nc.ID, &nc.Title, &nc.Slug, &nc.Excerpt, &nc.ContentHTML, &nc.ThumbnailURL, &nc.PublishAt, &nc.CreatedAt, &nc.CategoryName, &nc.CategorySlug); err == nil {
+		next = nc
+	}
+
+	return prev, next, nil
 }
