@@ -821,25 +821,16 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 					continue // 仍被其他文章引用，保留
 				}
 				if r.Storage != "" && r.Storage != currentBackend {
-					logger.Info("skip deleting resource on differ
-				if r.Storage != "" && r.Storage != currentBackend {
 					logger.Info("skip deleting resource on different backend",
 						"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", currentBackend)
 					continue
 				}
 				key := "uploads/" + r.Filename
- resource file", "filename", r.Filename, "err", err)
+				if err := h.Storage.Delete(context.Background(), key); err != nil {
+					logger.Error("failed to delete resource file", "filename", r.Filename, "err", err)
 				} else {
 					// 文件删除成功，删除数据库记录
 					h.ResourceModel.Delete(r.ID)
-				}
-			}
-		}()
-	}
-
-	h.adminDashboardWith
-				if err := h.Storage.Delete(context.Background(), key); err != nil {
-					logger.Error("failed to delete resource file", "filename", r.Filename, "err", err)
 				}
 			}
 		}()
@@ -1046,15 +1037,11 @@ func (h *Handler) AdminResources(c *gin.Context) {
 
 func (h *Handler) AdminDeleteResource(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	// 查找资源确认存在并获取文件名
-	r, err := h.ResourceModel.FindByURL("") // placeholder, use ListAll to find
-	_ = r
-	// Find resource by ID via full list (TODO: add GetByID method)
 	resources, _ := h.ResourceModel.ListAll(0, 10000)
-	for _, res := range resources {
-		if res.ID == id {
-			if res.Storage == "" || res.Storage == h.Cfg.StorageBackend {
-				h.Storage.Delete(c.Request.Context(), "uploads/"+res.Filename)
+	for _, r := range resources {
+		if r.ID == id {
+			if r.Storage == "" || r.Storage == h.Cfg.StorageBackend {
+				h.Storage.Delete(c.Request.Context(), "uploads/"+r.Filename)
 			}
 			h.ResourceModel.Delete(id)
 			break
@@ -1096,8 +1083,7 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 		return
 	}
 
-// AdminCleanupUploads deletes uploads that have been removed from the editor
-// (i.e., uploaded during an editing session but the user clicked "Cancel").
+	// 记录到资源表（post_id 暂时为空，保存文章时关联）
 	mimeType := models.MIMEType(ext)
 	if _, err := h.ResourceModel.Create(savedName, url, h.Cfg.StorageBackend, header.Size, mimeType); err != nil {
 		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", savedName, "err", err)
@@ -1106,7 +1092,8 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"url": h.Storage.PublicURL(url)})
 }
 
-// AdminCleanupUploads deletes orphaned uploads (post_id IS NULL).
+// AdminCleanupUploads deletes uploads that have been removed from the editor
+// (i.e., uploaded during an editing session but the user clicked "Cancel").
 // Accepts JSON: {"urls": ["url1", "url2", ...]}
 // Only deletes resources that are NOT linked to any post (safety check).
 func (h *Handler) AdminCleanupUploads(c *gin.Context) {
@@ -1114,43 +1101,41 @@ func (h *Handler) AdminCleanupUploads(c *gin.Context) {
 		URLs []string `json:"urls"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || len(body.URLs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing or invalid urls"})
+		return
+	}
+
+	deleted := 0
+	for _, url := range body.URLs {
+		if url == "" {
+			continue
+		}
 		relPath := URLToRelativePath(url, h.Storage, h.Cfg)
 		r, err := h.ResourceModel.FindByURL(relPath)
-		return
+		if err != nil {
 			continue // not found or already cleaned up
-	deleted := 0
+		}
 
 		// Safety: only delete if no post references this resource
 		noLinks, _ := h.ResourceModel.HasNoLinks(r.ID)
 		if !noLinks {
 			continue // still linked to a post
-			continue
 		}
+
 		// Delete from storage (filename may include date subdirectories)
 		storageKey := "uploads/" + r.Filename
 		if r.Storage != "" && r.Storage != h.Cfg.StorageBackend {
-			continue
-				"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", h.Cfg.StorageBackend)
-		if !ok {
-			continue // already linked to a post, or already cleaned up
-		}
-
-		// Delete from storage (filename may include date subdirectories like "2026/07/uuid.ext")
-		storageKey := "uploads/" + filename
-.Delete(r.ID)
-			deleted++
-			logger.Info("cleaned up orphan upload", "filename", r.Filename)
-		if storage != "" && storage != h.Cfg.StorageBackend {
 			logger.Info("skip cleanup: resource on different backend",
-				"filename", filename, "resourceStorage", storage, "currentBackend", h.Cfg.StorageBackend)
+				"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", h.Cfg.StorageBackend)
 			deleted++
 			continue
 		}
 		if err := h.Storage.Delete(c.Request.Context(), storageKey); err != nil {
 			logger.ErrorWithContext(c, "failed to delete upload file from storage", "key", storageKey, "err", err)
 		} else {
+			h.ResourceModel.Delete(r.ID)
 			deleted++
-			logger.Info("cleaned up orphan upload", "filename", filename)
+			logger.Info("cleaned up orphan upload", "filename", r.Filename)
 		}
 	}
 
@@ -1273,21 +1258,6 @@ func extractExcerptStr(md string, maxLen int) string {
 	return clean
 }
 
-func parseTags(tagStr string) []string {
-	if strings.TrimSpace(tagStr) == "" {
-		return nil
-	}
-	parts := strings.FieldsFunc(tagStr, func(r rune) bool { return r == '\n' || r == '\r' })
-	var tags []string
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			tags = append(tags, p)
-		}
-	}
-	return tags
-}
-
 // resolveTagIDs parses comma-separated tag IDs into []int.
 func (h *Handler) resolveTagIDs(tagIDsStr string) ([]int, error) {
 	if strings.TrimSpace(tagIDsStr) == "" {
@@ -1301,6 +1271,22 @@ func (h *Handler) resolveTagIDs(tagIDsStr string) ([]int, error) {
 		}
 	}
 	return ids, nil
+}
+
+func parseTags(tagStr string) []string {
+	if strings.TrimSpace(tagStr) == "" {
+		return nil
+	}
+	// 按换行拆分，兼容 \n 和 \r\n
+	parts := strings.FieldsFunc(tagStr, func(r rune) bool { return r == '\n' || r == '\r' })
+	var tags []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			tags = append(tags, p)
+		}
+	}
+	return tags
 }
 
 // parseDateTime parses a form datetime-local string, returns NullTime (NULL if empty).

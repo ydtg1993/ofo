@@ -54,11 +54,11 @@
                         <td class="sticker-table__name" title="{{.Filename}}">{{.Filename}}</td>
                         <td>{{if .Storage}}{{.Storage}}{{else}}local{{end}}</td>
                         <td>{{formatSize .FileSize}}</td>
-                        <td>{{if .PostID.Valid}}<a href="/admin/posts/{{.PostID.Int64}}/edit" class="btn btn--small">查看文章</a>{{else}}<span style="color:var(--text-muted);">未关联</span>{{end}}</td>
+                        <td>{{if .LinkedPosts}}{{range $i, $lp := .LinkedPosts}}{{if $i}}, {{end}}<a href="/admin/posts/{{$lp.ID}}/edit" class="btn btn--small">{{$lp.Title}}</a>{{end}}{{else}}<span style="color:var(--text-muted);">未关联</span>{{end}}</td>
                         <td class="admin-table__date">{{.CreatedAt | formatDate}}</td>
                         <td class="admin-table__actions">
                             <button type="button" class="btn btn--small sticker-copy-btn" data-url="{{$displayURL}}" title="复制链接">📋 复制</button>
-                            {{if not .PostID.Valid}}
+                            {{if not .LinkedPosts}}
                             <form method="POST" action="/admin/resources/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除？');">
                                 <button type="submit" class="btn btn--small btn--danger">删除</button>
                             </form>

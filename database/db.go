@@ -123,11 +123,29 @@ func Init(dsn string) (*sql.DB, error) {
 			if strings.Contains(err.Error(), "Duplicate column") ||
 				strings.Contains(err.Error(), "Duplicate key") ||
 				strings.Contains(err.Error(), "already exists") ||
-				strings.Contains(err.Error(), "Can't DROP") {
+				strings.Contains(err.Error(), "Can't DROP") ||
+				strings.Contains(err.Error(), "Cannot drop") ||
+				strings.Contains(err.Error(), "check that column") {
 				logger.Warn("skipping duplicate migration", "err", err)
 				continue
 			}
 			return nil, err
+		}
+	}
+
+	// 动态删除 resources.post_id 的外键（FK 名称可能因环境而异）
+	var fkName string
+	if err := db.QueryRow(`
+		SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'resources'
+		AND COLUMN_NAME = 'post_id' AND REFERENCED_TABLE_NAME IS NOT NULL
+		LIMIT 1
+	`).Scan(&fkName); err == nil && fkName != "" {
+		if _, err := db.Exec("ALTER TABLE resources DROP FOREIGN KEY `" + fkName + "`"); err != nil {
+			logger.Warn("failed to drop FK (may already be dropped)", "fk", fkName, "err", err)
+		}
+		if _, err := db.Exec("ALTER TABLE resources DROP COLUMN post_id"); err != nil {
+			logger.Warn("failed to drop post_id column", "err", err)
 		}
 	}
 
