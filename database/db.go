@@ -61,6 +61,21 @@ var migrations = []string{
 		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	`CREATE INDEX IF NOT EXISTS idx_resources_post_id ON resources(post_id)`,
+	// 资源复用的多对多关联表（替代 resources.post_id）
+	`CREATE TABLE IF NOT EXISTS post_resources (
+		post_id INT NOT NULL,
+		resource_id INT NOT NULL,
+		PRIMARY KEY (post_id, resource_id),
+		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+		FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+	// 迁移历史数据：将 resources.post_id 复制到 post_resources
+	`INSERT IGNORE INTO post_resources (post_id, resource_id)
+	 SELECT post_id, id FROM resources WHERE post_id IS NOT NULL`,
+	// 删除旧的 FK（resources.post_id → posts.id）
+	`ALTER TABLE resources DROP FOREIGN KEY resources_ibfk_1`,
+	// 删除 resources.post_id 列
+	`ALTER TABLE resources DROP COLUMN post_id`,
 	`CREATE TABLE IF NOT EXISTS stickers (
 			id INT NOT NULL AUTO_INCREMENT,
 			filename VARCHAR(255) NOT NULL,
@@ -107,7 +122,8 @@ func Init(dsn string) (*sql.DB, error) {
 			// 忽略重复迁移错误
 			if strings.Contains(err.Error(), "Duplicate column") ||
 				strings.Contains(err.Error(), "Duplicate key") ||
-				strings.Contains(err.Error(), "already exists") {
+				strings.Contains(err.Error(), "already exists") ||
+				strings.Contains(err.Error(), "Can't DROP") {
 				logger.Warn("skipping duplicate migration", "err", err)
 				continue
 			}

@@ -473,7 +473,7 @@ func (m *PostModel) GetByID(id int) (*Post, error) {
 }
 
 // Create inserts a new post and returns its ID.
-func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, publishAt sql.NullTime, createdAt time.Time, tagNames []string) (int64, error) {
+func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, publishAt sql.NullTime, createdAt time.Time, tagIDs []int) (int64, error) {
 	pubInt := 0
 	if published {
 		pubInt = 1
@@ -490,24 +490,15 @@ func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbna
 	postID, _ := result.LastInsertId()
 
 	// Link tags
-	for _, tagName := range tagNames {
-		if tagName == "" {
-			continue
-		}
-		tagSlug := slugify(tagName)
-		m.DB.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", tagName, tagSlug)
-
-		var tagID int64
-		if err := m.DB.QueryRow("SELECT id FROM tags WHERE slug = ?", tagSlug).Scan(&tagID); err == nil {
-			m.DB.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
-		}
+	for _, tagID := range tagIDs {
+		m.DB.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
 	}
 
 	return postID, nil
 }
 
 // Update modifies an existing post.
-func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, publishAt sql.NullTime, createdAt time.Time, tagNames []string) error {
+func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID sql.NullInt64, published bool, publishAt sql.NullTime, createdAt time.Time, tagIDs []int) error {
 	pubInt := 0
 	if published {
 		pubInt = 1
@@ -523,17 +514,8 @@ func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt,
 
 	// Re-link tags: delete existing, re-insert
 	m.DB.Exec("DELETE FROM post_tags WHERE post_id = ?", id)
-	for _, tagName := range tagNames {
-		if tagName == "" {
-			continue
-		}
-		tagSlug := slugify(tagName)
-		m.DB.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", tagName, tagSlug)
-
-		var tagID int64
-		if err := m.DB.QueryRow("SELECT id FROM tags WHERE slug = ?", tagSlug).Scan(&tagID); err == nil {
-			m.DB.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", id, tagID)
-		}
+	for _, tagID := range tagIDs {
+		m.DB.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", id, tagID)
 	}
 
 	return nil

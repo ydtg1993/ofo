@@ -48,7 +48,7 @@ func (m *SeriesModel) All() ([]Series, error) {
 		}
 		list = append(list, s)
 	}
-	return list, nil
+	return list, rows.Err()
 }
 
 // GetByID returns a single series by ID.
@@ -84,18 +84,22 @@ func (m *SeriesModel) Delete(id int) error {
 }
 
 // NextSortOrder returns total+1 for the given series, used to auto-fill sort_order.
-func (m *SeriesModel) NextSortOrder(seriesID int) int {
+func (m *SeriesModel) NextSortOrder(seriesID int) (int, error) {
 	var count int
-	m.DB.QueryRow(`SELECT COUNT(*) FROM post_series WHERE series_id = ?`, seriesID).Scan(&count)
-	return count + 1
+	err := m.DB.QueryRow(`SELECT COUNT(*) FROM post_series WHERE series_id = ?`, seriesID).Scan(&count)
+	return count + 1, err
 }
 
-// LinkPost assigns a post to a series with the given sort order (INSERT or UPDATE).
+// LinkPost assigns a post to a series with the given sort order.
+// Unlinks from any existing series first to enforce one-post-one-series.
 func (m *SeriesModel) LinkPost(postID, seriesID, sortOrder int) error {
-	_, err := m.DB.Exec(`
-		INSERT INTO post_series (post_id, series_id, sort_order) VALUES (?, ?, ?)
-		ON DUPLICATE KEY UPDATE series_id = VALUES(series_id), sort_order = VALUES(sort_order)
-	`, postID, seriesID, sortOrder)
+	if err := m.UnlinkPost(postID); err != nil {
+		return err
+	}
+	_, err := m.DB.Exec(
+		`INSERT INTO post_series (post_id, series_id, sort_order) VALUES (?, ?, ?)`,
+		postID, seriesID, sortOrder,
+	)
 	return err
 }
 
@@ -160,5 +164,5 @@ func (m *SeriesModel) ListPostsBySeries(seriesID int) ([]PostCard, error) {
 		card.Tags, _ = (&PostModel{DB: m.DB}).TagsForPost(card.ID)
 		cards = append(cards, card)
 	}
-	return cards, nil
+	return cards, rows.Err()
 }

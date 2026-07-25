@@ -234,8 +234,15 @@
     window.uploadEditorBatch = function () {
         var pending = uploadQueue.filter(function (item) { return !item.uploaded; });
         if (!pending.length) return;
+        var isResourcesPage = !document.getElementById('content') && !document.getElementById('image_url');
         (function next(idx) {
-            if (idx >= pending.length) return;
+            if (idx >= pending.length) {
+                // 资源管理页上传完成后自动刷新
+                if (isResourcesPage) {
+                    setTimeout(function () { window.location.reload(); }, 800);
+                }
+                return;
+            }
             var item = pending[idx];
             var fd = new FormData(); fd.append('file', item.file);
             var xhr = new XMLHttpRequest(); xhr.open('POST', '/admin/upload');
@@ -295,13 +302,52 @@
         updatePreview();
     }
 
-    window.addTag = function (btn) {
-        var ta = document.getElementById('tags'); if (!ta) return;
-        var tag = btn.dataset.tag;
-        var tags = ta.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-        if (tags.indexOf(tag) < 0) tags.push(tag);
-        ta.value = tags.join('\n');
+    // 标签芯片 — toggle 选中/取消，维护隐藏域 tag_ids
+    window.toggleTag = function (btn) {
+        btn.classList.toggle('tag-chip--active');
+        updateTagIDs();
     };
+    window.addNewTag = function () {
+        var input = document.getElementById('new-tag-input');
+        if (!input || !input.value.trim()) return;
+        var name = input.value.trim();
+        // 检查是否已存在
+        var chips = document.querySelectorAll('#tag-chips .tag-chip');
+        for (var i = 0; i < chips.length; i++) {
+            if (chips[i].textContent.trim() === name) {
+                chips[i].classList.add('tag-chip--active');
+                updateTagIDs();
+                input.value = '';
+                return;
+            }
+        }
+        // AJAX 创建新标签
+        var fd = new FormData(); fd.append('name', name);
+        fetch('/admin/tags/create', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.id) return;
+                var container = document.getElementById('tag-chips');
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tag-chip tag-chip--active';
+                btn.textContent = data.name;
+                btn.setAttribute('data-tag-id', data.id);
+                btn.addEventListener('click', function () { toggleTag(this); });
+                container.appendChild(btn);
+                updateTagIDs();
+            });
+        input.value = '';
+    };
+    function updateTagIDs() {
+        var ids = [];
+        var chips = document.querySelectorAll('#tag-chips .tag-chip--active');
+        for (var i = 0; i < chips.length; i++) {
+            var id = chips[i].getAttribute('data-tag-id');
+            if (id) ids.push(id);
+        }
+        document.getElementById('tag_ids').value = ids.join(',');
+    }
 
     // ==========================================
     // 表情包管理

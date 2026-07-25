@@ -88,17 +88,20 @@
     </div>
 
     <div class="form-group">
-        <label for="tags" class="form-label">标签（一行一个）</label>
-        <textarea id="tags" name="tags" class="form-textarea" rows="4"
-            placeholder="每行一个标签，如：&#10;搞笑&#10;表情包&#10;趣图">{{if .Tags}}{{range $i, $t := .Tags}}{{if $i}}&#10;{{end}}{{$t.Name}}{{end}}{{end}}</textarea>
+        <label class="form-label">标签</label>
+        <input type="hidden" id="tag_ids" name="tag_ids" value="{{if .Tags}}{{range $i, $t := .Tags}}{{if $i}},{{end}}{{$t.ID}}{{end}}{{end}}">
         {{if .AllTags}}
-        <div class="tag-chips" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.35rem;">
-            <span style="font-size:0.8rem;color:var(--text-muted);line-height:1.8;">点击添加：</span>
+        <div class="tag-chips" id="tag-chips" style="display:flex;flex-wrap:wrap;gap:0.35rem;">
             {{range .AllTags}}
-            <button type="button" class="tag-chip" data-tag="{{.Name}}" onclick="addTag(this)" title="点击添加到标签列表">{{.Name}}</button>
+            <button type="button" class="tag-chip{{if tagSelected . $.Tags}} tag-chip--active{{end}}" data-tag-id="{{.ID}}" onclick="toggleTag(this)" title="点击切换">{{.Name}}</button>
             {{end}}
         </div>
         {{end}}
+        <div style="display:flex;gap:0.35rem;margin-top:0.5rem;">
+            <input type="text" id="new-tag-input" class="form-input" placeholder="输入新标签名，回车添加" style="flex:1;max-width:200px;"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addNewTag()}">
+            <button type="button" class="btn btn--small" onclick="addNewTag()">+ 新标签</button>
+        </div>
     </div>
 
     <!-- 摘要（手动编辑，留空则自动提取） -->

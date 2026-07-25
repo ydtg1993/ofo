@@ -654,7 +654,7 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 	contentMD := c.PostForm("content")
 	categoryIDStr := c.PostForm("category_id")
 	published := c.PostForm("published") == "1"
-	tagStr := c.PostForm("tags")
+	tagIDsStr := c.PostForm("tag_ids")
 	thumbnailURL := strings.TrimSpace(c.PostForm("thumbnail_url"))
 
 	if slug == "" {
@@ -683,13 +683,16 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 		}
 	}
 
-	tagNames := parseTags(tagStr)
+	tagIDs, err := h.resolveTagIDs(tagIDsStr)
+	if err != nil {
+		tagIDs = nil
+	}
 
 	// 发布时间（默认当天）
 	createdAt := parseDate(c.PostForm("created_at"))
 	publishAt := parseDateTime(c.PostForm("publish_at"))
 
-	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagNames)
+	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagIDs)
 	if err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
@@ -728,7 +731,7 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 	contentMD := c.PostForm("content")
 	categoryIDStr := c.PostForm("category_id")
 	published := c.PostForm("published") == "1"
-	tagStr := c.PostForm("tags")
+	tagIDsStr := c.PostForm("tag_ids")
 	thumbnailURL := strings.TrimSpace(c.PostForm("thumbnail_url"))
 
 	if slug == "" {
@@ -754,13 +757,16 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 		}
 	}
 
-	tagNames := parseTags(tagStr)
+	tagIDs, err := h.resolveTagIDs(tagIDsStr)
+	if err != nil {
+		tagIDs = nil
+	}
 
 	// 发布时间（默认当天）
 	createdAt := parseDate(c.PostForm("created_at"))
 	publishAt := parseDateTime(c.PostForm("publish_at"))
 
-	if err := h.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagNames); err != nil {
+	if err := h.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagIDs); err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		tags, _ := h.PostModel.TagsForPost(id)
 		post, _ := h.PostModel.GetByID(id)
@@ -792,34 +798,46 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
 
-	// 1. 查找文章关联的资源
-	resources, err := h.ResourceModel.FindByPostID(id)
+	// 1. 查找文章关联的资源（用于后续清理）
+	resources, err := h.ResourceModel.FindResourcesByPostID(id)
 	if err != nil {
 		logger.ErrorWithContext(c, "failed to find resources for post deletion", "postID", id, "err", err)
 	}
 
-	// 2. 删除资源记录（DB 先删）
-	if err := h.ResourceModel.DeleteByPostID(id); err != nil {
-		logger.ErrorWithContext(c, "failed to delete resource records", "postID", id, "err", err)
-	}
-
-	// 3. 删除文章本身
+	// 2. 删除文章（CASCADE 会自动清理 post_tags、post_resources、post_series）
 	if err := h.PostModel.Delete(id); err != nil {
 		h.adminDashboardWithSuccess(c, "删除文章失败")
 		return
 	}
 
-	// 4. 异步删除存储文件（根据 storage 字段区分后端，仅删当前后端匹配的）
+	// 3. 清理已无任何关联的资源（文件 + 记录）
 	if len(resources) > 0 {
 		currentBackend := h.Cfg.StorageBackend
 		go func() {
 			for _, r := range resources {
+				// 检查是否还有其他文章引用此资源
+				noLinks, _ := h.ResourceModel.HasNoLinks(r.ID)
+				if !noLinks {
+					continue // 仍被其他文章引用，保留
+				}
+				if r.Storage != "" && r.Storage != currentBackend {
+					logger.Info("skip deleting resource on differ
 				if r.Storage != "" && r.Storage != currentBackend {
 					logger.Info("skip deleting resource on different backend",
 						"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", currentBackend)
 					continue
 				}
 				key := "uploads/" + r.Filename
+ resource file", "filename", r.Filename, "err", err)
+				} else {
+					// 文件删除成功，删除数据库记录
+					h.ResourceModel.Delete(r.ID)
+				}
+			}
+		}()
+	}
+
+	h.adminDashboardWith
 				if err := h.Storage.Delete(context.Background(), key); err != nil {
 					logger.Error("failed to delete resource file", "filename", r.Filename, "err", err)
 				}
@@ -924,6 +942,19 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 
 // ---- Tag Management ----
 
+func (h *Handler) AdminCreateTagAjax(c *gin.Context) {
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+	slug := slugifyStr(name)
+	h.PostModel.DB.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", name, slug)
+	var id int
+	h.PostModel.DB.QueryRow("SELECT id FROM tags WHERE slug = ?", slug).Scan(&id)
+	c.JSON(http.StatusOK, gin.H{"id": id, "name": name, "slug": slug})
+}
+
 func (h *Handler) AdminTags(c *gin.Context) {
 	tags, _ := h.PostModel.AllTags()
 	c.HTML(http.StatusOK, "admin_tags.html", AdminPageData{
@@ -1015,11 +1046,15 @@ func (h *Handler) AdminResources(c *gin.Context) {
 
 func (h *Handler) AdminDeleteResource(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	// 查找资源确认存在并获取文件名
+	r, err := h.ResourceModel.FindByURL("") // placeholder, use ListAll to find
+	_ = r
+	// Find resource by ID via full list (TODO: add GetByID method)
 	resources, _ := h.ResourceModel.ListAll(0, 10000)
-	for _, r := range resources {
-		if r.ID == id {
-			if r.Storage == "" || r.Storage == h.Cfg.StorageBackend {
-				h.Storage.Delete(c.Request.Context(), "uploads/"+r.Filename)
+	for _, res := range resources {
+		if res.ID == id {
+			if res.Storage == "" || res.Storage == h.Cfg.StorageBackend {
+				h.Storage.Delete(c.Request.Context(), "uploads/"+res.Filename)
 			}
 			h.ResourceModel.Delete(id)
 			break
@@ -1061,7 +1096,8 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 		return
 	}
 
-	// 记录到资源表（post_id 暂时为空，保存文章时关联）
+// AdminCleanupUploads deletes uploads that have been removed from the editor
+// (i.e., uploaded during an editing session but the user clicked "Cancel").
 	mimeType := models.MIMEType(ext)
 	if _, err := h.ResourceModel.Create(savedName, url, h.Cfg.StorageBackend, header.Size, mimeType); err != nil {
 		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", savedName, "err", err)
@@ -1078,26 +1114,32 @@ func (h *Handler) AdminCleanupUploads(c *gin.Context) {
 		URLs []string `json:"urls"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || len(body.URLs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing or invalid urls"})
+		relPath := URLToRelativePath(url, h.Storage, h.Cfg)
+		r, err := h.ResourceModel.FindByURL(relPath)
 		return
-	}
-
+			continue // not found or already cleaned up
 	deleted := 0
-	for _, url := range body.URLs {
-		if url == "" {
+
+		// Safety: only delete if no post references this resource
+		noLinks, _ := h.ResourceModel.HasNoLinks(r.ID)
+		if !noLinks {
+			continue // still linked to a post
 			continue
 		}
-		filename, storage, ok, err := h.ResourceModel.DeleteOrphanedByURL(URLToRelativePath(url, h.Storage, h.Cfg))
-		if err != nil {
-			logger.ErrorWithContext(c, "failed to cleanup upload", "url", url, "err", err)
+		// Delete from storage (filename may include date subdirectories)
+		storageKey := "uploads/" + r.Filename
+		if r.Storage != "" && r.Storage != h.Cfg.StorageBackend {
 			continue
-		}
+				"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", h.Cfg.StorageBackend)
 		if !ok {
 			continue // already linked to a post, or already cleaned up
 		}
 
 		// Delete from storage (filename may include date subdirectories like "2026/07/uuid.ext")
 		storageKey := "uploads/" + filename
+.Delete(r.ID)
+			deleted++
+			logger.Info("cleaned up orphan upload", "filename", r.Filename)
 		if storage != "" && storage != h.Cfg.StorageBackend {
 			logger.Info("skip cleanup: resource on different backend",
 				"filename", filename, "resourceStorage", storage, "currentBackend", h.Cfg.StorageBackend)
@@ -1235,7 +1277,6 @@ func parseTags(tagStr string) []string {
 	if strings.TrimSpace(tagStr) == "" {
 		return nil
 	}
-	// 按换行拆分，兼容 \n 和 \r\n
 	parts := strings.FieldsFunc(tagStr, func(r rune) bool { return r == '\n' || r == '\r' })
 	var tags []string
 	for _, p := range parts {
@@ -1245,6 +1286,21 @@ func parseTags(tagStr string) []string {
 		}
 	}
 	return tags
+}
+
+// resolveTagIDs parses comma-separated tag IDs into []int.
+func (h *Handler) resolveTagIDs(tagIDsStr string) ([]int, error) {
+	if strings.TrimSpace(tagIDsStr) == "" {
+		return nil, nil
+	}
+	var ids []int
+	for _, s := range strings.Split(tagIDsStr, ",") {
+		id, err := strconv.Atoi(strings.TrimSpace(s))
+		if err == nil && id > 0 {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 // parseDateTime parses a form datetime-local string, returns NullTime (NULL if empty).

@@ -208,6 +208,7 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 		protected.POST("/categories", h.AdminCreateCategory)            // 新建分类
 		protected.POST("/categories/:id", h.AdminUpdateCategory)        // 更新分类
 		protected.POST("/categories/:id/delete", h.AdminDeleteCategory) // 删除分类
+		protected.POST("/tags/create", h.AdminCreateTagAjax)            // AJAX 新增标签
 		protected.GET("/tags", h.AdminTags)                             // 标签管理
 		protected.GET("/tags/:id/posts", h.AdminTagPosts)               // 标签关联文章
 		protected.POST("/tags/:id/update", h.AdminUpdateTag)            // 重命名标签
@@ -304,7 +305,22 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 			return mm.Script(handlers.PageAESKey())
 		},
 		// 阅读时长（根据分类 slug）
-		"inc":       func(i int) int { return i + 1 },
+		"inc": func(i int) int { return i + 1 },
+		"tagSelected": func(tag models.Tag, postTags []models.Tag) bool {
+			for _, pt := range postTags {
+				if pt.ID == tag.ID {
+					return true
+				}
+			}
+			return false
+		},
+		"joinTags": func(tags []models.Tag) string {
+			names := make([]string, len(tags))
+			for i, t := range tags {
+				names[i] = t.Name
+			}
+			return strings.Join(names, "\n")
+		},
 		"hasPrefix": strings.HasPrefix,
 		"formatSize": func(size int64) string {
 			switch {

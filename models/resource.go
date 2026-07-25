@@ -12,14 +12,14 @@ import (
 
 // Resource represents an uploaded file tracked in the database.
 type Resource struct {
-	ID        int
-	PostID    sql.NullInt64
-	Filename  string
-	URL       string
-	FileSize  int64
-	MimeType  string
-	Storage   string // "local" or "qiniu"
-	CreatedAt time.Time
+	ID          int
+	Filename    string
+	URL         string
+	FileSize    int64
+	MimeType    string
+	Storage     string // "local" or "qiniu"
+	CreatedAt   time.Time
+	LinkedPosts []PostCard // 关联的文章（仅列表查询时填充）
 }
 
 // ResourceModel wraps database access for resources.
@@ -52,7 +52,7 @@ func MIMEType(ext string) string {
 // Matches relative paths (/uploads/..., /static/uploads/...) and CDN URLs.
 var reCandidateUpload = regexp.MustCompile(`(?:(?:/static)?/(?:uploads|stickers)/|https?://[^/\s"'<>]+/(?:uploads|stickers)/)[^"'<>\s]+`)
 
-// Create inserts a new resource record with post_id = NULL.
+// Create inserts a new resource record.
 func (m *ResourceModel) Create(filename, url, storage string, fileSize int64, mimeType string) (int64, error) {
 	result, err := m.DB.Exec(
 		`INSERT INTO resources (filename, url, file_size, mime_type, storage) VALUES (?, ?, ?, ?, ?)`,
@@ -64,11 +64,35 @@ func (m *ResourceModel) Create(filename, url, storage string, fileSize int64, mi
 	return result.LastInsertId()
 }
 
-// FindByPostID returns all resources linked to a post.
-func (m *ResourceModel) FindByPostID(postID int) ([]Resource, error) {
+// FindByURL returns a single resource by its URL.
+func (m *ResourceModel) FindByURL(url string) (*Resource, error) {
+	var r Resource
+	err := m.DB.QueryRow(
+		`SELECT id, filename, url, file_size, mime_type, storage, created_at
+		 FROM resources WHERE url = ?`, url,
+	).Scan(&r.ID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// Delete removes a single resource record and its join-table entries by ID.
+func (m *ResourceModel) Delete(id int) error {
+	m.DB.Exec(`DELETE FROM post_resources WHERE resource_id = ?`, id)
+	_, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, id)
+	return err
+}
+
+// ---- Join-table (post_resources) methods ----
+
+// FindResourcesByPostID returns all resources linked to a post via the join table.
+func (m *ResourceModel) FindResourcesByPostID(postID int) ([]Resource, error) {
 	rows, err := m.DB.Query(
-		`SELECT id, post_id, filename, url, file_size, mime_type, storage, created_at
-		 FROM resources WHERE post_id = ?`, postID,
+		`SELECT r.id, r.filename, r.url, r.file_size, r.mime_type, r.storage, r.created_at
+		 FROM resources r
+		 JOIN post_resources pr ON r.id = pr.resource_id
+		 WHERE pr.post_id = ?`, postID,
 	)
 	if err != nil {
 		return nil, err
@@ -78,7 +102,7 @@ func (m *ResourceModel) FindByPostID(postID int) ([]Resource, error) {
 	var resources []Resource
 	for rows.Next() {
 		var r Resource
-		if err := rows.Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		resources = append(resources, r)
@@ -86,70 +110,43 @@ func (m *ResourceModel) FindByPostID(postID int) ([]Resource, error) {
 	return resources, rows.Err()
 }
 
-// FindByURL returns a single resource by its URL.
-func (m *ResourceModel) FindByURL(url string) (*Resource, error) {
-	var r Resource
-	err := m.DB.QueryRow(
-		`SELECT id, post_id, filename, url, file_size, mime_type, storage, created_at
-		 FROM resources WHERE url = ?`, url,
-	).Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
-}
-
-// DeleteByPostID removes all resource records for a post (filesystem cleanup is caller's responsibility).
-func (m *ResourceModel) DeleteByPostID(postID int) error {
-	_, err := m.DB.Exec(`DELETE FROM resources WHERE post_id = ?`, postID)
+// LinkPostResource creates an association between a post and a resource.
+func (m *ResourceModel) LinkPostResource(postID, resourceID int) error {
+	_, err := m.DB.Exec(
+		`INSERT IGNORE INTO post_resources (post_id, resource_id) VALUES (?, ?)`,
+		postID, resourceID,
+	)
 	return err
 }
 
-// Delete removes a single resource record by ID.
-func (m *ResourceModel) Delete(id int) error {
-	_, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, id)
+// UnlinkPostResources removes all resource associations for a post.
+func (m *ResourceModel) UnlinkPostResources(postID int) error {
+	_, err := m.DB.Exec(`DELETE FROM post_resources WHERE post_id = ?`, postID)
 	return err
 }
 
-// FindOrphanedByURL returns an unlinked resource (post_id IS NULL) by its URL.
-// Returns nil if not found or if the resource is already linked to a post.
-func (m *ResourceModel) FindOrphanedByURL(url string) (*Resource, error) {
-	var r Resource
+// CountLinkedPosts returns the number of posts linked to a resource.
+func (m *ResourceModel) CountLinkedPosts(resourceID int) (int, error) {
+	var count int
 	err := m.DB.QueryRow(
-		`SELECT id, post_id, filename, url, file_size, mime_type, storage, created_at
-		 FROM resources WHERE url = ? AND post_id IS NULL`, url,
-	).Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
+		`SELECT COUNT(*) FROM post_resources WHERE resource_id = ?`, resourceID,
+	).Scan(&count)
+	return count, err
 }
 
-// DeleteOrphanedByURL deletes an unlinked resource record by URL.
-// DeleteOrphanedByURL deletes an unlinked resource by URL and returns its
-// filename and storage backend (for correct storage cleanup).
-func (m *ResourceModel) DeleteOrphanedByURL(url string) (filename, storage string, deleted bool, err error) {
-	row := m.DB.QueryRow(`SELECT filename, storage FROM resources WHERE url = ? AND post_id IS NULL`, url)
-	if err := row.Scan(&filename, &storage); err != nil {
-		if err == sql.ErrNoRows {
-			return "", "", false, nil
-		}
-		return "", "", false, err
-	}
-	result, err := m.DB.Exec(`DELETE FROM resources WHERE url = ? AND post_id IS NULL`, url)
-	if err != nil {
-		return "", "", false, err
-	}
-	n, _ := result.RowsAffected()
-	return filename, storage, n > 0, nil
+// HasNoLinks returns true if the resource is not linked to any post.
+func (m *ResourceModel) HasNoLinks(resourceID int) (bool, error) {
+	count, err := m.CountLinkedPosts(resourceID)
+	return count == 0, err
 }
 
-// SyncPostResources scans contentHTML and reconciles all resource records:
+// ---- SyncPostResources ----
+
+// SyncPostResources scans contentHTML and reconciles resource-post associations:
 //  1. Extract storage URLs from the HTML.
-//  2. For every resource with post_id IS NULL: if its URL appears in the HTML,
-//     link it to this post; otherwise delete the file + DB record (orphan cleanup).
-//  3. For resources already linked to this post that are no longer in the HTML,
-//     delete the file + DB record (removed from content).
+//  2. For each URL found, find the matching resource and link it to the post.
+//  3. Remove old associations for this post that no longer appear in the HTML.
+//  4. Delete completely orphaned resources (no links + removed from content).
 //
 // The deleteResource callback should remove the file from storage; its argument
 // is the resources.filename value (may include date subdirectories).
@@ -164,55 +161,52 @@ func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStor
 		}
 	}
 
-	// ---- Pass 1: handle ALL unlinked resources (post_id IS NULL) ----
-	unlinked, err := m.FindUnlinked()
-	if err != nil {
-		return err
-	}
-	for _, r := range unlinked {
-		if urlSet[r.URL] {
-			// URL is referenced → link to this post
-			if _, err := m.DB.Exec(`UPDATE resources SET post_id = ? WHERE id = ?`, postID, r.ID); err != nil {
-				return err
-			}
-			logger.Info("linked resource to post", "filename", r.Filename, "postID", postID)
-		} else {
-			// URL not referenced → orphan, delete file + record
-			if err := deleteResource(r.Filename); err != nil {
-				logger.Error("failed to delete orphan resource file", "filename", r.Filename, "err", err)
-			}
-			if _, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, r.ID); err != nil {
-				return err
-			}
-			logger.Info("deleted orphan resource", "filename", r.Filename)
+	// ---- Pass 1: Link resources whose URLs appear in the HTML ----
+	for url := range urlSet {
+		r, err := m.FindByURL(url)
+		if err != nil {
+			continue // resource not tracked yet
+		}
+		if err := m.LinkPostResource(postID, r.ID); err != nil {
+			return err
 		}
 	}
 
-	// ---- Pass 2: handle resources previously linked to this post ----
-	current, err := m.FindByPostID(postID)
+	// ---- Pass 2: Unlink resources that are no longer in the HTML ----
+	current, err := m.FindResourcesByPostID(postID)
 	if err != nil {
 		return err
 	}
 	for _, r := range current {
 		if !urlSet[r.URL] {
-			// No longer in the HTML → delete file + record
-			if err := deleteResource(r.Filename); err != nil {
-				logger.Error("failed to delete removed resource file", "filename", r.Filename, "err", err)
-			}
-			if _, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, r.ID); err != nil {
+			// No longer referenced → unlink
+			if _, err := m.DB.Exec(`DELETE FROM post_resources WHERE post_id = ? AND resource_id = ?`, postID, r.ID); err != nil {
 				return err
 			}
-			logger.Info("deleted removed resource", "filename", r.Filename, "postID", postID)
+			// If this resource is now completely orphaned, delete file + record
+			noLinks, _ := m.HasNoLinks(r.ID)
+			if noLinks {
+				if err := deleteResource(r.Filename); err != nil {
+					logger.Error("failed to delete orphan resource file", "filename", r.Filename, "err", err)
+				}
+				if _, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, r.ID); err != nil {
+					return err
+				}
+				logger.Info("deleted orphan resource", "filename", r.Filename)
+			}
 		}
 	}
 
 	return nil
 }
 
+// ---- List / Count ----
+
 // ListAll returns all resources ordered by newest first with offset/limit.
+// Fills LinkedPosts for each resource.
 func (m *ResourceModel) ListAll(offset, limit int) ([]Resource, error) {
 	rows, err := m.DB.Query(
-		`SELECT id, post_id, filename, url, file_size, mime_type, storage, created_at
+		`SELECT id, filename, url, file_size, mime_type, storage, created_at
 		 FROM resources ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
 		return nil, err
@@ -222,12 +216,37 @@ func (m *ResourceModel) ListAll(offset, limit int) ([]Resource, error) {
 	var list []Resource
 	for rows.Next() {
 		var r Resource
-		if err := rows.Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt); err != nil {
 			return nil, err
 		}
+		// Load linked posts
+		r.LinkedPosts, _ = m.linkedPostsForResource(r.ID)
 		list = append(list, r)
 	}
 	return list, nil
+}
+
+// linkedPostsForResource returns post cards linked to a resource via post_resources.
+func (m *ResourceModel) linkedPostsForResource(resourceID int) ([]PostCard, error) {
+	rows, err := m.DB.Query(
+		`SELECT p.id, p.title, p.slug
+		 FROM posts p
+		 JOIN post_resources pr ON p.id = pr.post_id
+		 WHERE pr.resource_id = ?`, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cards []PostCard
+	for rows.Next() {
+		var c PostCard
+		if err := rows.Scan(&c.ID, &c.Title, &c.Slug); err != nil {
+			return nil, err
+		}
+		cards = append(cards, c)
+	}
+	return cards, rows.Err()
 }
 
 // CountAll returns the total number of resources.
@@ -237,27 +256,7 @@ func (m *ResourceModel) CountAll() (int, error) {
 	return total, err
 }
 
-// FindUnlinked returns all resources that are not linked to any post.
-func (m *ResourceModel) FindUnlinked() ([]Resource, error) {
-	rows, err := m.DB.Query(
-		`SELECT id, post_id, filename, url, file_size, mime_type, storage, created_at
-		 FROM resources WHERE post_id IS NULL`,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var resources []Resource
-	for rows.Next() {
-		var r Resource
-		if err := rows.Scan(&r.ID, &r.PostID, &r.Filename, &r.URL, &r.FileSize, &r.MimeType, &r.Storage, &r.CreatedAt); err != nil {
-			return nil, err
-		}
-		resources = append(resources, r)
-	}
-	return resources, rows.Err()
-}
+// ---- Disk scan ----
 
 // ScanDiskAndRecord scans the uploads directory (including date-based subdirectories)
 // and creates resource records for files that don't have one yet.
