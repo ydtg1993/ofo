@@ -90,19 +90,11 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 			}
 			return mm.Script(handlers.PageAESKey())
 		},
-		// 标签级联：判断 post_tags 中是否包含某 tagID
-		"tagSelected": func(tagVal string, tags []interface{}) bool {
-			// 从 template 传进来的是 models.Tag[]
-			for _, t := range tags {
-				switch v := t.(type) {
-				case struct {
-					ID   int
-					Name string
-					Slug string
-				}:
-					if tagVal == v.Name {
-						return true
-					}
+		// 标签级联：判断当前 tag 是否属于文章的 tags 列表（admin 编辑器用）
+		"tagSelected": func(tag models.Tag, postTags []models.Tag) bool {
+			for _, pt := range postTags {
+				if pt.ID == tag.ID {
+					return true
 				}
 			}
 			return false
