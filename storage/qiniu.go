@@ -150,9 +150,7 @@ func (s *QiniuStorage) IsStorageURL(url string) bool {
 	}
 	// Match relative storage paths (new format: /uploads/..., legacy: /static/uploads/...)
 	return strings.HasPrefix(url, "/uploads/") ||
-		strings.HasPrefix(url, "/stickers/") ||
-		strings.HasPrefix(url, "/static/uploads/") ||
-		strings.HasPrefix(url, "/static/stickers/")
+		strings.HasPrefix(url, "/static/uploads/")
 }
 
 // PublicURL converts a relative storage path to the full CDN URL.

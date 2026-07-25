@@ -50,7 +50,7 @@ func MIMEType(ext string) string {
 
 // Regular expression to extract candidate upload URLs from HTML content.
 // Matches relative paths (/uploads/..., /static/uploads/...) and CDN URLs.
-var reCandidateUpload = regexp.MustCompile(`(?:(?:/static)?/(?:uploads|stickers)/|https?://[^/\s"'<>]+/(?:uploads|stickers)/)[^"'<>\s]+`)
+var reCandidateUpload = regexp.MustCompile(`(?:(?:/static)?/uploads/|https?://[^/\s"'<>]+/uploads/)[^"'<>\s]+`)
 
 // Create inserts a new resource record.
 func (m *ResourceModel) Create(filename, url, storage string, fileSize int64, mimeType string) (int64, error) {

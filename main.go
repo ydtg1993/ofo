@@ -42,10 +42,6 @@ func main() {
 			logger.Error("Failed to create uploads directory", "err", err)
 			os.Exit(1)
 		}
-		if err := os.MkdirAll(filepath.Join(baseDir, "static", "stickers"), 0755); err != nil {
-			logger.Error("Failed to create stickers directory", "err", err)
-			os.Exit(1)
-		}
 	}
 
 	db, err := database.Init(cfg.DSN())

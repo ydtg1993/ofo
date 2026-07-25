@@ -183,7 +183,7 @@
     var dropZone = document.getElementById('editor-drop-zone');
     var uploadQueue = [];
 
-    function addToQueue(file) { uploadQueue.push({ file: file, uploaded: false }); renderQueue(); }
+    function addToQueue(file) { uploadQueue.push({ file: file, uploaded: false, progress: 0 }); renderQueue(); }
     function removeFromQueue(idx) { uploadQueue.splice(idx, 1); renderQueue(); }
     function renderQueue() {
         var list = document.getElementById('editor-queue-list');
@@ -198,9 +198,19 @@
         uploadQueue.forEach(function (item, i) {
             var d = document.createElement('li');
             d.className = 'upload-item';
-            d.innerHTML = '<span>' + item.file.name + '</span>' + (item.uploaded
-                ? '<span style="color:green;">✓</span>'
-                : '<button class="btn btn--small btn--danger queue-remove-btn" data-idx="' + i + '">×</button>');
+            var name = item.file.name;
+            var size = item.file.size > 1<<20 ? (item.file.size / (1<<20)).toFixed(1) + ' MB' : (item.file.size / (1<<10)).toFixed(1) + ' KB';
+            var pct = Math.round(item.progress || 0);
+            d.innerHTML =
+                '<div class="upload-item__info">' +
+                    '<span class="upload-item__name">' + name + '</span>' +
+                    '<span class="upload-item__size">' + size + '</span>' +
+                '</div>' +
+                (item.uploaded
+                    ? '<span style="color:green;flex-shrink:0;">✓ 完成</span>'
+                    : '<div class="upload-item__progress"><div class="upload-item__bar" style="width:' + pct + '%"></div></div>' +
+                      '<span class="upload-item__pct">' + pct + '%</span>' +
+                      '<button class="btn btn--small btn--danger queue-remove-btn" data-idx="' + i + '">×</button>');
             list.appendChild(d);
         });
         // update queue status
@@ -246,6 +256,12 @@
             var item = pending[idx];
             var fd = new FormData(); fd.append('file', item.file);
             var xhr = new XMLHttpRequest(); xhr.open('POST', '/admin/upload');
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    item.progress = (e.loaded / e.total) * 100;
+                    renderQueue();
+                }
+            };
             xhr.onload = function () {
                 if (xhr.status === 200) {
                     item.uploaded = true;
@@ -363,30 +379,6 @@
         }
     });
 
-    var stickerDrop = document.getElementById('sticker-drop-zone');
-    if (stickerDrop) {
-        stickerDrop.addEventListener('dragover', function (e) { e.preventDefault(); stickerDrop.classList.add('sticker-drop-zone--drag-over'); });
-        stickerDrop.addEventListener('dragleave', function () { stickerDrop.classList.remove('sticker-drop-zone--drag-over'); });
-        stickerDrop.addEventListener('drop', function (e) {
-            e.preventDefault(); stickerDrop.classList.remove('sticker-drop-zone--drag-over');
-            var files = e.dataTransfer.files;
-            if (files && files.length) {
-                for (var i = 0; i < files.length; i++) {
-                    var fd = new FormData(); fd.append('file', files[i]);
-                    fetch('/admin/stickers', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                        .then(function (r) { return r.json(); }).then(function () { window.location.reload(); });
-                }
-            }
-        });
-    }
-
-    window.previewSticker = function (url, isVideo) {
-        var m = document.getElementById('sticker-modal'), c = document.getElementById('sticker-modal-content');
-        if (!m || !c) return;
-        c.innerHTML = isVideo ? '<video src="' + url + '" controls autoplay style="max-width:90vw;max-height:80vh;"></video>'
-            : '<img src="' + url + '" style="max-width:90vw;max-height:80vh;">';
-        m.style.display = 'flex';
-    };
     window.closeStickerPreview = function () {
         var m = document.getElementById('sticker-modal'); if (m) m.style.display = 'none';
     };

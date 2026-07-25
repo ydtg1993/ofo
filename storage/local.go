@@ -71,9 +71,7 @@ func (s *LocalStorage) Get(_ context.Context, key string) (io.ReadCloser, error)
 // IsStorageURL returns true if the URL is a local static file path.
 func (s *LocalStorage) IsStorageURL(url string) bool {
 	return strings.HasPrefix(url, "/uploads/") ||
-		strings.HasPrefix(url, "/stickers/") ||
-		strings.HasPrefix(url, "/static/uploads/") ||
-		strings.HasPrefix(url, "/static/stickers/")
+		strings.HasPrefix(url, "/static/uploads/")
 }
 
 // PublicURL converts a storage path to the public URL for local serving.

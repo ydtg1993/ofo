@@ -69,8 +69,8 @@ func (h *Handler) MediaProxy(c *gin.Context) {
 
 	// Clean the path to prevent directory traversal (use path.Clean for URL paths)
 	fp = path.Clean(fp)
-	// Only allow uploads/ and stickers/ paths
-	if !strings.HasPrefix(fp, "uploads/") && !strings.HasPrefix(fp, "stickers/") {
+	// Only allow uploads/ paths
+	if !strings.HasPrefix(fp, "uploads/") {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
@@ -193,11 +193,11 @@ func validateMediaToken(filepath, token, secret string, ttl int) bool {
 // reStorageSrc matches src or data-src attributes pointing to storage-managed files.
 // Group 1: the URL value. Matches both /uploads/... (new) and /static/uploads/... (legacy).
 var reStorageSrc = regexp.MustCompile(
-	`(?:src|data-src)\s*=\s*"(/(?:(?:static/)?(?:uploads|stickers)/[^"'<>\s]+))"`,
+	`(?:src|data-src)\s*=\s*"(/(?:(?:static/)?(?:uploads)/[^"'<>\s]+))"`,
 )
 
 // reUploadPath matches relative upload/sticker paths in HTML for URL rewriting.
-var reUploadPath = regexp.MustCompile(`/(?:uploads|stickers)/[^"'<>\s]+`)
+var reUploadPath = regexp.MustCompile(`/(?:uploads)/[^"'<>\s]+`)
 
 // MediaMap collects proxy URLs during HTML processing and assigns each
 // a random short ID. The ID is used as data-mid in HTML; the ID→URL
@@ -266,7 +266,7 @@ func randomMID() string {
 
 // ProxyMediaURL converts a storage URL to a signed proxy URL.
 //   - /static/uploads/file.jpg → /media/uploads/file.jpg?t=<token>
-//   - /static/stickers/file.gif → /media/stickers/file.gif?t=<token>
+//   - /static/uploads/file.gif → /media/uploads/file.gif?t=<token>
 //   - Non-storage URLs are returned unchanged.
 func ProxyMediaURL(originalURL string, store storage.Storage, cfg *config.Config) string {
 	if !cfg.MediaProtection {
@@ -347,7 +347,7 @@ func BuildMediaMapWith(html string, store storage.Storage, cfg *config.Config, m
 	// Pass 2: absolute CDN URLs from any domain (legacy data, handles old Qiniu
 	// URLs when storage backend has been switched, etc.)
 	reAbsSrc := regexp.MustCompile(
-		`(?:src|data-src)\s*=\s*"(https?://[^/"'\s]+/(?:uploads|stickers)/[^"'<>\s]+)"`,
+		`(?:src|data-src)\s*=\s*"(https?://[^/"'\s]+/(?:uploads)/[^"'<>\s]+)"`,
 	)
 	html = reAbsSrc.ReplaceAllStringFunc(html, func(match string) string {
 		sub := reAbsSrc.FindStringSubmatch(match)
@@ -400,7 +400,7 @@ func extractStorageKey(url string, store storage.Storage) string {
 	}
 
 	// Now extract from clean path: uploads/xxx or stickers/xxx
-	for _, prefix := range []string{"uploads/", "stickers/"} {
+	for _, prefix := range []string{"uploads/", "uploads/"} {
 		if strings.HasPrefix(clean, prefix) {
 			return clean // e.g. "uploads/path.jpg"
 		}
@@ -421,7 +421,7 @@ func extractStorageKey(url string, store storage.Storage) string {
 // isMediaURL checks if a URL is a proxied media URL (used by dimension injection).
 func isMediaURL(url string) bool {
 	return strings.HasPrefix(url, "/media/uploads/") ||
-		strings.HasPrefix(url, "/media/stickers/")
+		strings.HasPrefix(url, "/media/uploads/")
 }
 
 // originalFromMediaURL tries to reverse a proxied media URL back to the
@@ -547,7 +547,7 @@ var reCDNURL *regexp.Regexp
 
 func initCDNURLPattern(domain string) {
 	if domain != "" {
-		reCDNURL = regexp.MustCompile(regexp.QuoteMeta(domain) + `/(uploads|stickers)/[^"'<>\s]+`)
+		reCDNURL = regexp.MustCompile(regexp.QuoteMeta(domain) + `/(uploads)/[^"'<>\s]+`)
 	}
 }
 
@@ -565,14 +565,13 @@ func NormalizeContentURLs(html string, store storage.Storage, cfg *config.Config
 		return html
 	}
 	return reCDNURL.ReplaceAllStringFunc(html, func(match string) string {
-		// Strip domain, keep /uploads/... or /stickers/...
 		domain := strings.TrimRight(cfg.QiniuDomain, "/")
 		return strings.TrimPrefix(match, domain)
 	})
 }
 
 // reAnyCDNURL matches any absolute CDN/storage URL pointing to uploads/ or stickers/.
-var reAnyCDNURL = regexp.MustCompile(`https?://[^/"'\s]+/(uploads|stickers)/[^"'<>\s]+`)
+var reAnyCDNURL = regexp.MustCompile(`https?://[^/"'\s]+/(uploads)/[^"'<>\s]+`)
 
 // RewriteContentURLs converts relative storage paths in HTML to public display
 // URLs. Local → prepends /static, Qiniu → prepends CDN domain.

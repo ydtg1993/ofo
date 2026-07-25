@@ -60,7 +60,6 @@ var migrations = []string{
 		PRIMARY KEY (id),
 		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-	`CREATE INDEX IF NOT EXISTS idx_resources_post_id ON resources(post_id)`,
 	// 资源复用的多对多关联表（替代 resources.post_id）
 	`CREATE TABLE IF NOT EXISTS post_resources (
 		post_id INT NOT NULL,
@@ -69,22 +68,6 @@ var migrations = []string{
 		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
 		FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-	// 迁移历史数据：将 resources.post_id 复制到 post_resources
-	`INSERT IGNORE INTO post_resources (post_id, resource_id)
-	 SELECT post_id, id FROM resources WHERE post_id IS NOT NULL`,
-	// 删除旧的 FK（resources.post_id → posts.id）
-	`ALTER TABLE resources DROP FOREIGN KEY resources_ibfk_1`,
-	// 删除 resources.post_id 列
-	`ALTER TABLE resources DROP COLUMN post_id`,
-	`CREATE TABLE IF NOT EXISTS stickers (
-			id INT NOT NULL AUTO_INCREMENT,
-			filename VARCHAR(255) NOT NULL,
-			url VARCHAR(512) NOT NULL,
-			file_size BIGINT NOT NULL DEFAULT 0,
-			mime_type VARCHAR(100) NOT NULL DEFAULT '',
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	// 定时发布：NULL = 立即发布
 	`ALTER TABLE posts ADD COLUMN publish_at DATETIME DEFAULT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_posts_publish_at ON posts(publish_at)`,
@@ -125,7 +108,8 @@ func Init(dsn string) (*sql.DB, error) {
 				strings.Contains(err.Error(), "already exists") ||
 				strings.Contains(err.Error(), "Can't DROP") ||
 				strings.Contains(err.Error(), "Cannot drop") ||
-				strings.Contains(err.Error(), "check that column") {
+				strings.Contains(err.Error(), "check that column") ||
+				strings.Contains(err.Error(), "doesn't exist") {
 				logger.Warn("skipping duplicate migration", "err", err)
 				continue
 			}
@@ -133,19 +117,39 @@ func Init(dsn string) (*sql.DB, error) {
 		}
 	}
 
-	// 动态删除 resources.post_id 的外键（FK 名称可能因环境而异）
-	var fkName string
+	// 动态处理 resources.post_id → post_resources 迁移
+	var colExists int
 	if err := db.QueryRow(`
-		SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+		SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'resources'
-		AND COLUMN_NAME = 'post_id' AND REFERENCED_TABLE_NAME IS NOT NULL
-		LIMIT 1
-	`).Scan(&fkName); err == nil && fkName != "" {
-		if _, err := db.Exec("ALTER TABLE resources DROP FOREIGN KEY `" + fkName + "`"); err != nil {
-			logger.Warn("failed to drop FK (may already be dropped)", "fk", fkName, "err", err)
+		AND COLUMN_NAME = 'post_id'
+	`).Scan(&colExists); err == nil && colExists > 0 {
+		// 1. 迁移历史数据到关联表
+		if _, err := db.Exec(`
+			INSERT IGNORE INTO post_resources (post_id, resource_id)
+			SELECT post_id, id FROM resources WHERE post_id IS NOT NULL
+		`); err != nil {
+			logger.Warn("failed to migrate resource post_id data", "err", err)
 		}
+
+		// 2. 删除 FK（名称可能因环境而异）
+		var fkName string
+		if err := db.QueryRow(`
+			SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'resources'
+			AND COLUMN_NAME = 'post_id' AND REFERENCED_TABLE_NAME IS NOT NULL
+			LIMIT 1
+		`).Scan(&fkName); err == nil && fkName != "" {
+			if _, err := db.Exec("ALTER TABLE resources DROP FOREIGN KEY `" + fkName + "`"); err != nil {
+				logger.Warn("failed to drop FK", "fk", fkName, "err", err)
+			}
+		}
+
+		// 3. 删除列
 		if _, err := db.Exec("ALTER TABLE resources DROP COLUMN post_id"); err != nil {
 			logger.Warn("failed to drop post_id column", "err", err)
+		} else {
+			logger.Info("dropped resources.post_id column")
 		}
 	}
 

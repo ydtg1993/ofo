@@ -97,14 +97,6 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		}
 		uploadsGroup.Use(middleware.HotlinkProtection(cfg))
 		uploadsGroup.Static("", filepath.Join(baseDir, "static", "uploads"))
-
-		stickersGroup := r.Group("/static/stickers")
-		stickersGroup.Use(middleware.CacheControl(7 * 24 * time.Hour))
-		if cfg.StaticRateLimit > 0 {
-			stickersGroup.Use(middleware.RateLimit(cfg.StaticRateLimit, time.Second))
-		}
-		stickersGroup.Use(middleware.HotlinkProtection(cfg))
-		stickersGroup.Static("", filepath.Join(baseDir, "static", "stickers"))
 	}
 
 	r.GET("/favicon.ico", func(c *gin.Context) { c.Status(204) })
