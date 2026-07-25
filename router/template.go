@@ -1,6 +1,8 @@
 package router
 
 import (
+	"database/sql"
+	"fmt"
 	"html/template"
 	"strings"
 	"time"
@@ -8,6 +10,7 @@ import (
 	"ofo/config"
 	"ofo/handlers"
 	"ofo/handlers/admin"
+	"ofo/models"
 	"ofo/storage"
 )
 
@@ -103,6 +106,65 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 				}
 			}
 			return false
+		},
+		"inc": func(i int) int { return i + 1 },
+		"catName": func(catID sql.NullInt64, categories []models.Category) string {
+			if !catID.Valid {
+				return "—"
+			}
+			for _, c := range categories {
+				if int64(c.ID) == catID.Int64 {
+					return c.Name
+				}
+			}
+			return "—"
+		},
+		"catEmoji": func(categorySlug string) string {
+			switch categorySlug {
+			case "quick-peek":
+				return "⚡"
+			case "bathroom-break":
+				return "☕"
+			case "lunch-break":
+				return "🍱"
+			case "daily-highlight":
+				return "🔥"
+			default:
+				return ""
+			}
+		},
+		"formatSize": func(size int64) string {
+			switch {
+			case size >= 1<<20:
+				return fmt.Sprintf("%.1f MB", float64(size)/(1<<20))
+			case size >= 1<<10:
+				return fmt.Sprintf("%.1f KB", float64(size)/(1<<10))
+			default:
+				return fmt.Sprintf("%d B", size)
+			}
+		},
+		"hasPrefix": strings.HasPrefix,
+		"isFuture":  func(nt sql.NullTime) bool { return nt.Valid && nt.Time.After(time.Now()) },
+		"joinTags": func(tags []models.Tag) string {
+			names := make([]string, len(tags))
+			for i, t := range tags {
+				names[i] = t.Name
+			}
+			return strings.Join(names, "\n")
+		},
+		"readTime": func(categorySlug string) string {
+			switch categorySlug {
+			case "quick-peek":
+				return "30秒"
+			case "bathroom-break":
+				return "3-5分钟"
+			case "lunch-break":
+				return "10-15分钟"
+			case "daily-highlight":
+				return "5-10分钟"
+			default:
+				return "约5分钟"
+			}
 		},
 	}
 }
