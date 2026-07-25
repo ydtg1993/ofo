@@ -588,45 +588,6 @@ func (m *PostModel) AllTagsSimple() ([]Tag, error) {
 	return tags, nil
 }
 
-// ---- Thumbnail Extraction ----
-
-// ExtractThumbnail extracts the first image or video URL from HTML content.
-func ExtractThumbnail(html string) string {
-	// Try <img> first
-	if idx := strings.Index(html, "<img "); idx >= 0 {
-		srcStart := strings.Index(html[idx:], "src=\"")
-		if srcStart < 0 {
-			srcStart = strings.Index(html[idx:], "src='")
-		}
-		if srcStart >= 0 {
-			srcStart += 5 // skip 'src="'
-			sub := html[idx+srcStart:]
-			srcEnd := strings.IndexAny(sub, "\"'")
-			if srcEnd > 0 {
-				return sub[:srcEnd]
-			}
-		}
-	}
-
-	// Try <video> / <source>
-	if idx := strings.Index(html, "<video "); idx >= 0 {
-		srcStart := strings.Index(html[idx:], "src=\"")
-		if srcStart < 0 {
-			srcStart = strings.Index(html[idx:], "src='")
-		}
-		if srcStart >= 0 {
-			srcStart += 5
-			sub := html[idx+srcStart:]
-			srcEnd := strings.IndexAny(sub, "\"'")
-			if srcEnd > 0 {
-				return sub[:srcEnd]
-			}
-		}
-	}
-
-	return ""
-}
-
 // slugify converts a string to a URL-safe slug.
 func slugify(s string) string {
 	// 先将中文转换为拼音，再只保留字母和数字（小写），去掉所有符号和空格

@@ -293,10 +293,10 @@
     function looksLikePureHTML(s) {
         return /^\s*<[a-zA-Z]/.test(s) && !/[#>\-\*\d]/.test(s.replace(/```[\s\S]*?```/g, ''));
     }
-    window.updatePreview = function () {
-        var ta = document.getElementById('content'), pre = document.getElementById('preview-content');
-        if (!ta || !pre) return;
-        var md = ta.value;
+
+    function renderPreview(md) {
+        var pre = document.getElementById('preview-content');
+        if (!pre) return;
         var tab = document.querySelector('.preview-tab.active');
         var mode = tab ? tab.dataset.preview : 'detail';
         if (mode === 'card') {
@@ -311,11 +311,54 @@
             var html = looksLikePureHTML(md) ? md : marked.parse(md);
             pre.innerHTML = '<div class="neo-box post-full__body">' + html + '</div>';
         }
+    }
+
+    // Cache the last resolved markdown for tab-switch preview
+    var resolvedMd = null;
+
+    window.updatePreview = function () {
+        var ta = document.getElementById('content'), pre = document.getElementById('preview-content');
+        if (!ta || !pre) return;
+        // Use resolved content if available, otherwise raw textarea value
+        renderPreview(resolvedMd || ta.value);
     };
 
+    function resolveAndRenderPreview(md) {
+        if (!md) return;
+        if (md.indexOf('/uploads/') === -1) {
+            resolvedMd = null;
+            renderPreview(md);
+            return;
+        }
+        fetch('/admin/resolve-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: md })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.content) {
+                resolvedMd = data.content;
+                renderPreview(data.content);
+            }
+        })
+        .catch(function () { /* ignore */ });
+    }
+
     if (document.getElementById('content')) {
-        document.getElementById('content').addEventListener('input', updatePreview);
-        updatePreview();
+        // 用户修改内容时清除缓存
+        document.getElementById('content').addEventListener('input', function () {
+            resolvedMd = null;
+        });
+        // Blur 时才刷新预览
+        document.getElementById('content').addEventListener('blur', function () {
+            resolveAndRenderPreview(this.value);
+        });
+        // 编辑已有文章时初次加载预览
+        var initialMd = document.getElementById('content').value;
+        if (initialMd) {
+            resolveAndRenderPreview(initialMd);
+        }
     }
 
     // 标签芯片 — toggle 选中/取消，维护隐藏域 tag_ids

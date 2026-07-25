@@ -149,8 +149,8 @@ func (m *ResourceModel) HasNoLinks(resourceID int) (bool, error) {
 //  4. Delete completely orphaned resources (no links + removed from content).
 //
 // The deleteResource callback should remove the file from storage; its argument
-// is the resources.filename value (may include date subdirectories).
-func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStorageURL func(string) bool, deleteResource func(filename string) error) error {
+// is the resources.URL value (which includes the full storage path with date subdirectories).
+func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStorageURL func(string) bool, deleteResource func(url string) error) error {
 	// Build set of storage URLs found in the HTML
 	matches := reCandidateUpload.FindAllStringSubmatch(contentHTML, -1)
 	urlSet := make(map[string]bool, len(matches))
@@ -186,8 +186,8 @@ func (m *ResourceModel) SyncPostResources(postID int, contentHTML string, isStor
 			// If this resource is now completely orphaned, delete file + record
 			noLinks, _ := m.HasNoLinks(r.ID)
 			if noLinks {
-				if err := deleteResource(r.Filename); err != nil {
-					logger.Error("failed to delete orphan resource file", "filename", r.Filename, "err", err)
+				if err := deleteResource(r.URL); err != nil {
+					logger.Error("failed to delete orphan resource file", "url", r.URL, "err", err)
 				}
 				if _, err := m.DB.Exec(`DELETE FROM resources WHERE id = ?`, r.ID); err != nil {
 					return err
@@ -272,7 +272,9 @@ func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
 		}
 
 		filename := info.Name()
-		url := "/uploads/" + filename
+		// Compute relative path from uploadsDir to include year/month subdirectories
+		relPath, _ := filepath.Rel(uploadsDir, path)
+		url := "/uploads/" + filepath.ToSlash(relPath)
 
 		// Check if record already exists
 		existing, err := m.FindByURL(url)

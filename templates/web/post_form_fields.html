@@ -2,8 +2,7 @@
     <div class="form-group">
         <label for="title" class="form-label">标题</label>
         <input type="text" id="title" name="title" class="form-input"
-            value="{{if .Post}}{{.Post.Title}}{{end}}" required autofocus
-            oninput="updatePreview()">
+            value="{{if .Post}}{{.Post.Title}}{{end}}" required autofocus>
     </div>
 
     <div class="form-row">
@@ -16,7 +15,7 @@
             <label for="thumbnail_url" class="form-label">封面图URL（可选）</label>
             <input type="text" id="thumbnail_url" name="thumbnail_url" class="form-input"
                 value="{{if .Post}}{{.Post.ThumbnailURL}}{{end}}"
-                placeholder="留空则自动提取首图" oninput="updatePreview()">
+                placeholder="输入封面图URL（可选）">
         </div>
     </div>
 
@@ -135,6 +134,5 @@
     <div class="editor-toolbar">
         <label class="form-label" style="margin-bottom:0;">正文（Markdown）</label>
     </div>
-    <textarea id="content" name="content" class="form-textarea editor-textarea" rows="22" required
-        oninput="updatePreview()">{{if .Post}}{{.Post.ContentMD}}{{end}}</textarea>
+    <textarea id="content" name="content" class="form-textarea editor-textarea" rows="22" required>{{if .Post}}{{.Post.ContentMD}}{{end}}</textarea>
 {{end}}
