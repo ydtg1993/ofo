@@ -191,10 +191,13 @@ func validateMediaToken(filepath, token, secret string, ttl int) bool {
 // ---- URL Transformation ----
 
 // reStorageSrc matches src or data-src attributes pointing to storage-managed files.
-// Group 1: the URL value
+// Group 1: the URL value. Matches both /uploads/... (new) and /static/uploads/... (legacy).
 var reStorageSrc = regexp.MustCompile(
-	`(?:src|data-src)\s*=\s*"(/(?:static/(?:uploads|stickers)/[^"'<>\s]+))"`,
+	`(?:src|data-src)\s*=\s*"(/(?:(?:static/)?(?:uploads|stickers)/[^"'<>\s]+))"`,
 )
+
+// reUploadPath matches relative upload/sticker paths in HTML for URL rewriting.
+var reUploadPath = regexp.MustCompile(`/(?:uploads|stickers)/[^"'<>\s]+`)
 
 // MediaMap collects proxy URLs during HTML processing and assigns each
 // a random short ID. The ID is used as data-mid in HTML; the ID→URL
@@ -315,6 +318,16 @@ func BuildMediaMapWith(html string, store storage.Storage, cfg *config.Config, m
 		secret = "ofo-media-" + cfg.AdminPassword
 	}
 
+	makeProxyURL := func(url string) string {
+		key := extractStorageKey(url, store)
+		if key == "" {
+			return ""
+		}
+		token := GenerateMediaToken(key, secret)
+		return "/media/" + key + "?t=" + token
+	}
+
+	// Pass 1: relative paths (/uploads/..., /static/uploads/...)
 	html = reStorageSrc.ReplaceAllStringFunc(html, func(match string) string {
 		sub := reStorageSrc.FindStringSubmatch(match)
 		if len(sub) < 2 {
@@ -324,14 +337,29 @@ func BuildMediaMapWith(html string, store storage.Storage, cfg *config.Config, m
 		if !store.IsStorageURL(url) {
 			return match
 		}
-		key := extractStorageKey(url, store)
-		if key == "" {
+		proxyURL := makeProxyURL(url)
+		if proxyURL == "" {
 			return match
 		}
-		token := GenerateMediaToken(key, secret)
-		proxyURL := "/media/" + key + "?t=" + token
-		mid := mm.Add(proxyURL)
-		return fmt.Sprintf(`data-mid="%s"`, mid)
+		return fmt.Sprintf(`data-mid="%s"`, mm.Add(proxyURL))
+	})
+
+	// Pass 2: absolute CDN URLs from any domain (legacy data, handles old Qiniu
+	// URLs when storage backend has been switched, etc.)
+	reAbsSrc := regexp.MustCompile(
+		`(?:src|data-src)\s*=\s*"(https?://[^/"'\s]+/(?:uploads|stickers)/[^"'<>\s]+)"`,
+	)
+	html = reAbsSrc.ReplaceAllStringFunc(html, func(match string) string {
+		sub := reAbsSrc.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		url := sub[1]
+		proxyURL := makeProxyURL(url)
+		if proxyURL == "" {
+			return match
+		}
+		return fmt.Sprintf(`data-mid="%s"`, mm.Add(proxyURL))
 	})
 
 	return html
@@ -358,27 +386,33 @@ func AddThumbMid(url string, mm *MediaMap, store storage.Storage, cfg *config.Co
 
 // extractStorageKey extracts the storage key from a URL.
 //
+//	/uploads/path.jpg → uploads/path.jpg
 //	/static/uploads/path.jpg → uploads/path.jpg
-//	/static/stickers/path.gif → stickers/path.gif
+//	https://cdn.example.com/uploads/path.jpg → uploads/path.jpg
 func extractStorageKey(url string, store storage.Storage) string {
-	// Local storage: /static/uploads/path → uploads/path
-	if strings.HasPrefix(url, "/static/uploads/") {
-		return "uploads/" + strings.TrimPrefix(url, "/static/uploads/")
-	}
-	if strings.HasPrefix(url, "/static/stickers/") {
-		return "stickers/" + strings.TrimPrefix(url, "/static/stickers/")
+	// Remove /static/ or /media/ prefix first, then extract
+	clean := url
+	for _, prefix := range []string{"/static/", "/media/"} {
+		if strings.HasPrefix(clean, prefix) {
+			clean = clean[len(prefix):]
+			break
+		}
 	}
 
-	// For CDN/Qiniu storage, check IsStorageURL then extract
+	// Now extract from clean path: uploads/xxx or stickers/xxx
+	for _, prefix := range []string{"uploads/", "stickers/"} {
+		if strings.HasPrefix(clean, prefix) {
+			return clean // e.g. "uploads/path.jpg"
+		}
+	}
+
+	// For CDN URLs (e.g. https://cdn.example.com/uploads/path.jpg)
 	if store.IsStorageURL(url) {
-		// Find the uploads/ or stickers/ segment and take everything after
 		for _, prefix := range []string{"/uploads/", "/stickers/"} {
 			if idx := strings.Index(url, prefix); idx >= 0 {
-				return strings.TrimPrefix(url[idx+1:], "") // e.g. "uploads/path.jpg"
+				return url[idx+1:] // e.g. "uploads/path.jpg"
 			}
 		}
-		// Fallback: take last two path segments
-		// But this is fragile; prefer the explicit prefixes above
 	}
 
 	return ""
@@ -397,12 +431,9 @@ func originalFromMediaURL(url string) string {
 	if idx := strings.Index(url, "?"); idx >= 0 {
 		url = url[:idx]
 	}
-	// /media/uploads/path.jpg → /static/uploads/path.jpg
-	if strings.HasPrefix(url, "/media/uploads/") {
-		return "/static/uploads/" + strings.TrimPrefix(url, "/media/uploads/")
-	}
-	if strings.HasPrefix(url, "/media/stickers/") {
-		return "/static/stickers/" + strings.TrimPrefix(url, "/media/stickers/")
+	// /media/uploads/path.jpg → /uploads/path.jpg
+	if strings.HasPrefix(url, "/media/") {
+		return "/" + strings.TrimPrefix(url, "/media/")
 	}
 	return url
 }
@@ -513,7 +544,6 @@ func PageAESKey() []byte { return getPageAESKey() }
 // ---- Content URL Normalization ----
 
 var reCDNURL *regexp.Regexp
-var reStaticPath = regexp.MustCompile(`/static/(uploads|stickers)/[^"'<>\s]+`)
 
 func initCDNURLPattern(domain string) {
 	if domain != "" {
@@ -522,13 +552,10 @@ func initCDNURLPattern(domain string) {
 }
 
 // NormalizeContentURLs replaces full CDN URLs in HTML content with relative
-// paths (e.g. "https://cdn.example.com/uploads/x.jpg" → "/static/uploads/x.jpg").
+// storage paths (e.g. "https://cdn.example.com/uploads/x.jpg" → "/uploads/x.jpg").
 // For local storage the HTML is returned unchanged.
 func NormalizeContentURLs(html string, store storage.Storage, cfg *config.Config) string {
-	if store.IsLocal() {
-		return html
-	}
-	if cfg.QiniuDomain == "" {
+	if store.IsLocal() || cfg.QiniuDomain == "" {
 		return html
 	}
 	if reCDNURL == nil {
@@ -538,42 +565,79 @@ func NormalizeContentURLs(html string, store storage.Storage, cfg *config.Config
 		return html
 	}
 	return reCDNURL.ReplaceAllStringFunc(html, func(match string) string {
-		return "/static/" + strings.TrimPrefix(match, strings.TrimRight(cfg.QiniuDomain, "/")+"/")
+		// Strip domain, keep /uploads/... or /stickers/...
+		domain := strings.TrimRight(cfg.QiniuDomain, "/")
+		return strings.TrimPrefix(match, domain)
 	})
 }
 
-// RewriteContentURLs converts relative storage paths in HTML to full CDN display
-// URLs. For local storage the HTML is returned unchanged.
+// reAnyCDNURL matches any absolute CDN/storage URL pointing to uploads/ or stickers/.
+var reAnyCDNURL = regexp.MustCompile(`https?://[^/"'\s]+/(uploads|stickers)/[^"'<>\s]+`)
+
+// RewriteContentURLs converts relative storage paths in HTML to public display
+// URLs. Local → prepends /static, Qiniu → prepends CDN domain.
+// Also handles legacy absolute URLs from any CDN domain.
 func RewriteContentURLs(html string, cfg *config.Config) string {
-	if cfg.StorageBackend != "qiniu" || cfg.QiniuDomain == "" {
-		return html
+	if cfg.StorageBackend == "qiniu" && cfg.QiniuDomain != "" {
+		domain := strings.TrimRight(cfg.QiniuDomain, "/")
+		html = reUploadPath.ReplaceAllStringFunc(html, func(match string) string {
+			return domain + match
+		})
+	} else {
+		// Local: /uploads/... → /static/uploads/... (Gin static serving)
+		html = reUploadPath.ReplaceAllStringFunc(html, func(match string) string {
+			return "/static" + match
+		})
+		// Legacy: any absolute CDN URL → /static/uploads/...
+		// (handles old Qiniu CDN URLs when storage backend has been switched to local)
+		html = reAnyCDNURL.ReplaceAllStringFunc(html, func(match string) string {
+			if i := strings.Index(match, "/uploads/"); i >= 0 {
+				return "/static" + match[i:]
+			}
+			if i := strings.Index(match, "/stickers/"); i >= 0 {
+				return "/static" + match[i:]
+			}
+			return match
+		})
 	}
-	domain := strings.TrimRight(cfg.QiniuDomain, "/")
-	return reStaticPath.ReplaceAllStringFunc(html, func(match string) string {
-		return domain + "/" + strings.TrimPrefix(match, "/static/")
-	})
+	return html
 }
 
-// DisplayURL converts a relative storage path to a full display URL based on
-// storage backend config: local → BASE_URL prefix, qiniu → QINIU_DOMAIN prefix.
+// DisplayURL converts a relative storage path to a full display URL.
+// e.g. "/uploads/x.jpg" → local: "/static/uploads/x.jpg", qiniu: "https://cdn.example.com/uploads/x.jpg"
+// Already-full URLs (http://...) pass through unchanged to prevent double-prepending.
 func DisplayURL(relativePath string, cfg *config.Config) string {
-	if cfg.StorageBackend == "qiniu" && cfg.QiniuDomain != "" {
-		return strings.TrimRight(cfg.QiniuDomain, "/") + "/" + strings.TrimPrefix(relativePath, "/static/")
+	if relativePath == "" {
+		return ""
 	}
-	return strings.TrimRight(cfg.BaseURL, "/") + relativePath
+	// Already an absolute URL — return as-is (prevents double-prepending for legacy data)
+	if strings.HasPrefix(relativePath, "http://") || strings.HasPrefix(relativePath, "https://") {
+		return relativePath
+	}
+	if cfg.StorageBackend == "qiniu" && cfg.QiniuDomain != "" {
+		return strings.TrimRight(cfg.QiniuDomain, "/") + relativePath
+	}
+	return "/static" + relativePath
 }
 
 // URLToRelativePath converts a display URL back to the canonical relative path.
-// e.g. "https://cdn.example.com/uploads/x.jpg" → "/static/uploads/x.jpg"
-// Already-relative paths pass through unchanged.
+// e.g. "https://cdn.example.com/uploads/x.jpg" → "/uploads/x.jpg"
+// "/static/uploads/x.jpg" → "/uploads/x.jpg"
+// Already-canonical paths pass through unchanged.
 func URLToRelativePath(url string, store storage.Storage, cfg *config.Config) string {
-	if strings.HasPrefix(url, "/static/") {
+	// Already canonical (starts with /uploads/ or /stickers/)
+	if strings.HasPrefix(url, "/uploads/") || strings.HasPrefix(url, "/stickers/") {
 		return url
 	}
+	// /static/uploads/... → /uploads/...
+	if strings.HasPrefix(url, "/static/") {
+		return strings.TrimPrefix(url, "/static")
+	}
+	// CDN domain URL
 	if cfg.StorageBackend == "qiniu" && cfg.QiniuDomain != "" {
 		domain := strings.TrimRight(cfg.QiniuDomain, "/")
 		if strings.HasPrefix(url, domain+"/") {
-			return "/static/" + strings.TrimPrefix(url, domain+"/")
+			return strings.TrimPrefix(url, domain)
 		}
 	}
 	return url

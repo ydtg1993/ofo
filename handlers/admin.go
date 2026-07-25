@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -388,22 +389,34 @@ func normalizeMarkdown(md string) string {
 
 // AdminPageData holds data for admin template rendering.
 type AdminPageData struct {
-	Title          string
-	Cfg            interface{}
-	Error          string
-	Success        string
-	Posts          []models.Post
-	Post           *models.Post
-	Categories     []models.Category
-	Tags           []models.Tag
-	AllTags        []models.Tag
-	IsEditing      bool
-	IsNew          bool
-	ShowCategories bool
-	ShowStickers   bool
-	Stickers       []models.Sticker
-	Pagination     *models.Pagination
-	IsQuick        bool // 快速发布模式（简化表单）
+	Title           string
+	Cfg             interface{}
+	Error           string
+	Success         string
+	Posts           []models.Post
+	Post            *models.Post
+	Categories      []models.Category
+	Tags            []models.Tag
+	AllTags         []models.Tag
+	Tag             *models.Tag
+	TotalPosts      int
+	IsEditing       bool
+	IsNew           bool
+	ShowCategories  bool
+	ShowTags        bool
+	ShowTagPosts    bool
+	ShowSeries      bool
+	ShowSeriesPosts bool
+	ShowResources   bool
+	Resources       []models.Resource
+	SeriesList      []models.Series
+	Series          *models.Series
+	AllSeries       []models.Series
+	PostSeries      *models.Series
+	SeriesSortOrder int
+	PostCards       []models.PostCard
+	Pagination      *models.Pagination
+	IsQuick         bool
 }
 
 // ---- Login ----
@@ -482,6 +495,7 @@ func (h *Handler) AdminNewPost(c *gin.Context) {
 	if err != nil {
 		logger.ErrorWithContext(c, "failed to load tags for new post", "err", err)
 	}
+	allSeries, _ := h.SeriesModel.All()
 
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "New Post",
@@ -489,6 +503,7 @@ func (h *Handler) AdminNewPost(c *gin.Context) {
 		IsNew:      true,
 		Categories: categories,
 		AllTags:    allTags,
+		AllSeries:  allSeries,
 	})
 }
 
@@ -499,6 +514,7 @@ func (h *Handler) AdminQuickPublish(c *gin.Context) {
 	if err != nil {
 		logger.ErrorWithContext(c, "failed to load categories for quick publish", "err", err)
 	}
+	allSeries, _ := h.SeriesModel.All()
 
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "快速发布",
@@ -506,6 +522,7 @@ func (h *Handler) AdminQuickPublish(c *gin.Context) {
 		IsNew:      true,
 		IsQuick:    true,
 		Categories: categories,
+		AllSeries:  allSeries,
 	})
 }
 
@@ -615,6 +632,7 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 	if err != nil {
 		logger.ErrorWithContext(c, "failed to load all tags for edit", "err", err)
 	}
+	allSeries, _ := h.SeriesModel.All()
 
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
 		Title:      "Edit: " + post.Title,
@@ -623,6 +641,7 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 		Categories: categories,
 		Tags:       tags,
 		AllTags:    allTags,
+		AllSeries:  allSeries,
 		IsEditing:  true,
 	})
 }
@@ -779,23 +798,33 @@ func (h *Handler) AdminDeletePost(c *gin.Context) {
 		logger.ErrorWithContext(c, "failed to find resources for post deletion", "postID", id, "err", err)
 	}
 
-	// 2. 删除存储中的资源文件
-	for _, r := range resources {
-		key := "uploads/" + r.Filename
-		if err := h.Storage.Delete(c.Request.Context(), key); err != nil {
-			logger.ErrorWithContext(c, "failed to delete resource file", "filename", r.Filename, "err", err)
-		}
-	}
-
-	// 3. 删除资源记录
+	// 2. 删除资源记录（DB 先删）
 	if err := h.ResourceModel.DeleteByPostID(id); err != nil {
 		logger.ErrorWithContext(c, "failed to delete resource records", "postID", id, "err", err)
 	}
 
-	// 4. 删除文章本身
+	// 3. 删除文章本身
 	if err := h.PostModel.Delete(id); err != nil {
 		h.adminDashboardWithSuccess(c, "删除文章失败")
 		return
+	}
+
+	// 4. 异步删除存储文件（根据 storage 字段区分后端，仅删当前后端匹配的）
+	if len(resources) > 0 {
+		currentBackend := h.Cfg.StorageBackend
+		go func() {
+			for _, r := range resources {
+				if r.Storage != "" && r.Storage != currentBackend {
+					logger.Info("skip deleting resource on different backend",
+						"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", currentBackend)
+					continue
+				}
+				key := "uploads/" + r.Filename
+				if err := h.Storage.Delete(context.Background(), key); err != nil {
+					logger.Error("failed to delete resource file", "filename", r.Filename, "err", err)
+				}
+			}
+		}()
 	}
 
 	h.adminDashboardWithSuccess(c, "文章删除成功")
@@ -891,133 +920,112 @@ func (h *Handler) AdminDeleteCategory(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/categories")
 }
 
-// ---- Sticker Management ----
+// ---- Resource Management ----
 
-// AdminStickers displays the sticker management page.
-func (h *Handler) AdminStickers(c *gin.Context) {
-	total, err := h.StickerModel.Count()
+// ---- Tag Management ----
+
+func (h *Handler) AdminTags(c *gin.Context) {
+	tags, _ := h.PostModel.AllTags()
+	c.HTML(http.StatusOK, "admin_tags.html", AdminPageData{
+		Title: "Tag Management", Cfg: h.Cfg, Tags: tags, ShowTags: true,
+	})
+}
+func (h *Handler) AdminTagPosts(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	tag, err := h.PostModel.GetTagByID(id)
 	if err != nil {
-		logger.ErrorWithContext(c, "failed to count stickers", "err", err)
-		total = 0
+		c.Redirect(http.StatusFound, "/admin/tags")
+		return
 	}
-	pg := adminPagination(c, total, 15)
-	offset := (pg.CurrentPage - 1) * pg.PerPage
+	postCards, total, _ := h.PostModel.ListPostsByTagID(id, 0, 50)
+	c.HTML(http.StatusOK, "admin_tag_posts.html", AdminPageData{
+		Title: "Tag: " + tag.Name, Cfg: h.Cfg, Tag: tag, PostCards: postCards, TotalPosts: total, ShowTagPosts: true,
+	})
+}
+func (h *Handler) AdminUpdateTag(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name != "" {
+		h.PostModel.UpdateTag(id, name, slugifyStr(name))
+	}
+	c.Redirect(http.StatusFound, "/admin/tags")
+}
+func (h *Handler) AdminDeleteTag(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	h.PostModel.DeleteTag(id)
+	c.Redirect(http.StatusFound, "/admin/tags")
+}
 
-	stickers, err := h.StickerModel.ListPaginated(offset, pg.PerPage)
+// ---- Series Management ----
+
+func (h *Handler) AdminSeries(c *gin.Context) {
+	list, _ := h.SeriesModel.All()
+	c.HTML(http.StatusOK, "admin_series.html", AdminPageData{
+		Title: "Series Management", Cfg: h.Cfg, SeriesList: list, ShowSeries: true,
+	})
+}
+func (h *Handler) AdminSeriesPosts(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	series, err := h.SeriesModel.GetByID(id)
 	if err != nil {
-		logger.ErrorWithContext(c, "failed to list stickers", "err", err)
+		c.Redirect(http.StatusFound, "/admin/series")
+		return
 	}
+	postCards, _ := h.SeriesModel.ListPostsBySeries(id)
+	c.HTML(http.StatusOK, "admin_series_posts.html", AdminPageData{
+		Title: "Series: " + series.Name, Cfg: h.Cfg, Series: series, PostCards: postCards, ShowSeriesPosts: true,
+	})
+}
+func (h *Handler) AdminCreateSeries(c *gin.Context) {
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name != "" {
+		h.SeriesModel.Create(name, slugifyStr(name))
+	}
+	c.Redirect(http.StatusFound, "/admin/series")
+}
+func (h *Handler) AdminUpdateSeries(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name != "" {
+		h.SeriesModel.Update(id, name, slugifyStr(name))
+	}
+	c.Redirect(http.StatusFound, "/admin/series")
+}
+func (h *Handler) AdminDeleteSeries(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	h.SeriesModel.Delete(id)
+	c.Redirect(http.StatusFound, "/admin/series")
+}
+func (h *Handler) AdminUpdateSeriesOrder(c *gin.Context) {
+	seriesID, _ := strconv.Atoi(c.Param("id"))
+	postID, _ := strconv.Atoi(c.PostForm("post_id"))
+	sortOrder, _ := strconv.Atoi(c.PostForm("sort_order"))
+	h.SeriesModel.UpdateSortOrder(postID, seriesID, sortOrder)
+	c.Redirect(http.StatusFound, "/admin/series/"+c.Param("id")+"/posts")
+}
 
-	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
-		Title:        "表情包管理",
-		Cfg:          h.Cfg,
-		ShowStickers: true,
-		Stickers:     stickers,
-		Pagination:   pg,
+func (h *Handler) AdminResources(c *gin.Context) {
+	total, _ := h.ResourceModel.CountAll()
+	pg := adminPagination(c, total, 20)
+	resources, _ := h.ResourceModel.ListAll((pg.CurrentPage-1)*pg.PerPage, pg.PerPage)
+	c.HTML(http.StatusOK, "admin_resources.html", AdminPageData{
+		Title: "资源管理", Cfg: h.Cfg, Resources: resources, Pagination: pg, ShowResources: true,
 	})
 }
 
-// AdminCreateSticker handles sticker upload (single file per request, supports AJAX).
-func (h *Handler) AdminCreateSticker(c *gin.Context) {
-	file, header, err := c.Request.FormFile("file")
-	if err != nil {
-		h.stickerError(c, "请选择文件")
-		return
+func (h *Handler) AdminDeleteResource(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	resources, _ := h.ResourceModel.ListAll(0, 10000)
+	for _, r := range resources {
+		if r.ID == id {
+			if r.Storage == "" || r.Storage == h.Cfg.StorageBackend {
+				h.Storage.Delete(c.Request.Context(), "uploads/"+r.Filename)
+			}
+			h.ResourceModel.Delete(id)
+			break
+		}
 	}
-	defer file.Close()
-
-	// Validate file type
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	allowed := map[string]bool{
-		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
-		".mp4": true, ".webm": true, ".ogg": true, ".mov": true,
-	}
-	if !allowed[ext] {
-		h.stickerError(c, "不支持的文件类型："+ext)
-		return
-	}
-
-	// Generate unique filename with date-based folder prefix (e.g. 2026/07/<uuid>.ext)
-	savedName := time.Now().Format("2006/01") + "/" + uuid.New().String() + ext
-
-	// Upload via storage backend
-	key := "stickers/" + savedName
-	url, err := h.Storage.Upload(c.Request.Context(), key, file, header.Size)
-	if err != nil {
-		logger.ErrorWithContext(c, "failed to upload sticker", "name", savedName, "err", err)
-		h.stickerError(c, "保存文件失败")
-		return
-	}
-	mimeType := models.MIMEType(ext)
-	if _, err := h.StickerModel.Create(savedName, url, header.Size, mimeType); err != nil {
-		logger.ErrorWithContext(c, "failed to record sticker in database", "name", savedName, "err", err)
-	}
-
-	// AJAX request → JSON response; regular form → redirect
-	if c.GetHeader("X-Requested-With") == "XMLHttpRequest" || c.GetHeader("Accept") == "application/json" {
-		c.JSON(http.StatusOK, gin.H{"url": h.Storage.PublicURL(url), "filename": savedName})
-		return
-	}
-	c.Redirect(http.StatusFound, "/admin/stickers")
-}
-
-// stickerError returns an error for the sticker management page (HTML or JSON).
-func (h *Handler) stickerError(c *gin.Context, msg string) {
-	if c.GetHeader("X-Requested-With") == "XMLHttpRequest" || c.GetHeader("Accept") == "application/json" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
-		return
-	}
-	total, err := h.StickerModel.Count()
-	if err != nil {
-		logger.ErrorWithContext(c, "failed to count stickers", "err", err)
-		total = 0
-	}
-	pg := adminPagination(c, total, 15)
-	offset := (pg.CurrentPage - 1) * pg.PerPage
-	stickers, err := h.StickerModel.ListPaginated(offset, pg.PerPage)
-	if err != nil {
-		logger.ErrorWithContext(c, "failed to list stickers", "err", err)
-	}
-
-	c.HTML(http.StatusOK, "admin_stickers.html", AdminPageData{
-		Title:        "表情包管理",
-		Cfg:          h.Cfg,
-		ShowStickers: true,
-		Stickers:     stickers,
-		Pagination:   pg,
-		Error:        msg,
-	})
-}
-
-// AdminDeleteSticker removes a sticker by ID and deletes the file from disk.
-func (h *Handler) AdminDeleteSticker(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/admin/stickers")
-		return
-	}
-
-	// 先查出记录，拿到文件名
-	sticker, err := h.StickerModel.GetByID(id)
-	if err != nil {
-		logger.WarnWithContext(c, "sticker not found for deletion", "stickerID", id, "err", err)
-		c.Redirect(http.StatusFound, "/admin/stickers")
-		return
-	}
-
-	// 删除存储中的文件
-	key := "stickers/" + sticker.Filename
-	if err := h.Storage.Delete(c.Request.Context(), key); err != nil {
-		logger.ErrorWithContext(c, "failed to delete sticker file", "filename", sticker.Filename, "err", err)
-	}
-
-	// 删除数据库记录
-	if err := h.StickerModel.Delete(id); err != nil {
-		logger.ErrorWithContext(c, "failed to delete sticker record", "stickerID", id, "err", err)
-	}
-
-	c.Redirect(http.StatusFound, "/admin/stickers")
+	c.Redirect(http.StatusFound, "/admin/resources")
 }
 
 // ---- File Upload ----
@@ -1055,7 +1063,7 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 
 	// 记录到资源表（post_id 暂时为空，保存文章时关联）
 	mimeType := models.MIMEType(ext)
-	if _, err := h.ResourceModel.Create(savedName, url, header.Size, mimeType); err != nil {
+	if _, err := h.ResourceModel.Create(savedName, url, h.Cfg.StorageBackend, header.Size, mimeType); err != nil {
 		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", savedName, "err", err)
 	}
 
@@ -1079,7 +1087,7 @@ func (h *Handler) AdminCleanupUploads(c *gin.Context) {
 		if url == "" {
 			continue
 		}
-		filename, ok, err := h.ResourceModel.DeleteOrphanedByURL(URLToRelativePath(url, h.Storage, h.Cfg))
+		filename, storage, ok, err := h.ResourceModel.DeleteOrphanedByURL(URLToRelativePath(url, h.Storage, h.Cfg))
 		if err != nil {
 			logger.ErrorWithContext(c, "failed to cleanup upload", "url", url, "err", err)
 			continue
@@ -1090,6 +1098,12 @@ func (h *Handler) AdminCleanupUploads(c *gin.Context) {
 
 		// Delete from storage (filename may include date subdirectories like "2026/07/uuid.ext")
 		storageKey := "uploads/" + filename
+		if storage != "" && storage != h.Cfg.StorageBackend {
+			logger.Info("skip cleanup: resource on different backend",
+				"filename", filename, "resourceStorage", storage, "currentBackend", h.Cfg.StorageBackend)
+			deleted++
+			continue
+		}
 		if err := h.Storage.Delete(c.Request.Context(), storageKey); err != nil {
 			logger.ErrorWithContext(c, "failed to delete upload file from storage", "key", storageKey, "err", err)
 		} else {

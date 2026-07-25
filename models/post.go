@@ -285,6 +285,75 @@ func (m *PostModel) AllTags() ([]Tag, error) {
 	return tags, nil
 }
 
+// GetTagByID returns a single tag by numeric ID.
+func (m *PostModel) GetTagByID(id int) (*Tag, error) {
+	var t Tag
+	err := m.DB.QueryRow(`SELECT id, name, slug FROM tags WHERE id = ?`, id).
+		Scan(&t.ID, &t.Name, &t.Slug)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// UpdateTag renames a tag.
+func (m *PostModel) UpdateTag(id int, name, slug string) error {
+	_, err := m.DB.Exec(`UPDATE tags SET name = ?, slug = ? WHERE id = ?`, name, slug, id)
+	return err
+}
+
+// DeleteTag removes a tag. Only succeeds if no posts reference it.
+func (m *PostModel) DeleteTag(id int) (bool, error) {
+	// Only delete if unused
+	var count int
+	if err := m.DB.QueryRow(`SELECT COUNT(*) FROM post_tags WHERE tag_id = ?`, id).Scan(&count); err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return false, nil
+	}
+	_, err := m.DB.Exec(`DELETE FROM tags WHERE id = ?`, id)
+	return err == nil, err
+}
+
+// ListPostsByTagID returns paginated posts for a given tag ID.
+func (m *PostModel) ListPostsByTagID(tagID, offset, limit int) ([]PostCard, int, error) {
+	total := 0
+	if err := m.DB.QueryRow(`SELECT COUNT(*) FROM post_tags pt
+		JOIN posts p ON pt.post_id = p.id
+		WHERE pt.tag_id = ? AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())`, tagID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := m.DB.Query(`
+		SELECT p.id, p.title, p.slug, p.excerpt, p.content_html, p.thumbnail_url, p.publish_at, p.created_at,
+			   COALESCE(c.name, '') AS category_name,
+			   COALESCE(c.slug, '') AS category_slug
+		FROM post_tags pt
+		JOIN posts p ON pt.post_id = p.id
+		LEFT JOIN categories c ON p.category_id = c.id
+		WHERE pt.tag_id = ? AND p.is_published = 1 AND (p.publish_at IS NULL OR p.publish_at <= NOW())
+		ORDER BY p.created_at DESC
+		LIMIT ? OFFSET ?
+	`, tagID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var cards []PostCard
+	for rows.Next() {
+		var card PostCard
+		if err := rows.Scan(&card.ID, &card.Title, &card.Slug, &card.Excerpt, &card.ContentHTML, &card.ThumbnailURL, &card.PublishAt, &card.CreatedAt,
+			&card.CategoryName, &card.CategorySlug); err != nil {
+			return nil, 0, err
+		}
+		card.Tags, _ = m.TagsForPost(card.ID)
+		cards = append(cards, card)
+	}
+	return cards, total, nil
+}
+
 // GetCategoryName returns the category name for a post, or empty string.
 func (m *PostModel) GetCategoryName(categoryID sql.NullInt64) string {
 	if !categoryID.Valid {

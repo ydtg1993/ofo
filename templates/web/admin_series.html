@@ -1,0 +1,75 @@
+{{template "admin_header" .}}
+
+        <div class="admin-header-row">
+            <h1>系列管理</h1>
+        </div>
+
+        <!-- 新建系列 -->
+        <div class="neo-box" style="margin-bottom:1.5rem;">
+            <form method="POST" action="/admin/series" style="display:flex;gap:0.5rem;align-items:center;">
+                <input type="text" name="name" class="form-input" placeholder="新系列名称" required style="flex:1;max-width:300px;">
+                <button type="submit" class="btn">创建系列</button>
+            </form>
+        </div>
+
+        {{if .SeriesList}}
+        <div class="neo-box" style="padding:0;overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>系列名</th>
+                        <th>别名</th>
+                        <th>文章数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range .SeriesList}}
+                    <tr>
+                        <td>
+                            <a href="/admin/series/{{.ID}}/posts" style="font-weight:600;">{{.Name}}</a>
+                        </td>
+                        <td><code>{{.Slug}}</code></td>
+                        <td>
+                            <a href="/admin/series/{{.ID}}/posts" class="btn btn--small">{{.PostCount}} 篇</a>
+                        </td>
+                        <td class="admin-table__actions">
+                            <button type="button" class="btn btn--small" onclick="editSeries({{.ID}}, '{{.Name}}')">重命名</button>
+                            <form method="POST" action="/admin/series/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除系列「{{.Name}}」？文章不会被删除。');">
+                                <button type="submit" class="btn btn--small btn--danger">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="neo-box" style="text-align:center;padding:2rem;color:var(--text-muted);">
+            还没有系列。创建系列后可在文章编辑中关联。
+        </div>
+        {{end}}
+
+        <dialog id="series-edit-dialog" style="border:1px solid var(--border-color);border-radius:8px;padding:1.5rem;max-width:400px;width:100%;">
+            <form method="POST" action="/admin/series/__ID__/update" id="series-edit-form">
+                <h3 style="margin-bottom:1rem;">重命名系列</h3>
+                <div class="form-group">
+                    <label class="form-label">系列名</label>
+                    <input type="text" id="series-edit-name" name="name" class="form-input" required>
+                </div>
+                <div class="form-actions" style="margin-top:1rem;">
+                    <button type="submit" class="btn">保存</button>
+                    <button type="button" class="btn btn--accent" onclick="document.getElementById('series-edit-dialog').close()">取消</button>
+                </div>
+            </form>
+        </dialog>
+        <script>
+        function editSeries(id, name) {
+            var dlg = document.getElementById('series-edit-dialog');
+            document.getElementById('series-edit-form').action = '/admin/series/' + id + '/update';
+            document.getElementById('series-edit-name').value = name;
+            dlg.showModal();
+        }
+        </script>
+
+{{template "admin_footer" .}}

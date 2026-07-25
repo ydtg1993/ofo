@@ -45,6 +45,35 @@
     <!-- 发布时间 -->
     <div class="form-row">
         <div class="form-group" style="flex:1;">
+            <label for="series_id" class="form-label">系列</label>
+            <select id="series_id" name="series_id" class="form-input" onchange="autoFillSeriesOrder()">
+                <option value="">— 无 —</option>
+                {{$currentSeries := 0}}
+                {{if .PostSeries}}{{$currentSeries = .PostSeries.ID}}{{end}}
+                {{range .AllSeries}}
+                <option value="{{.ID}}" data-count="{{.PostCount}}" {{if eq .ID $currentSeries}}selected{{end}}>{{.Name}}（{{.PostCount}} 篇）</option>
+                {{end}}
+            </select>
+        </div>
+        <div class="form-group" style="flex:0 0 120px;">
+            <label for="series_order" class="form-label">序号</label>
+            <input type="number" id="series_order" name="series_order" class="form-input" style="width:80px;"
+                value="{{if .SeriesSortOrder}}{{.SeriesSortOrder}}{{end}}" min="1" placeholder="自动">
+        </div>
+    </div>
+    <script>
+    function autoFillSeriesOrder() {
+        var sel = document.getElementById('series_id');
+        var orderInput = document.getElementById('series_order');
+        if (!sel.value) { orderInput.value = ''; return; }
+        var opt = sel.options[sel.selectedIndex];
+        var count = parseInt(opt.getAttribute('data-count')) || 0;
+        orderInput.value = count + 1;
+    }
+    </script>
+
+    <div class="form-row">
+        <div class="form-group" style="flex:1;">
             <label for="created_at" class="form-label">发布日期</label>
             <input type="date" id="created_at" name="created_at" class="form-input" style="max-width:220px;"
                 value="{{if .Post}}{{.Post.CreatedAt | formatDateShort}}{{end}}">

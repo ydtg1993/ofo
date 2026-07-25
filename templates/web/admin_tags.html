@@ -1,0 +1,71 @@
+{{template "admin_header" .}}
+
+        <div class="admin-header-row">
+            <h1>标签管理</h1>
+        </div>
+
+        {{if .Tags}}
+        <div class="neo-box" style="padding:0;overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>标签名</th>
+                        <th>别名</th>
+                        <th>文章数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range .Tags}}
+                    <tr>
+                        <td>
+                            <a href="/admin/tags/{{.ID}}/posts" style="font-weight:600;">{{.Name}}</a>
+                        </td>
+                        <td><code>{{.Slug}}</code></td>
+                        <td>
+                            <a href="/admin/tags/{{.ID}}/posts" class="btn btn--small">{{.Count}} 篇</a>
+                        </td>
+                        <td class="admin-table__actions">
+                            <button type="button" class="btn btn--small" onclick="editTag({{.ID}}, '{{.Name}}')">重命名</button>
+                            {{if eq .Count 0}}
+                            <form method="POST" action="/admin/tags/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除标签「{{.Name}}」？');">
+                                <button type="submit" class="btn btn--small btn--danger">删除</button>
+                            </form>
+                            {{end}}
+                        </td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="neo-box" style="text-align:center;padding:2rem;color:var(--text-muted);">
+            还没有标签。写文章时添加标签即可自动创建。
+        </div>
+        {{end}}
+
+        <!-- 重命名弹窗 -->
+        <dialog id="tag-edit-dialog" style="border:1px solid var(--border-color);border-radius:8px;padding:1.5rem;max-width:400px;width:100%;">
+            <form method="POST" action="/admin/tags/__ID__/update" id="tag-edit-form">
+                <h3 style="margin-bottom:1rem;">重命名标签</h3>
+                <div class="form-group">
+                    <label class="form-label">标签名</label>
+                    <input type="text" id="tag-edit-name" name="name" class="form-input" required>
+                </div>
+                <div class="form-actions" style="margin-top:1rem;">
+                    <button type="submit" class="btn">保存</button>
+                    <button type="button" class="btn btn--accent" onclick="document.getElementById('tag-edit-dialog').close()">取消</button>
+                </div>
+            </form>
+        </dialog>
+        <script>
+        function editTag(id, name) {
+            var dlg = document.getElementById('tag-edit-dialog');
+            var form = document.getElementById('tag-edit-form');
+            form.action = '/admin/tags/' + id + '/update';
+            document.getElementById('tag-edit-name').value = name;
+            dlg.showModal();
+        }
+        </script>
+
+{{template "admin_footer" .}}

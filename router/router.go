@@ -2,6 +2,7 @@ package router
 
 import (
 	"database/sql"
+	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -41,7 +42,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		middleware.RequestID(),                // 1. UUID 注入
 		gin.Recovery(),                        // 2. Panic 恢复
 		middleware.Logger(),                   // 3. 请求日志
-		middleware.Timeout(30*time.Second),    // 4. 超时控制
+		middleware.Timeout(60*time.Second),    // 4. 超时控制
 		middleware.SecurityHeaders(),          // 5. 安全响应头
 		middleware.CORS(),                     // 6. 跨域支持
 		middleware.RateLimit(50, time.Second), // 7. IP 限流
@@ -207,9 +208,18 @@ func adminGroup(r *gin.Engine, cfg *config.Config, h *handlers.Handler) {
 		protected.POST("/categories", h.AdminCreateCategory)            // 新建分类
 		protected.POST("/categories/:id", h.AdminUpdateCategory)        // 更新分类
 		protected.POST("/categories/:id/delete", h.AdminDeleteCategory) // 删除分类
-		protected.GET("/stickers", h.AdminStickers)                     // 表情包管理
-		protected.POST("/stickers", h.AdminCreateSticker)               // 上传表情包
-		protected.POST("/stickers/:id/delete", h.AdminDeleteSticker)    // 删除表情包
+		protected.GET("/tags", h.AdminTags)                             // 标签管理
+		protected.GET("/tags/:id/posts", h.AdminTagPosts)               // 标签关联文章
+		protected.POST("/tags/:id/update", h.AdminUpdateTag)            // 重命名标签
+		protected.POST("/tags/:id/delete", h.AdminDeleteTag)            // 删除标签
+		protected.GET("/series", h.AdminSeries)                         // 系列管理
+		protected.POST("/series", h.AdminCreateSeries)                  // 新建系列
+		protected.GET("/series/:id/posts", h.AdminSeriesPosts)          // 系列文章
+		protected.POST("/series/:id/update", h.AdminUpdateSeries)       // 重命名
+		protected.POST("/series/:id/delete", h.AdminDeleteSeries)       // 删除
+		protected.POST("/series/:id/order", h.AdminUpdateSeriesOrder)   // 排序             // 删除标签 // 删除分类
+		protected.GET("/resources", h.AdminResources)                   // 表情包管理
+		protected.POST("/resources/:id/delete", h.AdminDeleteResource)  // 上传表情包
 		protected.POST("/upload", h.AdminUpload)                        // 文件上传
 		protected.POST("/upload/cleanup", h.AdminCleanupUploads)        // 清理未关联的上传文件
 		protected.GET("/logout", h.AdminLogout)                         // 退出登录
@@ -294,6 +304,18 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 			return mm.Script(handlers.PageAESKey())
 		},
 		// 阅读时长（根据分类 slug）
+		"inc":       func(i int) int { return i + 1 },
+		"hasPrefix": strings.HasPrefix,
+		"formatSize": func(size int64) string {
+			switch {
+			case size >= 1<<20:
+				return fmt.Sprintf("%.1f MB", float64(size)/(1<<20))
+			case size >= 1<<10:
+				return fmt.Sprintf("%.1f KB", float64(size)/(1<<10))
+			default:
+				return fmt.Sprintf("%d B", size)
+			}
+		},
 		"readTime": func(categorySlug string) string {
 			switch categorySlug {
 			case "quick-peek":

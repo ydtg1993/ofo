@@ -107,7 +107,7 @@ func (s *QiniuStorage) Upload(ctx context.Context, key string, reader io.Reader,
 		return "", fmt.Errorf("qiniu upload: %w", err)
 	}
 
-	url := "/static/" + key
+	url := "/" + key
 	return url, nil
 }
 
@@ -143,21 +143,22 @@ func (s *QiniuStorage) Get(ctx context.Context, key string) (io.ReadCloser, erro
 }
 
 // IsStorageURL returns true if the URL is served by this Qiniu bucket's CDN
-// or is a relative storage path (e.g. "/static/uploads/...").
+// or is a relative storage path (e.g. "/uploads/..." or "/static/uploads/...").
 func (s *QiniuStorage) IsStorageURL(url string) bool {
 	if strings.HasPrefix(url, s.domain+"/") {
 		return true
 	}
-	// Also match relative storage paths
-	return strings.HasPrefix(url, "/static/uploads/") ||
+	// Match relative storage paths (new format: /uploads/..., legacy: /static/uploads/...)
+	return strings.HasPrefix(url, "/uploads/") ||
+		strings.HasPrefix(url, "/stickers/") ||
+		strings.HasPrefix(url, "/static/uploads/") ||
 		strings.HasPrefix(url, "/static/stickers/")
 }
 
 // PublicURL converts a relative storage path to the full CDN URL.
-// e.g. "/static/uploads/x.jpg" → "https://cdn.example.com/uploads/x.jpg"
+// e.g. "/uploads/x.jpg" → "https://cdn.example.com/uploads/x.jpg"
 func (s *QiniuStorage) PublicURL(relativePath string) string {
-	key := strings.TrimPrefix(relativePath, "/static/")
-	return s.domain + "/" + key
+	return s.domain + relativePath
 }
 
 // IsLocal returns false — Qiniu is remote storage.

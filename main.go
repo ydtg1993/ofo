@@ -68,7 +68,7 @@ func main() {
 	// ---- 依赖组装 ----
 	postModel := &models.PostModel{DB: db}
 	resourceModel := &models.ResourceModel{DB: db}
-	stickerModel := &models.StickerModel{DB: db}
+	seriesModel := &models.SeriesModel{DB: db}
 
 	// ---- 初始化存储后端 ----
 	var store storage.Storage
@@ -98,7 +98,7 @@ func main() {
 	h := &handlers.Handler{
 		PostModel:     postModel,
 		ResourceModel: resourceModel,
-		StickerModel:  stickerModel,
+		SeriesModel:   seriesModel,
 		Cfg:           cfg,
 		BaseDir:       baseDir,
 		Storage:       store,

@@ -1,0 +1,78 @@
+{{template "admin_header" .}}
+
+        <div class="admin-header-row">
+            <h1>资源管理</h1>
+            <span style="color:var(--text-muted);">所有上传的文件，点击复制链接即可在文章中复用</span>
+        </div>
+
+        {{if .Resources}}
+        <div class="neo-box" style="padding:0;overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>预览</th>
+                        <th>文件名</th>
+                        <th>存储</th>
+                        <th>大小</th>
+                        <th>关联文章</th>
+                        <th>日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range .Resources}}
+                    {{$displayURL := displayURL .URL}}
+                    <tr>
+                        <td class="sticker-table__preview">
+                            {{if hasPrefix .MimeType "video/"}}
+                                <video src="{{$displayURL}}" preload="metadata" muted style="width:80px;height:60px;object-fit:cover;" onclick="previewMedia('{{$displayURL}}', true)" title="点击预览"></video>
+                            {{else}}
+                                <img src="{{$displayURL}}" alt="{{.Filename}}" loading="lazy" style="width:80px;height:60px;object-fit:cover;" onclick="previewMedia('{{$displayURL}}', false)" title="点击预览">
+                            {{end}}
+                        </td>
+                        <td class="sticker-table__name" title="{{.Filename}}">{{.Filename}}</td>
+                        <td>{{if .Storage}}{{.Storage}}{{else}}local{{end}}</td>
+                        <td>{{formatSize .FileSize}}</td>
+                        <td>{{if .PostID.Valid}}<a href="/admin/posts/{{.PostID.Int64}}/edit" class="btn btn--small">查看文章</a>{{else}}<span style="color:var(--text-muted);">未关联</span>{{end}}</td>
+                        <td class="admin-table__date">{{.CreatedAt | formatDate}}</td>
+                        <td class="admin-table__actions">
+                            <button type="button" class="btn btn--small sticker-copy-btn" data-url="{{$displayURL}}" title="复制链接">📋 复制</button>
+                            {{if not .PostID.Valid}}
+                            <form method="POST" action="/admin/resources/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除？');">
+                                <button type="submit" class="btn btn--small btn--danger">删除</button>
+                            </form>
+                            {{end}}
+                        </td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{template "admin_pagination" .}}
+        {{else}}
+        <div class="neo-box" style="text-align:center;padding:3rem;color:var(--text-muted);">
+            <p style="font-size:1.2rem;margin-bottom:0.5rem;">还没有上传任何文件</p>
+            <p>写文章时上传的图片和视频会自动出现在这里</p>
+        </div>
+        {{end}}
+
+        <!-- 预览弹窗 -->
+        <div class="sticker-modal" id="sticker-modal" style="display:none;" onclick="closeStickerPreview(event)">
+            <div class="sticker-modal__card neo-box" onclick="event.stopPropagation()">
+                <button class="sticker-modal__close" onclick="closeStickerPreview(event)" title="关闭">&times;</button>
+                <div class="sticker-modal__content" id="sticker-modal-content"></div>
+            </div>
+        </div>
+        <script>
+        function previewMedia(url, isVideo) {
+            var m = document.getElementById('sticker-modal');
+            var c = document.getElementById('sticker-modal-content');
+            if (!m || !c) return;
+            c.innerHTML = isVideo
+                ? '<video src="' + url + '" controls autoplay style="max-width:85vw;max-height:80vh;"></video>'
+                : '<img src="' + url + '" style="max-width:85vw;max-height:80vh;">';
+            m.style.display = 'flex';
+        }
+        </script>
+
+{{template "admin_footer" .}}

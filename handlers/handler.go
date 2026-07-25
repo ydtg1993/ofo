@@ -10,7 +10,7 @@ import (
 type Handler struct {
 	PostModel     *models.PostModel
 	ResourceModel *models.ResourceModel
-	StickerModel  *models.StickerModel
+	SeriesModel   *models.SeriesModel
 	Cfg           *config.Config
 	BaseDir       string
 	Storage       storage.Storage

@@ -47,8 +47,8 @@ func (s *LocalStorage) Upload(_ context.Context, key string, reader io.Reader, _
 		return "", err
 	}
 
-	// Build URL: key is like "uploads/uuid.ext" → "/static/uploads/uuid.ext"
-	url := "/static/" + key
+	// Build URL: key is like "uploads/uuid.ext" → "/uploads/uuid.ext"
+	url := "/" + key
 	return url, nil
 }
 
@@ -70,13 +70,17 @@ func (s *LocalStorage) Get(_ context.Context, key string) (io.ReadCloser, error)
 
 // IsStorageURL returns true if the URL is a local static file path.
 func (s *LocalStorage) IsStorageURL(url string) bool {
-	return strings.HasPrefix(url, "/static/uploads/") ||
+	return strings.HasPrefix(url, "/uploads/") ||
+		strings.HasPrefix(url, "/stickers/") ||
+		strings.HasPrefix(url, "/static/uploads/") ||
 		strings.HasPrefix(url, "/static/stickers/")
 }
 
-// PublicURL returns the path unchanged — browsers resolve relative paths
-// against the page origin for local storage.
-func (s *LocalStorage) PublicURL(relativePath string) string { return relativePath }
+// PublicURL converts a storage path to the public URL for local serving.
+// e.g. "/uploads/x.jpg" → "/static/uploads/x.jpg"
+func (s *LocalStorage) PublicURL(relativePath string) string {
+	return "/static" + relativePath
+}
 
 // IsLocal returns true.
 func (s *LocalStorage) IsLocal() bool { return true }
@@ -90,13 +94,18 @@ func (s *LocalStorage) GetMediaInfo(url string) (int, int, error) {
 		return d.W, d.H, nil
 	}
 
-	// url is like "/static/uploads/uuid.jpg" or "/static/stickers/uuid.gif"
-	if !strings.HasPrefix(url, "/static/") {
+	// url is like "/uploads/uuid.jpg", "/static/uploads/uuid.jpg", or "/media/uploads/uuid.jpg"
+	var relPath string
+	switch {
+	case strings.HasPrefix(url, "/static/"):
+		relPath = strings.TrimPrefix(url, "/static/")
+	case strings.HasPrefix(url, "/media/"):
+		relPath = strings.TrimPrefix(url, "/media/")
+	case strings.HasPrefix(url, "/uploads/"), strings.HasPrefix(url, "/stickers/"):
+		relPath = url[1:] // strip leading /
+	default:
 		return 0, 0, nil
 	}
-
-	// Extract relative path: "/static/uploads/uuid.jpg" → "uploads/uuid.jpg"
-	relPath := strings.TrimPrefix(url, "/static/")
 	filePath := filepath.Join(s.baseDir, relPath)
 
 	ext := strings.ToLower(filepath.Ext(url))

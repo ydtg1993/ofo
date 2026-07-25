@@ -1,0 +1,49 @@
+{{template "admin_header" .}}
+
+        <div class="admin-header-row">
+            <h1>系列：{{.Series.Name}} <span style="font-size:0.8rem;color:var(--text-muted);">（{{len .PostCards}} 篇）</span></h1>
+            <a href="/admin/series" class="btn btn--accent">← 返回系列列表</a>
+        </div>
+
+        {{if .PostCards}}
+        <div class="neo-box" style="padding:0;overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">序号</th>
+                        <th>标题</th>
+                        <th>分类</th>
+                        <th>日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {{range $i, $card := .PostCards}}
+                    <tr>
+                        <td>
+                            <form method="POST" action="/admin/series/{{$.Series.ID}}/order" style="display:inline-flex;gap:0.25rem;align-items:center;">
+                                <input type="hidden" name="post_id" value="{{$card.ID}}">
+                                <input type="number" name="sort_order" value="{{inc $i}}" class="form-input" style="width:50px;text-align:center;padding:0.25rem;" min="1">
+                                <button type="submit" class="btn btn--small" title="更新序号">↻</button>
+                            </form>
+                        </td>
+                        <td class="admin-table__title">
+                            <a href="/post/{{$card.Slug}}" target="_blank">{{$card.Title}}</a>
+                        </td>
+                        <td>{{$card.CategoryName}}</td>
+                        <td class="admin-table__date">{{$card.CreatedAt | formatDate}}</td>
+                        <td class="admin-table__actions">
+                            <a href="/admin/posts/{{$card.ID}}/edit" class="btn btn--small">编辑</a>
+                        </td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="neo-box" style="text-align:center;padding:2rem;color:var(--text-muted);">
+            该系列下暂无文章。编辑文章时可选择系列。
+        </div>
+        {{end}}
+
+{{template "admin_footer" .}}

@@ -73,6 +73,23 @@ var migrations = []string{
 	// 定时发布：NULL = 立即发布
 	`ALTER TABLE posts ADD COLUMN publish_at DATETIME DEFAULT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_posts_publish_at ON posts(publish_at)`,
+	`ALTER TABLE resources ADD COLUMN storage VARCHAR(16) NOT NULL DEFAULT 'local'`,
+	// 系列管理
+	`CREATE TABLE IF NOT EXISTS series (
+			id INT NOT NULL AUTO_INCREMENT,
+			name VARCHAR(100) NOT NULL,
+			slug VARCHAR(100) NOT NULL UNIQUE,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+	`CREATE TABLE IF NOT EXISTS post_series (
+			post_id INT NOT NULL,
+			series_id INT NOT NULL,
+			sort_order INT NOT NULL DEFAULT 0,
+			PRIMARY KEY (post_id, series_id),
+			FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+			FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 }
 
 func Init(dsn string) (*sql.DB, error) {
