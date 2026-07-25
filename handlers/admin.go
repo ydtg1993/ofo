@@ -389,34 +389,42 @@ func normalizeMarkdown(md string) string {
 
 // AdminPageData holds data for admin template rendering.
 type AdminPageData struct {
-	Title           string
-	Cfg             interface{}
-	Error           string
-	Success         string
-	Posts           []models.Post
-	Post            *models.Post
-	Categories      []models.Category
-	Tags            []models.Tag
-	AllTags         []models.Tag
-	Tag             *models.Tag
-	TotalPosts      int
-	IsEditing       bool
-	IsNew           bool
-	ShowCategories  bool
-	ShowTags        bool
-	ShowTagPosts    bool
-	ShowSeries      bool
-	ShowSeriesPosts bool
-	ShowResources   bool
-	Resources       []models.Resource
-	SeriesList      []models.Series
-	Series          *models.Series
-	AllSeries       []models.Series
-	PostSeries      *models.Series
-	SeriesSortOrder int
-	PostCards       []models.PostCard
-	Pagination      *models.Pagination
-	IsQuick         bool
+	Title             string
+	Cfg               interface{}
+	Error             string
+	Success           string
+	Posts             []models.Post
+	Post              *models.Post
+	Categories        []models.Category
+	Tags              []models.Tag
+	AllTags           []models.Tag
+	Tag               *models.Tag
+	TotalPosts        int
+	IsEditing         bool
+	IsNew             bool
+	ShowCategories    bool
+	ShowTags          bool
+	ShowTagPosts      bool
+	ShowSeries        bool
+	ShowSeriesPosts   bool
+	ShowResources     bool
+	Resources         []models.Resource
+	SeriesList        []models.Series
+	Series            *models.Series
+	AllSeries         []models.Series
+	PostSeries        *models.Series
+	SeriesSortOrder   int
+	PostCards         []models.PostCard
+	Pagination        *models.Pagination
+	IsQuick           bool
+	PreselectedSeries *PreselectedSeriesInfo
+}
+
+// PreselectedSeriesInfo is passed to the editor form when navigating from series page.
+type PreselectedSeriesInfo struct {
+	ID        int
+	Name      string
+	NextOrder int
 }
 
 // ---- Login ----
@@ -497,13 +505,25 @@ func (h *Handler) AdminNewPost(c *gin.Context) {
 	}
 	allSeries, _ := h.SeriesModel.All()
 
+	// 从系列管理页跳转时预填系列
+	var preselected *PreselectedSeriesInfo
+	if sid, _ := strconv.Atoi(c.Query("series_id")); sid > 0 {
+		for _, s := range allSeries {
+			if s.ID == sid {
+				preselected = &PreselectedSeriesInfo{ID: s.ID, Name: s.Name, NextOrder: s.PostCount + 1}
+				break
+			}
+		}
+	}
+
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
-		Title:      "New Post",
-		Cfg:        h.Cfg,
-		IsNew:      true,
-		Categories: categories,
-		AllTags:    allTags,
-		AllSeries:  allSeries,
+		Title:             "New Post",
+		Cfg:               h.Cfg,
+		IsNew:             true,
+		Categories:        categories,
+		AllTags:           allTags,
+		AllSeries:         allSeries,
+		PreselectedSeries: preselected,
 	})
 }
 
@@ -634,15 +654,20 @@ func (h *Handler) AdminEditPost(c *gin.Context) {
 	}
 	allSeries, _ := h.SeriesModel.All()
 
+	// 查找该文章所属系列及序号
+	postSeries, sortOrder, _ := h.SeriesModel.GetPostSeries(id)
+
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
-		Title:      "Edit: " + post.Title,
-		Cfg:        h.Cfg,
-		Post:       post,
-		Categories: categories,
-		Tags:       tags,
-		AllTags:    allTags,
-		AllSeries:  allSeries,
-		IsEditing:  true,
+		Title:           "Edit: " + post.Title,
+		Cfg:             h.Cfg,
+		Post:            post,
+		Categories:      categories,
+		Tags:            tags,
+		AllTags:         allTags,
+		AllSeries:       allSeries,
+		IsEditing:       true,
+		PostSeries:      postSeries,
+		SeriesSortOrder: sortOrder,
 	})
 }
 
@@ -712,6 +737,15 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 		logger.ErrorWithContext(c, "failed to sync resources for new post", "postID", postID, "err", err)
 	}
 
+	// 关联系列
+	if seriesID, _ := strconv.Atoi(c.PostForm("series_id")); seriesID > 0 {
+		order, _ := strconv.Atoi(c.PostForm("series_order"))
+		if order < 1 {
+			order = 1
+		}
+		h.SeriesModel.LinkPost(int(postID), seriesID, order)
+	}
+
 	// Redirect to dashboard with success
 	h.adminDashboardWithSuccess(c, "文章发布成功")
 }
@@ -770,14 +804,21 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 		categories, _ := h.PostModel.AllCategoriesSimple()
 		tags, _ := h.PostModel.TagsForPost(id)
 		post, _ := h.PostModel.GetByID(id)
+		allTags, _ := h.PostModel.AllTagsSimple()
+		allSeries, _ := h.SeriesModel.All()
+		postSeries, sortOrder, _ := h.SeriesModel.GetPostSeries(id)
 		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
-			Title:      "Edit: " + title,
-			Cfg:        h.Cfg,
-			Post:       post,
-			Categories: categories,
-			Tags:       tags,
-			IsEditing:  true,
-			Error:      "更新失败：" + err.Error(),
+			Title:           "Edit: " + title,
+			Cfg:             h.Cfg,
+			Post:            post,
+			Categories:      categories,
+			Tags:            tags,
+			AllTags:         allTags,
+			AllSeries:       allSeries,
+			IsEditing:       true,
+			PostSeries:      postSeries,
+			SeriesSortOrder: sortOrder,
+			Error:           "更新失败：" + err.Error(),
 		})
 		return
 	}
@@ -787,6 +828,15 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 		return h.Storage.Delete(c.Request.Context(), "uploads/"+filename)
 	}); err != nil {
 		logger.ErrorWithContext(c, "failed to sync resources for updated post", "postID", id, "err", err)
+	}
+
+	// 关联系列
+	if seriesID, _ := strconv.Atoi(c.PostForm("series_id")); seriesID > 0 {
+		order, _ := strconv.Atoi(c.PostForm("series_order"))
+		if order < 1 {
+			order = 1
+		}
+		h.SeriesModel.UpdateSortOrder(id, seriesID, order)
 	}
 
 	h.adminDashboardWithSuccess(c, "文章更新成功")

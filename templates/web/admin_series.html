@@ -34,6 +34,7 @@
                             <a href="/admin/series/{{.ID}}/posts" class="btn btn--small">{{.PostCount}} 篇</a>
                         </td>
                         <td class="admin-table__actions">
+                            <a href="/admin/posts/new?series_id={{.ID}}" class="btn btn--small">写文章</a>
                             <button type="button" class="btn btn--small" onclick="editSeries({{.ID}}, '{{.Name}}')">重命名</button>
                             <form method="POST" action="/admin/series/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除系列「{{.Name}}」？文章不会被删除。');">
                                 <button type="submit" class="btn btn--small btn--danger">删除</button>

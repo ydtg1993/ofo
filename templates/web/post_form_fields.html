@@ -42,35 +42,34 @@
         </div>
     </div>
 
-    <!-- 发布时间 -->
-    <div class="form-row">
-        <div class="form-group" style="flex:1;">
-            <label for="series_id" class="form-label">系列</label>
-            <select id="series_id" name="series_id" class="form-input" onchange="autoFillSeriesOrder()">
-                <option value="">— 无 —</option>
-                {{$currentSeries := 0}}
-                {{if .PostSeries}}{{$currentSeries = .PostSeries.ID}}{{end}}
-                {{range .AllSeries}}
-                <option value="{{.ID}}" data-count="{{.PostCount}}" {{if eq .ID $currentSeries}}selected{{end}}>{{.Name}}（{{.PostCount}} 篇）</option>
-                {{end}}
-            </select>
-        </div>
-        <div class="form-group" style="flex:0 0 120px;">
-            <label for="series_order" class="form-label">序号</label>
-            <input type="number" id="series_order" name="series_order" class="form-input" style="width:80px;"
-                value="{{if .SeriesSortOrder}}{{.SeriesSortOrder}}{{end}}" min="1" placeholder="自动">
+    <!-- 系列关联（由 query param 指定，仅新建时） -->
+    {{if .PreselectedSeries}}
+    <input type="hidden" name="series_id" value="{{.PreselectedSeries.ID}}">
+    <input type="hidden" name="series_order" value="{{.PreselectedSeries.NextOrder}}">
+    <div class="form-group">
+        <label class="form-label">系列</label>
+        <div class="neo-box" style="padding:0.5rem 1rem;background:var(--bg-primary);">
+            📚 <strong>{{.PreselectedSeries.Name}}</strong>（第 {{.PreselectedSeries.NextOrder}} 篇）
         </div>
     </div>
-    <script>
-    function autoFillSeriesOrder() {
-        var sel = document.getElementById('series_id');
-        var orderInput = document.getElementById('series_order');
-        if (!sel.value) { orderInput.value = ''; return; }
-        var opt = sel.options[sel.selectedIndex];
-        var count = parseInt(opt.getAttribute('data-count')) || 0;
-        orderInput.value = count + 1;
-    }
-    </script>
+    {{end}}
+
+    <!-- 系列关联（编辑时显示已关联的系列） -->
+    {{if .PostSeries}}
+    <div class="form-group">
+        <label class="form-label">所属系列</label>
+        <div class="neo-box" style="padding:0.75rem 1rem;background:var(--bg-primary);display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+            <span style="font-size:1.1rem;">📚</span>
+            <strong style="color:var(--accent);">{{.PostSeries.Name}}</strong>
+            <span style="color:var(--text-muted);">— 第 <strong style="color:var(--text-primary);">{{.SeriesSortOrder}}</strong> 篇</span>
+            <span style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);">
+                可在 <a href="/admin/series/{{.PostSeries.ID}}/posts" target="_blank">系列管理</a> 中调整排序
+            </span>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- 发布时间 -->
 
     <div class="form-row">
         <div class="form-group" style="flex:1;">
