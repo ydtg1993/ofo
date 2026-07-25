@@ -57,12 +57,14 @@
                         <td>{{if .LinkedPosts}}{{range $i, $lp := .LinkedPosts}}{{if $i}}, {{end}}<a href="/admin/posts/{{$lp.ID}}/edit" class="btn btn--small">{{$lp.Title}}</a>{{end}}{{else}}<span style="color:var(--text-muted);">未关联</span>{{end}}</td>
                         <td class="admin-table__date">{{.CreatedAt | formatDate}}</td>
                         <td class="admin-table__actions">
-                            <button type="button" class="btn btn--small sticker-copy-btn" data-url="{{$displayURL}}" title="复制链接">📋 复制</button>
-                            {{if not .LinkedPosts}}
-                            <form method="POST" action="/admin/resources/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除？');">
-                                <button type="submit" class="btn btn--small btn--danger">删除</button>
-                            </form>
-                            {{end}}
+                            <div style="display:flex;align-items:center;gap:0.4rem;">
+                                <button type="button" class="btn btn--small sticker-copy-btn" data-url="{{.URL}}" title="复制链接">📋 复制</button>
+                                {{if not .LinkedPosts}}
+                                <form method="POST" action="/admin/resources/{{.ID}}/delete" style="display:inline;" onsubmit="return confirm('确定删除？');">
+                                    <button type="submit" class="btn btn--small btn--danger">删除</button>
+                                </form>
+                                {{end}}
+                            </div>
                         </td>
                     </tr>
                 {{end}}
@@ -90,7 +92,7 @@
             var c = document.getElementById('sticker-modal-content');
             if (!m || !c) return;
             c.innerHTML = isVideo
-                ? '<video src="' + url + '" controls autoplay style="max-width:85vw;max-height:80vh;"></video>'
+                ? '<video src="' + url + '" controls autoplay muted loop style="max-width:85vw;max-height:80vh;"></video>'
                 : '<img src="' + url + '" style="max-width:85vw;max-height:80vh;">';
             m.style.display = 'flex';
         }

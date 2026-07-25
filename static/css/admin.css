@@ -98,8 +98,6 @@
 
 .admin-table__actions {
     white-space: nowrap;
-    display: flex;
-    gap: 0.4rem;
 }
 
 /* ---- Admin Badges ---- */

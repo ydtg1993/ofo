@@ -258,9 +258,8 @@ func (m *ResourceModel) CountAll() (int, error) {
 
 // ---- Disk scan ----
 
-// ScanDiskAndRecord scans the uploads directory (including date-based subdirectories)
-// and creates resource records for files that don't have one yet.
-// Returns the number of newly recorded files.
+// ScanDiskAndRecord scans the uploads directory and creates resource records
+// for files that don't have one yet. Returns the number of newly recorded files.
 func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
 	count := 0
 
@@ -272,19 +271,13 @@ func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
 			return nil
 		}
 
-		// Relative path from uploadsDir (e.g. "2026/07/uuid.ext" or just "uuid.ext")
-		relPath, err := filepath.Rel(uploadsDir, path)
-		if err != nil {
-			relPath = info.Name()
-		}
-		// Normalize to forward slashes
-		relPath = filepath.ToSlash(relPath)
-		url := "/uploads/" + relPath
+		filename := info.Name()
+		url := "/uploads/" + filename
 
 		// Check if record already exists
 		existing, err := m.FindByURL(url)
 		if err != nil && err != sql.ErrNoRows {
-			logger.Warn("error looking up resource during disk scan", "path", relPath, "err", err)
+			logger.Warn("error looking up resource during disk scan", "path", filename, "err", err)
 			return nil
 		}
 		if existing != nil {
@@ -292,11 +285,11 @@ func (m *ResourceModel) ScanDiskAndRecord(uploadsDir string) (int, error) {
 		}
 
 		fileSize := info.Size()
-		ext := filepath.Ext(relPath)
+		ext := filepath.Ext(filename)
 		mimeType := MIMEType(ext)
 
-		if _, err := m.Create(relPath, url, "local", fileSize, mimeType); err != nil {
-			logger.Warn("error inserting resource during disk scan", "path", relPath, "err", err)
+		if _, err := m.Create(filename, url, "local", fileSize, mimeType); err != nil {
+			logger.Warn("error inserting resource during disk scan", "path", filename, "err", err)
 			return nil
 		}
 		count++

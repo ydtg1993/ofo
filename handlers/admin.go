@@ -1071,22 +1071,22 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 		return
 	}
 
-	// Generate unique filename with date-based folder prefix (e.g. 2026/07/<uuid>.ext)
-	savedName := time.Now().Format("2006/01") + "/" + uuid.New().String() + ext
+	// Generate unique filename (basename only, no date folder)
+	dbFilename := uuid.New().String() + ext
 
 	// Upload via storage backend
-	key := "uploads/" + savedName
+	key := "uploads/" + dbFilename
 	url, err := h.Storage.Upload(c.Request.Context(), key, file, header.Size)
 	if err != nil {
-		logger.ErrorWithContext(c, "failed to upload file", "name", savedName, "err", err)
+		logger.ErrorWithContext(c, "failed to upload file", "name", dbFilename, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败"})
 		return
 	}
 
-	// 记录到资源表（post_id 暂时为空，保存文章时关联）
+	// 记录到资源表
 	mimeType := models.MIMEType(ext)
-	if _, err := h.ResourceModel.Create(savedName, url, h.Cfg.StorageBackend, header.Size, mimeType); err != nil {
-		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", savedName, "err", err)
+	if _, err := h.ResourceModel.Create(dbFilename, url, h.Cfg.StorageBackend, header.Size, mimeType); err != nil {
+		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", dbFilename, "err", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"url": h.Storage.PublicURL(url)})

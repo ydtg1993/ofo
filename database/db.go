@@ -68,10 +68,7 @@ var migrations = []string{
 		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
 		FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-	// 定时发布：NULL = 立即发布
-	`ALTER TABLE posts ADD COLUMN publish_at DATETIME DEFAULT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_posts_publish_at ON posts(publish_at)`,
-	`ALTER TABLE resources ADD COLUMN storage VARCHAR(16) NOT NULL DEFAULT 'local'`,
 	// 系列管理
 	`CREATE TABLE IF NOT EXISTS series (
 			id INT NOT NULL AUTO_INCREMENT,
@@ -114,6 +111,23 @@ func Init(dsn string) (*sql.DB, error) {
 				continue
 			}
 			return nil, err
+		}
+	}
+
+	// 动态 ALTER：仅当列不存在时才添加
+	for _, alter := range []struct{ table, col, def string }{
+		{"posts", "publish_at", "DATETIME DEFAULT NULL"},
+		{"resources", "storage", "VARCHAR(16) NOT NULL DEFAULT 'local'"},
+	} {
+		var n int
+		db.QueryRow(`SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+			alter.table, alter.col).Scan(&n)
+		if n == 0 {
+			sql := "ALTER TABLE `" + alter.table + "` ADD COLUMN `" + alter.col + "` " + alter.def
+			if _, err := db.Exec(sql); err != nil {
+				logger.Warn("failed to add column", "sql", sql, "err", err)
+			}
 		}
 	}
 
