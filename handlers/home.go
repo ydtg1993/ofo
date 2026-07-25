@@ -9,15 +9,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// maxHomePosts 首页/API 可加载的文章总数上限。
+const maxHomePosts = 200
+
 func (h *Handler) Home(c *gin.Context) {
-	// 首次加载 15 篇文章，后续通过 AJAX 无限滚动加载
-	posts, total, err := h.PostModel.ListPublished(0, 15)
+	// 首次加载 10 篇文章（按创建时间倒序），后续通过 AJAX 无限滚动加载，总数上限 200。
+	posts, total, err := h.PostModel.ListPublished(0, 10)
 	if err != nil {
 		logger.ErrorWithContext(c, "failed to list published posts", "err", err)
 		c.HTML(http.StatusInternalServerError, "home.html", PageData{
 			Title: "Error", Cfg: h.Cfg, Is404: true,
 		})
 		return
+	}
+
+	// 总数封顶 200
+	if total > maxHomePosts {
+		total = maxHomePosts
 	}
 
 	categories, err := h.PostModel.AllCategories()
@@ -39,7 +47,7 @@ func (h *Handler) Home(c *gin.Context) {
 		Tags:         tags,
 		Posts:        posts,
 		TotalPosts:   total,
-		HasMore:      total > 15,
+		HasMore:      total > 10,
 		CurrentPath:  "/",
 		IsHome:       true,
 	}

@@ -7,7 +7,7 @@
         {{if isVideoURL .Post.ThumbnailURL}}
         <video src="{{displayURL .Post.ThumbnailURL}}" preload="none" controls playsinline class="mobile-card__video"></video>
         {{else}}
-        <img src="{{displayURL .Post.ThumbnailURL}}" alt="{{.Post.Title}}" loading="lazy">
+        {{thumbnailImg .Post.ThumbnailURL .Post.Title}}
         {{end}}
     </div>
     {{end}}

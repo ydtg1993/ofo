@@ -54,14 +54,15 @@
     // 信息流 — AJAX 无限滚动
     // ==========================================
     (function () {
-        var feedEl = document.getElementById('post-feed');
+        var feedEl = document.getElementById('post-feed') || document.getElementById('mobile-feed');
         if (!feedEl) return;
 
         var currentPage = 1;
         var loading = false;
         var hasMore = true;
         var activeCategory = '';
-        var perPage = 15;
+        var perPage = 10;
+        var isMobile = !!document.getElementById('mobile-feed');
         var sentinel = document.getElementById('load-sentinel');
         var loadMoreWrap = document.getElementById('load-more-wrap');
         var loadMoreBtn = document.getElementById('load-more-btn');
@@ -75,17 +76,39 @@
         function renderCard(post) {
             var emoji = catEmoji[post.CategorySlug] || '';
             var time = readTime[post.CategorySlug] || '';
-            var dateStr = new Date(post.CreatedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-            var tagsHTML = post.Tags ? '<div class="feed-card__tags">' + post.Tags.map(function (t) {
-                return '<a href="/tag/' + t.Slug + '" class="tag">' + t.Name + '</a>';
-            }).join('') + '</div>' : '';
+            var tagsHTML = post.Tags ? (isMobile
+                ? '<div class="mobile-card__tags">' + post.Tags.map(function (t) {
+                    return '<a href="/tag/' + t.Slug + '" class="tag">' + t.Name + '</a>';
+                }).join('') + '</div>'
+                : '<div class="feed-card__tags">' + post.Tags.map(function (t) {
+                    return '<a href="/tag/' + t.Slug + '" class="tag">' + t.Name + '</a>';
+                }).join('') + '</div>') : '';
             var mediaHTML = '';
             if (post.ThumbnailURL) {
                 var isV = /\.(mp4|webm|ogg|mov)$/i.test(post.ThumbnailURL) || post.ThumbnailURL.indexOf('/video/') > -1;
-                mediaHTML = isV
-                    ? '<div class="feed-card__media"><video src="' + post.ThumbnailURL + '" preload="none" controls playsinline class="feed-card__video"></video></div>'
-                    : '<div class="feed-card__media"><img src="' + post.ThumbnailURL + '" alt="' + post.Title + '" loading="lazy"></div>';
+                var dims = '';
+                if (post.ThumbnailWidth && post.ThumbnailHeight) {
+                    dims = ' width="' + post.ThumbnailWidth + '" height="' + post.ThumbnailHeight + '" style="aspect-ratio:' + post.ThumbnailWidth + '/' + post.ThumbnailHeight + '"';
+                }
+                if (isMobile) {
+                    mediaHTML = isV
+                        ? '<div class="mobile-card__media"><video src="' + post.ThumbnailURL + '" preload="none" controls playsinline class="mobile-card__video"' + dims + '></video></div>'
+                        : '<div class="mobile-card__media"><img src="' + post.ThumbnailURL + '" alt="' + post.Title + '" loading="lazy"' + dims + '></div>';
+                } else {
+                    mediaHTML = isV
+                        ? '<div class="feed-card__media"><video src="' + post.ThumbnailURL + '" preload="none" controls playsinline class="feed-card__video"' + dims + '></video></div>'
+                        : '<div class="feed-card__media"><img src="' + post.ThumbnailURL + '" alt="' + post.Title + '" loading="lazy"' + dims + '></div>';
+                }
             }
+            if (isMobile) {
+                return '<article class="mobile-card" data-category="' + (post.CategorySlug || '') + '">' +
+                    mediaHTML + '<div class="mobile-card__body">' +
+                    (post.CategoryName ? '<div class="mobile-card__meta">' + emoji + ' ' + post.CategoryName + (time ? ' · ' + time : '') + '</div>' : '') +
+                    '<h2 class="mobile-card__title"><a href="/post/' + post.Slug + '">' + post.Title + '</a></h2>' +
+                    '<div class="mobile-card__content">' + (post.ContentHTML || post.Excerpt) + '</div>' +
+                    tagsHTML + '</div></article>';
+            }
+            var dateStr = new Date(post.CreatedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
             return '<article class="feed-card neo-box" data-category="' + (post.CategorySlug || '') + '">' +
                 mediaHTML + '<div class="feed-card__body">' +
                 '<header class="feed-card__header">' +
@@ -427,8 +450,31 @@
     };
 
     // ==========================================
-    // 图片懒加载 + Lightbox
+    // 图片懒加载 + Skeleton 状态管理 + Lightbox
     // ==========================================
+
+    // 全局：为所有图片绑定 load/error 事件，管理 skeleton 状态
+    (function () {
+        function onImgLoad() { this.classList.add('img-loaded'); }
+        function onImgError() { this.classList.add('img-error'); }
+        // 使用事件委托：捕获阶段处理动态插入的图片
+        document.addEventListener('load', function (e) {
+            if (e.target.tagName === 'IMG') { e.target.classList.add('img-loaded'); }
+        }, true);
+        document.addEventListener('error', function (e) {
+            if (e.target.tagName === 'IMG') { e.target.classList.add('img-error'); }
+        }, true);
+        // 为页面已有图片也绑定一次
+        document.querySelectorAll('img[src]:not([src=""]):not([src^="data:"])').forEach(function (img) {
+            if (img.complete) {
+                img.naturalWidth > 0 ? img.classList.add('img-loaded') : img.classList.add('img-error');
+            } else {
+                img.addEventListener('load', onImgLoad);
+                img.addEventListener('error', onImgError);
+            }
+        });
+    })();
+
     (function () {
         if ('IntersectionObserver' in window) {
             var obs = new IntersectionObserver(function (entries) {

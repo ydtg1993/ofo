@@ -582,11 +582,17 @@ func RewriteContentURLs(html string, cfg *config.Config) string {
 		html = reUploadPath.ReplaceAllStringFunc(html, func(match string) string {
 			return domain + match
 		})
+		// Fix double-prefix when content already has resolved CDN URLs:
+		// http://cdnhttp://cdn/uploads/... → http://cdn/uploads/...
+		html = strings.ReplaceAll(html, domain+domain, domain)
 	} else {
 		// Local: /uploads/... → /static/uploads/... (Gin static serving)
 		html = reUploadPath.ReplaceAllStringFunc(html, func(match string) string {
 			return "/static" + match
 		})
+		// Fix double-prefix when content already has resolved local URLs:
+		// /static/static/uploads/... → /static/uploads/...
+		html = strings.ReplaceAll(html, "/static/static/", "/static/")
 		// Legacy: any absolute CDN URL → /static/uploads/...
 		// (handles old Qiniu CDN URLs when storage backend has been switched to local)
 		html = reAnyCDNURL.ReplaceAllStringFunc(html, func(match string) string {

@@ -9,7 +9,7 @@
         {{if isVideoURL $post.ThumbnailURL}}
         <video src="{{displayURL $post.ThumbnailURL}}" preload="none" controls playsinline class="mobile-card__video"></video>
         {{else}}
-        <img src="{{displayURL $post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
+        {{thumbnailImg $post.ThumbnailURL $post.Title}}
         {{end}}
     </div>
     {{end}}
@@ -44,6 +44,14 @@
 </div>
 {{end}}
 </div>
+
+<!-- 加载哨兵 + 加载更多按钮 -->
+{{if .HasMore}}
+<div id="load-sentinel" style="height:1px;"></div>
+<div class="load-more-wrap" id="load-more-wrap" style="text-align:center;padding:1rem;">
+    <button id="load-more-btn" class="btn load-more-btn">加载更多</button>
+</div>
+{{end}}
 
 {{template "mobile_footer" .}}
 {{end}}

@@ -140,11 +140,55 @@ img { max-width: 100%; height: auto; }
     width: 100%;
     max-height: 45vh;
     object-fit: contain;
+    /* Skeleton 骨架屏：图片加载前显示流光占位 */
+    min-height: 80px;
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+[data-theme="dark"] .mobile-card__media img {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
 }
 .mobile-card__video {
     width: 100%;
     max-height: 45vh;
-    background: #000;
+    min-height: 80px;
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+[data-theme="dark"] .mobile-card__video {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
 }
 
 .mobile-card__body {
@@ -178,6 +222,30 @@ img { max-width: 100%; height: auto; }
     height: auto;
     border-radius: 4px;
     margin: 0.4rem 0;
+    /* Skeleton 骨架屏：图片加载前显示流光占位 */
+    min-height: 50px;
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+    transition: opacity 0.3s;
+}
+[data-theme="dark"] .mobile-card__content img {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
 }
 .mobile-card__content p { margin-bottom: 0.5rem; }
 .mobile-card__content h2, .mobile-card__content h3 {
@@ -237,4 +305,65 @@ img { max-width: 100%; height: auto; }
     height: 60vh;
     font-size: 1.2rem;
     color: var(--text-muted);
+}
+
+/* ---- Skeleton 骨架屏：图片/视频加载前的流光占位 ---- */
+
+@keyframes skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* 图片加载完成后清除 skeleton */
+.mobile-card__media img.img-loaded,
+.mobile-card__content img.img-loaded {
+    animation: none;
+    background: none;
+    opacity: 1;
+}
+
+/* 懒加载占位状态 */
+.mobile-card__media img.img-pending,
+.mobile-card__content img.img-pending {
+    cursor: default;
+}
+
+/* 图片加载失败 */
+.mobile-card__media img.img-error,
+.mobile-card__content img.img-error {
+    animation: none;
+    opacity: 0.3;
+    min-height: 80px;
+    background: #fff0f0;
+    border: 1px dashed var(--danger);
+    border-radius: var(--radius);
+}
+
+/* 正文视频同理：自带 skeleton */
+.mobile-card__content video {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    min-height: 80px;
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(180,180,180,0.25) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+[data-theme="dark"] .mobile-card__content video {
+    background: linear-gradient(
+        90deg,
+        var(--code-bg) 0%,
+        var(--code-bg) 30%,
+        rgba(255,255,255,0.06) 50%,
+        var(--code-bg) 70%,
+        var(--code-bg) 100%
+    );
+    background-size: 200% 100%;
 }

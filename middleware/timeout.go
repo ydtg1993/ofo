@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"strings"
@@ -39,9 +40,12 @@ func Timeout(d time.Duration) gin.HandlerFunc {
 				// gin-contrib/timeout 在写入响应失败时（客户端断开连接、
 				// Windows wsasend abort、broken pipe 等）会 panic。
 				// 这些是正常的连接异常，静默处理即可。
-				switch r.(type) {
-				case *net.OpError:
-					return
+				// 使用 errors.As 而非类型断言，以便沿错误链展开查找。
+				if err, ok := r.(error); ok {
+					var opErr *net.OpError
+					if errors.As(err, &opErr) {
+						return
+					}
 				}
 				if r == http.ErrAbortHandler {
 					return

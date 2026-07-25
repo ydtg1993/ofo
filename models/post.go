@@ -34,11 +34,15 @@ type PostCard struct {
 	Excerpt      string
 	ContentHTML  string // 全文 HTML（信息流直展用）
 	ThumbnailURL string
-	CategoryName string
-	CategorySlug string
-	PublishAt    sql.NullTime
-	CreatedAt    time.Time
-	Tags         []Tag
+	// ThumbnailWidth/Height are populated by the API layer from storage metadata.
+	// They are not stored in the DB — zero means unknown.
+	ThumbnailWidth  int `json:",omitempty"`
+	ThumbnailHeight int `json:",omitempty"`
+	CategoryName    string
+	CategorySlug    string
+	PublishAt       sql.NullTime
+	CreatedAt       time.Time
+	Tags            []Tag
 }
 
 // Category represents a blog post category.
