@@ -42,17 +42,16 @@ func (h *Handler) Category(c *gin.Context) {
 	}
 
 	pd := PageData{
-		Title:         "Category: " + categoryName + " — " + h.Cfg.Title,
-		Description:   "Posts in category " + categoryName,
-		Keywords:      categoryName + "," + h.Cfg.Keywords,
-		CanonicalURL:  h.Cfg.BaseURL + "/category/" + slug,
-		Cfg:           h.Cfg,
-		Categories:    categories,
-		Tags:          tags,
-		Posts:         posts,
-		FilterName:    categoryName,
-		FishModeTitle: h.Cfg.FishModeTitle,
-		CurrentPath:   "/category/" + slug,
+		Title:        "Category: " + categoryName + " — " + h.Cfg.Title,
+		Description:  "Posts in category " + categoryName,
+		Keywords:     categoryName + "," + h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL + "/category/" + slug,
+		Cfg:          h.Cfg,
+		Categories:   categories,
+		Tags:         tags,
+		Posts:        posts,
+		FilterName:   categoryName,
+		CurrentPath:  "/category/" + slug,
 	}
 
 	tmpl := "home.html"

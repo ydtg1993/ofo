@@ -11,16 +11,15 @@ func (h *Handler) About(c *gin.Context) {
 	tags, _ := h.PostModel.AllTags()
 
 	pd := PageData{
-		Title:         "关于 — " + h.Cfg.Title,
-		Description:   "关于蹬车摸鱼和作者",
-		Keywords:      h.Cfg.Keywords,
-		CanonicalURL:  h.Cfg.BaseURL + "/about",
-		Cfg:           h.Cfg,
-		Categories:    categories,
-		Tags:          tags,
-		IsAbout:       true,
-		FishModeTitle: h.Cfg.FishModeTitle,
-		CurrentPath:   "/about",
+		Title:        "关于 — " + h.Cfg.Title,
+		Description:  "关于蹬车摸鱼和作者",
+		Keywords:     h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL + "/about",
+		Cfg:          h.Cfg,
+		Categories:   categories,
+		Tags:         tags,
+		IsAbout:      true,
+		CurrentPath:  "/about",
 	}
 
 	tmpl := "about.html"

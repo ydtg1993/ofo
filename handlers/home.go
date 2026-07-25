@@ -30,19 +30,18 @@ func (h *Handler) Home(c *gin.Context) {
 	}
 
 	pd := PageData{
-		Title:         h.Cfg.Title,
-		Description:   "蹬车摸鱼 — 下班蹬两圈，上班摸一阵。30秒速览、3分钟摸鱼、午休放松，为打工人量身定制的轻娱乐内容。",
-		Keywords:      h.Cfg.Keywords,
-		CanonicalURL:  h.Cfg.BaseURL,
-		Cfg:           h.Cfg,
-		Categories:    categories,
-		Tags:          tags,
-		Posts:         posts,
-		TotalPosts:    total,
-		HasMore:       total > 15,
-		FishModeTitle: h.Cfg.FishModeTitle,
-		CurrentPath:   "/",
-		IsHome:        true,
+		Title:        h.Cfg.Title,
+		Description:  "蹬车摸鱼 — 下班蹬两圈，上班摸一阵。30秒速览、3分钟摸鱼、午休放松，为打工人量身定制的轻娱乐内容。",
+		Keywords:     h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL,
+		Cfg:          h.Cfg,
+		Categories:   categories,
+		Tags:         tags,
+		Posts:        posts,
+		TotalPosts:   total,
+		HasMore:      total > 15,
+		CurrentPath:  "/",
+		IsHome:       true,
 	}
 
 	if isMobileDevice(c.GetHeader("User-Agent")) {
@@ -73,13 +72,12 @@ func (h *Handler) Fullscreen(c *gin.Context) {
 	}
 
 	c.HTML(200, "fullscreen.html", PageData{
-		Title:         "刷屏 — " + h.Cfg.Title,
-		Description:   "全屏刷屏浏览全部内容",
-		Keywords:      h.Cfg.Keywords,
-		CanonicalURL:  h.Cfg.BaseURL + "/fullscreen",
-		Cfg:           h.Cfg,
-		Posts:         posts,
-		FishModeTitle: h.Cfg.FishModeTitle,
-		CurrentPath:   "/fullscreen",
+		Title:        "刷屏 — " + h.Cfg.Title,
+		Description:  "全屏刷屏浏览全部内容",
+		Keywords:     h.Cfg.Keywords,
+		CanonicalURL: h.Cfg.BaseURL + "/fullscreen",
+		Cfg:          h.Cfg,
+		Posts:        posts,
+		CurrentPath:  "/fullscreen",
 	})
 }

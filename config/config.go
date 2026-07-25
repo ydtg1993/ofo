@@ -43,9 +43,6 @@ type Config struct {
 	MediaTokenTTL   int    // 媒体代理 URL 有效期（秒），默认 1800
 	// 运行模式
 	Debug bool // true=开发环境，false=生产环境（禁止右键/F12/复制）
-	// 摸鱼模式
-	FishModeTitle    string // 摸鱼模式下的伪装浏览器标题
-	FishModeKeywords string // 摸鱼模式的伪装关键词
 	// 日志
 	LogLevel string // debug, info, warn, error
 	LogDir   string // 日志文件目录，默认 "logs"
@@ -140,9 +137,6 @@ func Load() *Config {
 		MediaTokenTTL:   getEnvInt("MEDIA_TOKEN_TTL", 1800),
 		// 运行模式
 		Debug: getEnvBool("DEBUG", true),
-		// 摸鱼模式
-		FishModeTitle:    getEnv("FISH_MODE_TITLE", "工作周报 - 2024"),
-		FishModeKeywords: getEnv("FISH_MODE_KEYWORDS", "工作周报,汇报材料,工作总结"),
 		// 日志
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 		LogDir:   getEnv("LOG_DIR", "logs"),

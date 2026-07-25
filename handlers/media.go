@@ -509,3 +509,72 @@ func getPageAESKey() []byte {
 
 // PageAESKey returns the current page's AES decryption key (for template use).
 func PageAESKey() []byte { return getPageAESKey() }
+
+// ---- Content URL Normalization ----
+
+var reCDNURL *regexp.Regexp
+var reStaticPath = regexp.MustCompile(`/static/(uploads|stickers)/[^"'<>\s]+`)
+
+func initCDNURLPattern(domain string) {
+	if domain != "" {
+		reCDNURL = regexp.MustCompile(regexp.QuoteMeta(domain) + `/(uploads|stickers)/[^"'<>\s]+`)
+	}
+}
+
+// NormalizeContentURLs replaces full CDN URLs in HTML content with relative
+// paths (e.g. "https://cdn.example.com/uploads/x.jpg" → "/static/uploads/x.jpg").
+// For local storage the HTML is returned unchanged.
+func NormalizeContentURLs(html string, store storage.Storage, cfg *config.Config) string {
+	if store.IsLocal() {
+		return html
+	}
+	if cfg.QiniuDomain == "" {
+		return html
+	}
+	if reCDNURL == nil {
+		initCDNURLPattern(strings.TrimRight(cfg.QiniuDomain, "/"))
+	}
+	if reCDNURL == nil {
+		return html
+	}
+	return reCDNURL.ReplaceAllStringFunc(html, func(match string) string {
+		return "/static/" + strings.TrimPrefix(match, strings.TrimRight(cfg.QiniuDomain, "/")+"/")
+	})
+}
+
+// RewriteContentURLs converts relative storage paths in HTML to full CDN display
+// URLs. For local storage the HTML is returned unchanged.
+func RewriteContentURLs(html string, cfg *config.Config) string {
+	if cfg.StorageBackend != "qiniu" || cfg.QiniuDomain == "" {
+		return html
+	}
+	domain := strings.TrimRight(cfg.QiniuDomain, "/")
+	return reStaticPath.ReplaceAllStringFunc(html, func(match string) string {
+		return domain + "/" + strings.TrimPrefix(match, "/static/")
+	})
+}
+
+// DisplayURL converts a relative storage path to a full display URL based on
+// storage backend config: local → BASE_URL prefix, qiniu → QINIU_DOMAIN prefix.
+func DisplayURL(relativePath string, cfg *config.Config) string {
+	if cfg.StorageBackend == "qiniu" && cfg.QiniuDomain != "" {
+		return strings.TrimRight(cfg.QiniuDomain, "/") + "/" + strings.TrimPrefix(relativePath, "/static/")
+	}
+	return strings.TrimRight(cfg.BaseURL, "/") + relativePath
+}
+
+// URLToRelativePath converts a display URL back to the canonical relative path.
+// e.g. "https://cdn.example.com/uploads/x.jpg" → "/static/uploads/x.jpg"
+// Already-relative paths pass through unchanged.
+func URLToRelativePath(url string, store storage.Storage, cfg *config.Config) string {
+	if strings.HasPrefix(url, "/static/") {
+		return url
+	}
+	if cfg.StorageBackend == "qiniu" && cfg.QiniuDomain != "" {
+		domain := strings.TrimRight(cfg.QiniuDomain, "/")
+		if strings.HasPrefix(url, domain+"/") {
+			return "/static/" + strings.TrimPrefix(url, domain+"/")
+		}
+	}
+	return url
+}

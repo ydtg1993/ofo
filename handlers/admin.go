@@ -215,7 +215,7 @@ func ThumbnailMidImage(url, alt string, store storage.Storage, cfg *config.Confi
 		return fmt.Sprintf(`<img data-mid="%s" alt="%s" loading="lazy"%s>`, mid, alt, dims)
 	}
 
-	html := fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, dimURL, alt)
+	html := fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, DisplayURL(dimURL, cfg), alt)
 	html = InjectImageDimensions(html, store)
 	return html
 }
@@ -232,7 +232,7 @@ func VideoThumb(url string, store storage.Storage, cfg *config.Config) string {
 		mid := AddThumbMid(url, mm, store, cfg)
 		return fmt.Sprintf(`<video data-mid="%s" preload="none"></video>`, mid)
 	}
-	return fmt.Sprintf(`<video src="%s" preload="none"></video>`, url)
+	return fmt.Sprintf(`<video src="%s" preload="none"></video>`, DisplayURL(url, cfg))
 }
 
 // ThumbnailImage generates an <img> tag for a thumbnail URL with skeleton-ready
@@ -542,6 +542,7 @@ func (h *Handler) AdminQuickCreatePost(c *gin.Context) {
 		contentMD = "![" + title + "](" + imageURL + ")\n\n" + caption
 	}
 	contentHTML := renderMarkdown(contentMD)
+	contentHTML = NormalizeContentURLs(contentHTML, h.Storage, h.Cfg)
 	excerpt := extractExcerptStr(caption, 200)
 
 	// 自动提取缩略图
@@ -560,6 +561,7 @@ func (h *Handler) AdminQuickCreatePost(c *gin.Context) {
 	createdAt := time.Now()
 	publishAt := parseDateTime(c.PostForm("publish_at"))
 
+	contentHTML = NormalizeContentURLs(contentHTML, h.Storage, h.Cfg)
 	postID, err := h.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, publishAt, createdAt, nil)
 	if err != nil {
 		categories, _ := h.PostModel.AllCategoriesSimple()
@@ -642,6 +644,7 @@ func (h *Handler) AdminCreatePost(c *gin.Context) {
 
 	// Render markdown
 	contentHTML := renderMarkdown(contentMD)
+	contentHTML = NormalizeContentURLs(contentHTML, h.Storage, h.Cfg)
 
 	// Excerpt
 	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
@@ -714,6 +717,7 @@ func (h *Handler) AdminUpdatePost(c *gin.Context) {
 	}
 
 	contentHTML := renderMarkdown(contentMD)
+	contentHTML = NormalizeContentURLs(contentHTML, h.Storage, h.Cfg)
 	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
 	if excerpt == "" {
 		excerpt = extractExcerptStr(contentMD, 200)
@@ -951,7 +955,7 @@ func (h *Handler) AdminCreateSticker(c *gin.Context) {
 
 	// AJAX request → JSON response; regular form → redirect
 	if c.GetHeader("X-Requested-With") == "XMLHttpRequest" || c.GetHeader("Accept") == "application/json" {
-		c.JSON(http.StatusOK, gin.H{"url": url, "filename": savedName})
+		c.JSON(http.StatusOK, gin.H{"url": h.Storage.PublicURL(url), "filename": savedName})
 		return
 	}
 	c.Redirect(http.StatusFound, "/admin/stickers")
@@ -1055,7 +1059,7 @@ func (h *Handler) AdminUpload(c *gin.Context) {
 		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", savedName, "err", err)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"url": url})
+	c.JSON(http.StatusOK, gin.H{"url": h.Storage.PublicURL(url)})
 }
 
 // AdminCleanupUploads deletes orphaned uploads (post_id IS NULL).
@@ -1075,7 +1079,7 @@ func (h *Handler) AdminCleanupUploads(c *gin.Context) {
 		if url == "" {
 			continue
 		}
-		filename, ok, err := h.ResourceModel.DeleteOrphanedByURL(url)
+		filename, ok, err := h.ResourceModel.DeleteOrphanedByURL(URLToRelativePath(url, h.Storage, h.Cfg))
 		if err != nil {
 			logger.ErrorWithContext(c, "failed to cleanup upload", "url", url, "err", err)
 			continue

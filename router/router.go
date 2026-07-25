@@ -255,10 +255,16 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 		// 给文章正文 <img> 注入 loading="lazy"（兼容已有旧文章）
 		// 同时将存储 URL 替换为 data-mid 索引（URL 存入当前页面的共享 MediaMap）
 		"lazyImages": func(html string) template.HTML {
+			if !cfg.MediaProtection {
+				html = handlers.RewriteContentURLs(html, cfg)
+			}
 			html = handlers.InjectLazyLoading(html)
 			html = handlers.InjectImageDimensions(html, store)
 			html = handlers.InjectVideoDimensions(html, store)
-			return template.HTML(handlers.BuildMediaMapWith(html, store, cfg, handlers.CurrentMediaMap()))
+			if cfg.MediaProtection {
+				return template.HTML(handlers.BuildMediaMapWith(html, store, cfg, handlers.CurrentMediaMap()))
+			}
+			return template.HTML(html)
 		},
 		// 缩略图：输出 data-mid 索引 + 宽高，URL 存在 JS 数组里
 		"thumbnailImg": func(url, alt string) template.HTML {
@@ -272,6 +278,7 @@ func templateFuncMap(cfg *config.Config, baseDir string, store storage.Storage) 
 		"videoThumb": func(url string) template.HTML {
 			return template.HTML(handlers.VideoThumb(url, store, cfg))
 		},
+		"displayURL": func(path string) string { return handlers.DisplayURL(path, cfg) },
 		// 媒体保护 JS 配置脚本 + 初始化当前页面的 MediaMap
 		"mediaConfigScript": func() template.HTML {
 			mm := handlers.NewMediaMap()

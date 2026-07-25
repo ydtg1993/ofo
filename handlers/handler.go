@@ -43,8 +43,6 @@ type PageData struct {
 	// 上一篇/下一篇导航
 	PrevPost *models.PostCard
 	NextPost *models.PostCard
-	// 摸鱼模式标题
-	FishModeTitle string
 	// SEO fields
 	Keywords     string
 	CanonicalURL string

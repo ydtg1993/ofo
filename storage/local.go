@@ -74,6 +74,10 @@ func (s *LocalStorage) IsStorageURL(url string) bool {
 		strings.HasPrefix(url, "/static/stickers/")
 }
 
+// PublicURL returns the path unchanged — browsers resolve relative paths
+// against the page origin for local storage.
+func (s *LocalStorage) PublicURL(relativePath string) string { return relativePath }
+
 // IsLocal returns true.
 func (s *LocalStorage) IsLocal() bool { return true }
 

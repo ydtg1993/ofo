@@ -92,7 +92,6 @@ func (h *Handler) Post(c *gin.Context) {
 		ReadTime:         readTime,
 		PrevPost:         prevPost,
 		NextPost:         nextPost,
-		FishModeTitle:    h.Cfg.FishModeTitle,
 		CurrentPath:      "/post/" + slug,
 	}
 

@@ -179,7 +179,7 @@
         });
     }
 
-    var fileInput = document.getElementById('file-upload');
+    var fileInput = document.getElementById('editor-file-input') || document.getElementById('file-upload');
     var dropZone = document.getElementById('editor-drop-zone');
     var uploadQueue = [];
 
@@ -187,16 +187,28 @@
     function removeFromQueue(idx) { uploadQueue.splice(idx, 1); renderQueue(); }
     function renderQueue() {
         var list = document.getElementById('editor-queue-list');
+        var wrapper = document.getElementById('editor-upload-queue');
         if (!list) return;
         list.innerHTML = '';
+        if (uploadQueue.length === 0) {
+            if (wrapper) wrapper.style.display = 'none';
+            return;
+        }
+        if (wrapper) wrapper.style.display = '';
         uploadQueue.forEach(function (item, i) {
-            var d = document.createElement('div');
+            var d = document.createElement('li');
             d.className = 'upload-item';
             d.innerHTML = '<span>' + item.file.name + '</span>' + (item.uploaded
                 ? '<span style="color:green;">✓</span>'
                 : '<button class="btn btn--small btn--danger queue-remove-btn" data-idx="' + i + '">×</button>');
             list.appendChild(d);
         });
+        // update queue status
+        var status = document.getElementById('editor-queue-status');
+        if (status) {
+            var done = uploadQueue.filter(function (x) { return x.uploaded; }).length;
+            status.textContent = '已上传 ' + done + '/' + uploadQueue.length;
+        }
         list.querySelectorAll('.queue-remove-btn').forEach(function (b) {
             b.addEventListener('click', function () { removeFromQueue(parseInt(this.dataset.idx)); });
         });
@@ -415,14 +427,85 @@
     };
 
     // ==========================================
-    // 摸鱼模式 (Fish Mode) — Ctrl+B
+    // 日期工具 — 从公开 API 获取当前日期，失败时回退到本地时间
     // ==========================================
     (function () {
-        var active = false, origTitle = document.title;
-        var fishTitle = window._ofoFishModeTitle || '工作周报 - 2024';
-        var toggle = document.getElementById('fish-mode-toggle');
+        // ---- 硬编码模板（不依赖服务端配置） ----
+        var FISH_TITLE_TEMPLATE = '工作周报';          // 摸鱼模式标题前缀
+        var FISH_KEYWORDS = '工作周报,汇报材料,工作总结'; // 摸鱼模式伪装关键词
+        var BOSS_TITLE_TEMPLATE = '工作周报';           // 老板键标题前缀
 
-        function toast(msg) {
+        // 周数计算（ISO 8601）
+        function isoWeek(d) {
+            var tmp = new Date(d.getTime());
+            tmp.setHours(0, 0, 0, 0);
+            tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7);
+            var jan1 = new Date(tmp.getFullYear(), 0, 4);
+            return 1 + Math.round(((tmp - jan1) / 864e5 - 3 + (jan1.getDay() + 6) % 7) / 7);
+        }
+
+        // 格式化日期字符串：从 Date 对象生成标题
+        function buildFishTitle(d) {
+            return FISH_TITLE_TEMPLATE + ' - ' + d.getFullYear();
+        }
+        function buildBossTitle(d) {
+            return BOSS_TITLE_TEMPLATE + ' - ' + d.getFullYear() + '年第' + isoWeek(d) + '周';
+        }
+
+        // 当前缓存的标题（初始化后即用）
+        var _fishTitle = '';
+        var _bossTitle = '';
+
+        // 从 worldtimeapi 获取服务器时间，避免依赖本地时钟
+        function fetchDateFromAPI(cb) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://worldtimeapi.org/api/timezone/Asia/Shanghai', true);
+            xhr.timeout = 5000;
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data && data.datetime) {
+                            cb(new Date(data.datetime));
+                            return;
+                        }
+                    } catch (e) { /* fall through */ }
+                }
+                cb(null);
+            };
+            xhr.onerror = function () { cb(null); };
+            xhr.ontimeout = function () { cb(null); };
+            xhr.send();
+        }
+
+        // 初始化：优先 API，失败用本地时间
+        function initDateTitles() {
+            fetchDateFromAPI(function (d) {
+                if (!d) d = new Date();
+                _fishTitle = buildFishTitle(d);
+                _bossTitle = buildBossTitle(d);
+                // 如果摸鱼模式已开启，立即更新标题
+                if (document.body.classList.contains('fish-mode')) {
+                    document.title = _fishTitle;
+                }
+            });
+        }
+
+        // 同步获取标题（API 返回前用本地时间兜底）
+        function getFishTitle() {
+            if (_fishTitle) return _fishTitle;
+            return buildFishTitle(new Date());
+        }
+        function getBossTitle() {
+            if (_bossTitle) return _bossTitle;
+            return buildBossTitle(new Date());
+        }
+
+        // ---- 摸鱼模式 (Fish Mode) — Ctrl+X ----
+        var fishActive = false, origTitle = document.title;
+        var fishToggle = document.getElementById('fish-mode-toggle');
+
+        function fishToast(msg) {
             var t = document.createElement('div');
             t.textContent = msg;
             t.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;' +
@@ -432,57 +515,82 @@
             setTimeout(function () { t.remove(); }, 2000);
         }
 
-        function on() {
-            active = true; document.title = fishTitle;
+        function fishOn() {
+            fishActive = true;
+            document.title = getFishTitle();
             document.body.classList.add('fish-mode');
             document.documentElement.setAttribute('data-fish-mode', 'true');
+            // 更新 meta keywords 为伪装关键词
+            var kw = document.querySelector('meta[name="keywords"]');
+            if (kw) kw.setAttribute('content', FISH_KEYWORDS);
             localStorage.setItem('ofo-fish-mode', 'true');
-            if (toggle) toggle.querySelector('.fish-mode-toggle__icon').textContent = '✓';
-            toast('摸鱼模式已开启');
+            if (fishToggle) fishToggle.querySelector('.fish-mode-toggle__icon').textContent = '✓';
+            fishToast('摸鱼模式已开启');
         }
-        function off() {
-            active = false; document.title = origTitle;
+        function fishOff() {
+            fishActive = false;
+            document.title = origTitle;
             document.body.classList.remove('fish-mode');
             document.documentElement.setAttribute('data-fish-mode', 'false');
+            // 恢复原始 keywords（从 og:site_name 不一定能恢复，直接读 meta 的初始值）
+            var kw = document.querySelector('meta[name="keywords"]');
+            if (kw) kw.setAttribute('content', kw.getAttribute('data-orig') || kw.getAttribute('content'));
             localStorage.setItem('ofo-fish-mode', 'false');
-            if (toggle) toggle.querySelector('.fish-mode-toggle__icon').textContent = '🐟';
-            toast('摸鱼模式已关闭');
+            if (fishToggle) fishToggle.querySelector('.fish-mode-toggle__icon').textContent = '🐟';
+            fishToast('摸鱼模式已关闭');
         }
 
-        if (toggle) toggle.addEventListener('click', function () { active ? off() : on(); });
-        document.addEventListener('keydown', function (e) {
-            if (e.ctrlKey && e.key === 'x') { e.preventDefault(); active ? off() : on(); }
-        });
-        if (localStorage.getItem('ofo-fish-mode') === 'true') on();
-    })();
+        // 保存原始 keywords 副本
+        (function () {
+            var kw = document.querySelector('meta[name="keywords"]');
+            if (kw && !kw.getAttribute('data-orig')) kw.setAttribute('data-orig', kw.getAttribute('content'));
+        })();
 
-    // ==========================================
-    // 老板键 (Boss Key) — Ctrl+Shift+H
-    // ==========================================
-    (function () {
-        var active = false, overlay = null;
-        function create() {
-            overlay = document.createElement('div');
-            overlay.id = 'boss-overlay';
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:var(--bg-secondary,#fff);' +
+        if (fishToggle) fishToggle.addEventListener('click', function () { fishActive ? fishOff() : fishOn(); });
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && e.key === 'x') { e.preventDefault(); fishActive ? fishOff() : fishOn(); }
+        });
+        if (localStorage.getItem('ofo-fish-mode') === 'true') fishOn();
+
+        // ---- 老板键 (Boss Key) — Ctrl+Q ----
+        var bossActive = false, bossOverlay = null;
+        function bossCreate() {
+            bossOverlay = document.createElement('div');
+            bossOverlay.id = 'boss-overlay';
+            bossOverlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:var(--bg-secondary,#fff);' +
                 'display:flex;align-items:center;justify-content:center;font-family:var(--font-body);';
-            overlay.innerHTML = '<div style="max-width:600px;padding:2rem;text-align:center;">' +
-                '<h1 style="font-size:1.5rem;margin-bottom:1rem;">工作周报 - 2024年第30周</h1>' +
+            bossOverlay.innerHTML = '<div style="max-width:600px;padding:2rem;text-align:center;">' +
+                '<h1 id="boss-overlay-title" style="font-size:1.5rem;margin-bottom:1rem;">' + getBossTitle() + '</h1>' +
                 '<table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:0.9rem;">' +
                 '<tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:0.5rem;">项目</th><th>进度</th></tr>' +
                 '<tr><td style="padding:0.5rem;">系统优化</td><td style="text-align:center;color:green;">85%</td></tr>' +
                 '<tr><td style="padding:0.5rem;">接口开发</td><td style="text-align:center;color:green;">90%</td></tr>' +
                 '<tr><td style="padding:0.5rem;">文档更新</td><td style="text-align:center;color:orange;">60%</td></tr>' +
                 '</table><p style="margin-top:2rem;font-size:0.85rem;">按 <kbd>Esc</kbd> 返回</p></div>';
-            document.body.appendChild(overlay);
+            document.body.appendChild(bossOverlay);
         }
-        function on() { if (!overlay) create(); active = true; overlay.style.display = 'flex'; document.title = '工作周报 - 2024'; }
-        function off() { active = false; overlay.style.display = 'none'; document.title = document.body.classList.contains('fish-mode') ? '工作周报 - 2024' : '蹬车摸鱼'; }
+        function bossOn() {
+            if (!bossOverlay) bossCreate();
+            bossActive = true;
+            bossOverlay.style.display = 'flex';
+            // 每次打开时刷新标题日期
+            var titleEl = document.getElementById('boss-overlay-title');
+            if (titleEl) titleEl.textContent = getBossTitle();
+            document.title = getFishTitle();
+        }
+        function bossOff() {
+            bossActive = false;
+            bossOverlay.style.display = 'none';
+            document.title = document.body.classList.contains('fish-mode') ? getFishTitle() : origTitle;
+        }
         document.addEventListener('keydown', function (e) {
-            if (e.ctrlKey && e.key === 'q') { e.preventDefault(); active ? off() : on(); }
-            if (active && e.key === 'Escape') { e.preventDefault(); off(); }
+            if (e.ctrlKey && e.key === 'q') { e.preventDefault(); bossActive ? bossOff() : bossOn(); }
+            if (bossActive && e.key === 'Escape') { e.preventDefault(); bossOff(); }
         });
-        var btn = document.getElementById('boss-key-btn');
-        if (btn) btn.addEventListener('click', function () { active ? off() : on(); });
+        var bossBtn = document.getElementById('boss-key-btn');
+        if (bossBtn) bossBtn.addEventListener('click', function () { bossActive ? bossOff() : bossOn(); });
+
+        // 启动 API 日期获取
+        initDateTitles();
     })();
 })();
