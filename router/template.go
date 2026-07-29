@@ -40,6 +40,13 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 		},
 		// int64 → int 转换（模板 eq 比较用）
 		"toInt": func(i int64) int { return int(i) },
+		// 将 *int 解引用为 int（用于模板比较）
+		"intPtr": func(p *int) int {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
 		"isVideoURL": func(url string) bool {
 			lower := strings.ToLower(url)
 			return strings.Contains(lower, ".mp4") || strings.Contains(lower, ".webm") ||

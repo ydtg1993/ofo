@@ -25,7 +25,7 @@
             <select id="category_id" name="category_id" class="form-input">
                 <option value="">— 无 —</option>
                 {{$currentCat := 0}}
-                {{if .Post}}{{if .Post.CategoryID.Valid}}{{$currentCat = toInt .Post.CategoryID.Int64}}{{end}}{{end}}
+                {{if .Post}}{{if .Post.CategoryID}}{{$currentCat = intPtr .Post.CategoryID}}{{end}}{{end}}
                 {{range .Categories}}
                 <option value="{{.ID}}" {{if eq .ID $currentCat}}selected{{end}}>{{.Name}}</option>
                 {{end}}
@@ -79,7 +79,7 @@
         <div class="form-group" style="flex:1;">
             <label for="publish_at" class="form-label">定时发布（可选）</label>
             <input type="datetime-local" id="publish_at" name="publish_at" class="form-input" style="max-width:260px;"
-                value="{{if .Post}}{{if .Post.PublishAt.Valid}}{{printf "%d-%02d-%02dT%02d:%02d" .Post.PublishAt.Time.Year .Post.PublishAt.Time.Month .Post.PublishAt.Time.Day .Post.PublishAt.Time.Hour .Post.PublishAt.Time.Minute}}{{end}}{{end}}"
+                value="{{if .Post}}{{if .Post.PublishAt}}{{printf "%d-%02d-%02dT%02d:%02d" .Post.PublishAt.Year .Post.PublishAt.Month .Post.PublishAt.Day .Post.PublishAt.Hour .Post.PublishAt.Minute}}{{end}}{{end}}"
                 placeholder="留空则立即/手动发布">
             <span class="form-hint" style="font-size:0.8rem;color:var(--text-muted);">设置未来时间可定时发布</span>
         </div>
