@@ -1114,7 +1114,7 @@ pre:hover .code-copy-btn,
 }
 
 /* 所有正文图片自带 skeleton 背景 + 流光，图片加载后自然覆盖，不依赖 JS */
-.post-full__body img {
+.post-full__body img:not(.plyr-video-poster) {
     cursor: zoom-in;
     transition: opacity 0.3s;
     max-width: 100%;
@@ -1133,7 +1133,7 @@ pre:hover .code-copy-btn,
     animation: skeleton-shimmer 2s ease-in-out infinite;
 }
 
-[data-theme="dark"] .post-full__body img {
+[data-theme="dark"] .post-full__body img:not(.plyr-video-poster) {
     background: linear-gradient(
         90deg,
         var(--code-bg) 0%,
@@ -1176,7 +1176,7 @@ pre:hover .code-copy-btn,
 }
 
 /* 正文视频同理：自带 skeleton */
-.post-full__body video {
+.post-full__body video:not(.plyr-video-wrap video) {
     max-width: 100%;
     height: auto;
     border-radius: var(--radius);
@@ -1192,7 +1192,7 @@ pre:hover .code-copy-btn,
     animation: skeleton-shimmer 2s ease-in-out infinite;
 }
 
-[data-theme="dark"] .post-full__body video {
+[data-theme="dark"] .post-full__body video:not(.plyr-video-wrap video) {
     background: linear-gradient(
         90deg,
         var(--code-bg) 0%,
@@ -1518,10 +1518,17 @@ pre:hover .code-copy-btn,
     background: #000;
     cursor: pointer;
     overflow: hidden;
+    max-width: 100%;
+}
+.plyr-video-wrap,
+.plyr-video-wrap .plyr,
+.plyr-video-wrap .plyr__video-wrapper {
+    height: 100%;
 }
 .plyr-video-wrap video {
     display: block;
     width: 100%;
+    height: 100%;
 }
 .plyr-video-overlay {
     position: absolute;
@@ -1625,7 +1632,7 @@ pre:hover .code-copy-btn,
     overflow-wrap: break-word;
     word-break: break-word;
 }
-.feed-card__content img {
+.feed-card__content img:not(.plyr-video-poster) {
     max-width: 100%;
     height: auto;
     border-radius: 4px;
@@ -1643,7 +1650,7 @@ pre:hover .code-copy-btn,
     animation: skeleton-shimmer 2s ease-in-out infinite;
     transition: opacity 0.3s;
 }
-[data-theme="dark"] .feed-card__content img {
+[data-theme="dark"] .feed-card__content img:not(.plyr-video-poster) {
     background: linear-gradient(
         90deg,
         var(--code-bg) 0%,

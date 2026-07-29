@@ -793,18 +793,22 @@
 	        var imgs = el.querySelectorAll('img');
 	        var pending = imgs.length;
 	        function check(el) {
-	            var cutoff = el.classList.contains('mobile-card__content--truncated') ? 600 : 800;
-	            var more = el.nextElementSibling;
-	            if (el.scrollHeight <= cutoff + 20) {
-	                el.classList.remove('feed-card__content--truncated', 'mobile-card__content--truncated');
-	                if (more && more.classList.contains('feed-card__more')) {
-	                    more.style.display = 'none';
-	                }
-	            } else {
-	                if (more && more.classList.contains('feed-card__more')) {
-	                    more.classList.add('feed-card__more--visible');
-	                }
-	            }
+	            // Double rAF: wait for browser to finish layout after images decode.
+	            requestAnimationFrame(function () {
+	                requestAnimationFrame(function () {
+	                    var more = el.nextElementSibling;
+	                    if (el.scrollHeight <= el.clientHeight + 2) {
+	                        el.classList.remove('feed-card__content--truncated', 'mobile-card__content--truncated');
+	                        if (more && more.classList.contains('feed-card__more')) {
+	                            more.style.display = 'none';
+	                        }
+	                    } else {
+	                        if (more && more.classList.contains('feed-card__more')) {
+	                            more.classList.add('feed-card__more--visible');
+	                        }
+	                    }
+	                });
+	            });
 	        }
 	        if (pending === 0) { check(el); return; }
 	        imgs.forEach(function (img) {
