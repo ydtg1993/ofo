@@ -1611,7 +1611,7 @@ pre:hover .code-copy-btn,
     left: 0;
     right: 0;
     height: 80px;
-    background: linear-gradient(transparent, var(--bg-primary));
+    background: linear-gradient(rgba(255, 255, 255, 0.06), #ffffff);
     pointer-events: none;
 }
 .feed-card__more {
@@ -1756,7 +1756,6 @@ pre:hover .code-copy-btn,
     }
 }
 /* 移动端 media 结束 */
-}
 
 /* ============================================================
    全屏刷屏页 (/fullscreen)
