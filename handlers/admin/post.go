@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"strconv"
 	"strings"
@@ -142,10 +141,10 @@ func (a *AdminHandler) AdminQuickCreatePost(c *gin.Context) {
 
 	thumbnailURL := imageURL
 
-	var categoryID sql.NullInt64
+	var categoryID *int
 	if categoryIDStr != "" {
-		if cid, err := strconv.ParseInt(categoryIDStr, 10, 64); err == nil {
-			categoryID = sql.NullInt64{Int64: cid, Valid: true}
+		if cid, err := strconv.Atoi(categoryIDStr); err == nil {
+			categoryID = &cid
 		}
 	}
 
@@ -251,10 +250,10 @@ func (a *AdminHandler) AdminCreatePost(c *gin.Context) {
 		excerpt = extractExcerptStr(contentMD, 200)
 	}
 
-	var categoryID sql.NullInt64
+	var categoryID *int
 	if categoryIDStr != "" {
-		if cid, err := strconv.ParseInt(categoryIDStr, 10, 64); err == nil {
-			categoryID = sql.NullInt64{Int64: cid, Valid: true}
+		if cid, err := strconv.Atoi(categoryIDStr); err == nil {
+			categoryID = &cid
 		}
 	}
 
@@ -330,10 +329,10 @@ func (a *AdminHandler) AdminUpdatePost(c *gin.Context) {
 		excerpt = extractExcerptStr(contentMD, 200)
 	}
 
-	var categoryID sql.NullInt64
+	var categoryID *int
 	if categoryIDStr != "" {
-		if cid, err := strconv.ParseInt(categoryIDStr, 10, 64); err == nil {
-			categoryID = sql.NullInt64{Int64: cid, Valid: true}
+		if cid, err := strconv.Atoi(categoryIDStr); err == nil {
+			categoryID = &cid
 		}
 	}
 

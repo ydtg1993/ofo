@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -132,18 +131,18 @@ func parseTags(tagStr string) []string {
 	return tags
 }
 
-// parseDateTime parses a form datetime-local string, returns NullTime (NULL if empty).
-func parseDateTime(s string) sql.NullTime {
+// parseDateTime parses a form datetime-local string, returns nil if empty.
+func parseDateTime(s string) *time.Time {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return sql.NullTime{}
+		return nil
 	}
 	for _, layout := range []string{"2006-01-02T15:04", "2006-01-02"} {
 		if t, err := time.Parse(layout, s); err == nil {
-			return sql.NullTime{Time: t, Valid: true}
+			return &t
 		}
 	}
-	return sql.NullTime{}
+	return nil
 }
 
 // parseDate parses a form date string, defaults to today.

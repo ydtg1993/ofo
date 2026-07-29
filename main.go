@@ -49,7 +49,10 @@ func main() {
 		logger.Error("Failed to init database", "err", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	sqlDB, _ := db.DB()
+	if sqlDB != nil {
+		defer sqlDB.Close()
+	}
 
 	// ---- 种子数据 ----
 	if cfg.SeedDB {

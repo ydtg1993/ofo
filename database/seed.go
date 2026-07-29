@@ -1,19 +1,20 @@
 package database
 
 import (
-	"database/sql"
 	"strings"
 	"time"
 
 	"ofo/logger"
+	"ofo/models"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/russross/blackfriday/v2"
+	"gorm.io/gorm"
 )
 
-func Seed(db *sql.DB) error {
-	var count int
-	if err := db.QueryRow("SELECT COUNT(*) FROM posts").Scan(&count); err != nil {
+func Seed(db *gorm.DB) error {
+	var count int64
+	if err := db.Model(&models.Post{}).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -30,10 +31,11 @@ func Seed(db *sql.DB) error {
 		"午休档":  "lunch-break",
 		"今日精选": "daily-highlight",
 	}
+	catMap := make(map[string]*models.Category)
 	for name, slug := range categories {
-		if _, err := db.Exec("INSERT IGNORE INTO categories (name, slug) VALUES (?, ?)", name, slug); err != nil {
-			return err
-		}
+		c := &models.Category{Name: name, Slug: slug}
+		db.Where(models.Category{Slug: slug}).FirstOrCreate(c)
+		catMap[slug] = c
 	}
 
 	// ---- Tags ----
@@ -49,10 +51,11 @@ func Seed(db *sql.DB) error {
 		"冷笑话":   "leng-xiao-hua",
 		"奇闻":    "qi-wen",
 	}
+	tagMap := make(map[string]*models.Tag)
 	for name, slug := range tags {
-		if _, err := db.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", name, slug); err != nil {
-			return err
-		}
+		t := &models.Tag{Name: name, Slug: slug}
+		db.Where(models.Tag{Slug: slug}).FirstOrCreate(t)
+		tagMap[slug] = t
 	}
 
 	// ---- Series ----
@@ -60,10 +63,11 @@ func Seed(db *sql.DB) error {
 		"程序员生存指南": "cheng-xu-yuan-sheng-cun-zhi-nan",
 		"甲方图鉴":    "jia-fang-tu-jian",
 	}
+	seriesMap := make(map[string]*models.Series)
 	for name, slug := range series {
-		if _, err := db.Exec("INSERT IGNORE INTO series (name, slug) VALUES (?, ?)", name, slug); err != nil {
-			return err
-		}
+		s := &models.Series{Name: name, Slug: slug}
+		db.Where(models.Series{Slug: slug}).FirstOrCreate(s)
+		seriesMap[slug] = s
 	}
 
 	policy := bluemonday.UGCPolicy()
@@ -74,7 +78,7 @@ func Seed(db *sql.DB) error {
 		Content  string
 		Category string
 		Tags     []string
-		Series   string // slug
+		Series   string
 		DaysAgo  int
 	}
 
@@ -413,39 +417,48 @@ func Seed(db *sql.DB) error {
 		html := string(policy.SanitizeBytes(unsafe))
 		excerpt := extractExcerpt(p.Content, 200)
 
-		var catID sql.NullInt64
-		db.QueryRow("SELECT id FROM categories WHERE slug = ?", p.Category).Scan(&catID)
+		createdAt := time.Now().AddDate(0, 0, -p.DaysAgo)
 
-		createdAt := time.Now().AddDate(0, 0, -p.DaysAgo).Format("2006-01-02 15:04:05")
+		cat := catMap[p.Category]
+		var catID *int
+		if cat != nil {
+			id := cat.ID
+			catID = &id
+		}
 
-		result, err := db.Exec(
-			`INSERT INTO posts (title, slug, excerpt, content_md, content_html, category_id, is_published, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-			p.Title, p.Slug, excerpt, p.Content, html, catID, createdAt,
-		)
-		if err != nil {
+		post := models.Post{
+			Title:        p.Title,
+			Slug:         p.Slug,
+			Excerpt:      excerpt,
+			ContentMD:    p.Content,
+			ContentHTML:  html,
+			CategoryID:   catID,
+			IsPublished:  true,
+			ThumbnailURL: "",
+			CreatedAt:    createdAt,
+		}
+
+		if err := db.Create(&post).Error; err != nil {
 			return err
 		}
 
-		postID, _ := result.LastInsertId()
-
 		// Link tags
 		for _, tagSlug := range p.Tags {
-			var tagID int64
-			if err := db.QueryRow("SELECT id FROM tags WHERE slug = ?", tagSlug).Scan(&tagID); err != nil {
-				continue
+			if t, ok := tagMap[tagSlug]; ok {
+				db.Model(&post).Association("Tags").Append(t)
 			}
-			db.Exec("INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", postID, tagID)
 		}
 
 		// Link series
 		if p.Series != "" {
-			var seriesID int64
-			if err := db.QueryRow("SELECT id FROM series WHERE slug = ?", p.Series).Scan(&seriesID); err == nil {
-				var count int
-				db.QueryRow("SELECT COUNT(*) FROM post_series WHERE series_id = ?", seriesID).Scan(&count)
-				db.Exec("INSERT INTO post_series (post_id, series_id, sort_order) VALUES (?, ?, ?)",
-					postID, seriesID, count+1)
+			if s, ok := seriesMap[p.Series]; ok {
+				var sortOrder int64
+				db.Table("post_series").Where("series_id = ?", s.ID).Count(&sortOrder)
+				db.Create(&models.PostSeries{
+					PostID:    post.ID,
+					SeriesID:  s.ID,
+					SortOrder: int(sortOrder) + 1,
+				})
 			}
 		}
 	}

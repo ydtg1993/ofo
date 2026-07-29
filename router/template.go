@@ -1,7 +1,6 @@
 package router
 
 import (
-	"database/sql"
 	"fmt"
 	"html/template"
 	"strings"
@@ -100,12 +99,12 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 			return false
 		},
 		"inc": func(i int) int { return i + 1 },
-		"catName": func(catID sql.NullInt64, categories []models.Category) string {
-			if !catID.Valid {
+		"catName": func(catID *int, categories []models.Category) string {
+			if catID == nil {
 				return "—"
 			}
 			for _, c := range categories {
-				if int64(c.ID) == catID.Int64 {
+				if c.ID == *catID {
 					return c.Name
 				}
 			}
@@ -136,7 +135,7 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 			}
 		},
 		"hasPrefix": strings.HasPrefix,
-		"isFuture":  func(nt sql.NullTime) bool { return nt.Valid && nt.Time.After(time.Now()) },
+		"isFuture":  func(nt *time.Time) bool { return nt != nil && nt.After(time.Now()) },
 		"joinTags": func(tags []models.Tag) string {
 			names := make([]string, len(tags))
 			for i, t := range tags {

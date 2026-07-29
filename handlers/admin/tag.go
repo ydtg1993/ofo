@@ -16,11 +16,12 @@ func (a *AdminHandler) AdminCreateTagAjax(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
 		return
 	}
-	slug := slugifyStr(name)
-	a.PostModel.DB.Exec("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)", name, slug)
-	var id int
-	a.PostModel.DB.QueryRow("SELECT id FROM tags WHERE slug = ?", slug).Scan(&id)
-	c.JSON(http.StatusOK, gin.H{"id": id, "name": name, "slug": slug})
+	tag, err := a.PostModel.FirstOrCreateTag(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create tag"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": tag.ID, "name": tag.Name, "slug": tag.Slug})
 }
 
 func (a *AdminHandler) AdminTags(c *gin.Context) {
