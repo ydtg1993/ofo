@@ -429,7 +429,26 @@ img { max-width: 100%; height: auto; }
     height: 28px;
     margin-left: 3px;
 }
-.plyr-video-wrap:hover .plyr-video-playbtn {
+.plyr-video-wrap:hover .plyr-video-playbtn:not(.plyr-video-playbtn--loading):not(.plyr-video-resumebtn) {
     transform: scale(1.1);
     background: var(--accent, #1a73e8);
+}
+.plyr-video-playbtn--loading {
+    pointer-events: none;
+    background: rgba(0,0,0,0.75) !important;
+    transform: none !important;
+}
+.plyr-video-playbtn--loading .spinner-ring {
+    animation: plyr-spin 0.8s linear infinite;
+    transform-origin: 12px 12px;
+}
+@keyframes plyr-spin {
+    to { transform: rotate(360deg); }
+}
+.plyr-video-resumebtn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
 }

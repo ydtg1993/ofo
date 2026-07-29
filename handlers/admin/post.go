@@ -166,7 +166,6 @@ func (a *AdminHandler) AdminQuickCreatePost(c *gin.Context) {
 	}
 
 	contentHTML = handlers.NormalizeContentURLs(contentHTML, a.Storage, a.Cfg)
-	contentHTML = ResolveContentURLs(contentHTML, a.ResourceModel, a.Cfg)
 	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, false, publishAt, time.Now(), tagIDs)
 	if err != nil {
 		categories, _ := a.PostModel.AllCategoriesSimple()
@@ -257,7 +256,6 @@ func (a *AdminHandler) AdminCreatePost(c *gin.Context) {
 	// Render markdown
 	contentHTML := renderMarkdown(contentMD)
 	contentHTML = handlers.NormalizeContentURLs(contentHTML, a.Storage, a.Cfg)
-	contentHTML = ResolveContentURLs(contentHTML, a.ResourceModel, a.Cfg)
 
 	// Excerpt
 	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
@@ -343,7 +341,6 @@ func (a *AdminHandler) AdminUpdatePost(c *gin.Context) {
 
 	contentHTML := renderMarkdown(contentMD)
 	contentHTML = handlers.NormalizeContentURLs(contentHTML, a.Storage, a.Cfg)
-	contentHTML = ResolveContentURLs(contentHTML, a.ResourceModel, a.Cfg)
 	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
 	if excerpt == "" {
 		excerpt = title

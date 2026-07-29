@@ -234,10 +234,11 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败"})
 			return
 		}
-		resourceURL = finalURL
+		// resourceURL is the clean relative path (/uploads/...), not the display URL.
+		resourceURL = "/" + key
 
 		mimeType := models.MIMEType(ext)
-		resID, _ = a.ResourceModel.Create(dbFilename, finalURL, a.Cfg.StorageBackend, header.Size, mimeType)
+		resID, _ = a.ResourceModel.Create(dbFilename, resourceURL, a.Cfg.StorageBackend, header.Size, mimeType)
 	}
 
 	// ---- Generate video poster + store cover dimensions ----

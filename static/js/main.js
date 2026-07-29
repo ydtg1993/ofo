@@ -869,7 +869,13 @@
 		// One-click init.
 		wrap.addEventListener('click', function onClick() {
 			wrap.removeEventListener('click', onClick);
-			initPlayer(video, wrap);
+			// Show loading spinner immediately, then defer heavy work so the
+			// browser has a chance to paint the spinner before JS blocks.
+			btn.classList.add('plyr-video-playbtn--loading');
+			btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round" opacity="0.3"/><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round" class="spinner-ring"/></svg>';
+			requestAnimationFrame(function () {
+				initPlayer(video, wrap);
+			});
 		});
 	}
 
@@ -893,10 +899,11 @@
 			var isM3U8 = /\.m3u8($|\?)/i.test(src);
 
 			var opts = {
-				controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+				controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
 				clickToPlay: true,
 				disableContextMenu: false,
-				hideControls: true
+				hideControls: true,
+				iconUrl: '/static/vendor/plyr.svg'
 			};
 
 			if (isM3U8 && typeof Hls !== 'undefined' && Hls.isSupported()) {
@@ -913,6 +920,36 @@
 			var player = new Plyr(video, opts);
 			playerInstances.push(player);
 			video.setAttribute('controls', '');
+
+			// Pause → show original-style play button on the video.
+			var resumeBtn = document.createElement('button');
+			resumeBtn.className = 'plyr-video-playbtn plyr-video-resumebtn';
+			resumeBtn.setAttribute('aria-label', '继续播放');
+			resumeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>';
+			resumeBtn.style.display = 'none';
+			wrap.appendChild(resumeBtn);
+
+			resumeBtn.addEventListener('click', function (e) {
+				e.stopPropagation();
+				resumeBtn.style.display = 'none';
+				player.play();
+			});
+
+			player.on('pause', function () {
+				if (!player.ended) resumeBtn.style.display = '';
+			});
+			player.on('play', function () {
+				resumeBtn.style.display = 'none';
+			});
+			player.on('ended', function () {
+				resumeBtn.style.display = '';
+			});
+
+			// Start playing immediately — one click from cover to playback.
+			player.play().catch(function () {
+				// Browser may block autoplay; show resume button.
+				resumeBtn.style.display = '';
+			});
 		}).catch(function (err) {
 			console.warn('Failed to load video player:', err);
 		});
