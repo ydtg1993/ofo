@@ -867,6 +867,7 @@
 		}
 
 		var btn = document.createElement('button');
+		btn.type = 'button';
 		btn.className = 'plyr-video-playbtn';
 		btn.setAttribute('aria-label', '播放视频');
 		btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>';
@@ -976,6 +977,7 @@
 
 			// Pause → show original-style play button on the video.
 			var resumeBtn = document.createElement('button');
+			resumeBtn.type = 'button';
 			resumeBtn.className = 'plyr-video-playbtn plyr-video-resumebtn';
 			resumeBtn.setAttribute('aria-label', '继续播放');
 			resumeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>';
