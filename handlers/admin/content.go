@@ -163,6 +163,11 @@ func InjectVideoDimensions(html string, store storage.Storage) string {
 		}
 		src := m[1]
 
+		// Skip .m3u8 playlists — they are text manifests, not video tracks.
+		if strings.HasSuffix(strings.ToLower(src), ".m3u8") {
+			return match
+		}
+
 		// Only process storage-managed URLs
 		if !store.IsStorageURL(src) {
 			return match

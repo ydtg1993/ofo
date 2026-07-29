@@ -49,6 +49,8 @@ var extToContentType = map[string]string{
 	".ogg":  "video/ogg",
 	".mov":  "video/quicktime",
 	".avi":  "video/x-msvideo",
+	".m3u8": "application/x-mpegURL",
+	".ts":   "video/mp2t",
 }
 
 // ---- Media Proxy Handler ----
@@ -369,6 +371,10 @@ func BuildMediaMapWith(html string, store storage.Storage, cfg *config.Config, m
 // and returns the data-mid index string for use in a template.
 func AddThumbMid(url string, mm *MediaMap, store storage.Storage, cfg *config.Config) string {
 	if url == "" || mm == nil || !cfg.MediaProtection || !store.IsStorageURL(url) {
+		return ""
+	}
+	// HLS (.m3u8) must be served directly — blob URLs break relative TS segment resolution.
+	if strings.HasSuffix(strings.ToLower(url), ".m3u8") {
 		return ""
 	}
 	key := extractStorageKey(url, store)

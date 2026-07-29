@@ -82,7 +82,7 @@
                 }).join('') + '</div>') : '';
             var mediaHTML = '';
             if (post.ThumbnailURL) {
-                var isV = /\.(mp4|webm|ogg|mov)$/i.test(post.ThumbnailURL) || post.ThumbnailURL.indexOf('/video/') > -1;
+                var isV = /\.(mp4|webm|ogg|mov|m3u8)$/i.test(post.ThumbnailURL) || post.ThumbnailURL.indexOf('/video/') > -1;
                 var dims = '';
                 if (post.ThumbnailWidth && post.ThumbnailHeight) {
                     dims = ' width="' + post.ThumbnailWidth + '" height="' + post.ThumbnailHeight + '" style="aspect-ratio:' + post.ThumbnailWidth + '/' + post.ThumbnailHeight + '"';
@@ -131,6 +131,7 @@
                 if (!hasMore && loadMoreWrap) loadMoreWrap.style.display = 'none';
                 loading = false;
                 checkContentTruncation();
+                initHLSVideos();
             }).catch(function () { loading = false; });
         }
 
@@ -295,7 +296,13 @@
                     else if (ta) {
                         var ext = item.file.name.split('.').pop().toLowerCase();
                         var isV = ['mp4', 'webm', 'ogg', 'mov'].indexOf(ext) >= 0;
-                        var tag = isV ? '<video src="' + (resp.rel || resp.url) + '" controls></video>' : '![](' + (resp.rel || resp.url) + ')';
+                        var isHLS = resp.type === 'video_hls';
+                        var tag;
+                        if (isV) {
+                            tag = '<video src="' + (resp.rel || resp.url) + '" controls></video>';
+                        } else {
+                            tag = '![](' + (resp.rel || resp.url) + ')';
+                        }
                         ta.value = ta.value.substring(0, ta.selectionStart) + tag + '\n' + ta.value.substring(ta.selectionEnd);
                     }
                     renderQueue();
@@ -732,3 +739,24 @@
 	}
 	window.checkContentTruncation = checkContentTruncation;
 	document.addEventListener('DOMContentLoaded', checkContentTruncation);
+
+	// ---- HLS (.m3u8) video initialization ----
+	// When hls.js is loaded (via CDN), automatically upgrade .m3u8 <video> elements.
+	function initHLSVideos(container) {
+		if (typeof Hls === 'undefined') return; // hls.js not loaded — Safari handles m3u8 natively
+		var videos = (container || document).querySelectorAll('video');
+		for (var i = 0; i < videos.length; i++) {
+			var v = videos[i];
+			var src = v.src || (v.querySelector('source') || {}).src || '';
+			if (!/\.m3u8($|\?)/i.test(src)) continue;
+			if (v.hasAttribute('data-hls-init')) continue; // already initialised
+			if (Hls.isSupported()) {
+				var hls = new Hls();
+				hls.loadSource(src);
+				hls.attachMedia(v);
+				v.setAttribute('data-hls-init', '1');
+			}
+		}
+	}
+	document.addEventListener('DOMContentLoaded', function () { initHLSVideos(); });
+	window.initHLSVideos = initHLSVideos; // re-call after infinite-scroll inserts new cards

@@ -40,6 +40,8 @@ var extToMIME = map[string]string{
 	".webm": "video/webm",
 	".ogg":  "video/ogg",
 	".mov":  "video/quicktime",
+	".m3u8": "application/x-mpegURL",
+	".ts":   "video/mp2t",
 }
 
 // MIMEType returns the MIME type for a given file extension.

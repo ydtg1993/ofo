@@ -16,8 +16,14 @@
                 {{if $post.ThumbnailURL}}
                 <div class="feed-card__media">
                     {{if isVideoURL $post.ThumbnailURL}}
-                    <video {{mediaID $post.ThumbnailURL}} preload="none" controls playsinline
+                    {{$mid := mediaID $post.ThumbnailURL}}
+                    {{if $mid}}
+                    <video data-mid="{{$mid}}" preload="none" controls playsinline
                         class="feed-card__video"></video>
+                    {{else}}
+                    <video src="{{displayURL $post.ThumbnailURL}}" preload="none" controls playsinline
+                        class="feed-card__video"></video>
+                    {{end}}
                     {{else}}
                     {{thumbnailImg $post.ThumbnailURL $post.Title}}
                     {{end}}

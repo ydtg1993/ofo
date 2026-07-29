@@ -1,7 +1,10 @@
 package admin
 
 import (
+	"context"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -9,6 +12,7 @@ import (
 
 	"ofo/handlers"
 	"ofo/logger"
+	"ofo/media"
 	"ofo/models"
 
 	"github.com/gin-gonic/gin"
@@ -31,14 +35,58 @@ func (a *AdminHandler) AdminDeleteResource(c *gin.Context) {
 	resources, _ := a.ResourceModel.ListAll(0, 10000)
 	for _, r := range resources {
 		if r.ID == id {
-			if r.Storage == "" || r.Storage == a.Cfg.StorageBackend {
-				a.Storage.Delete(c.Request.Context(), strings.TrimPrefix(r.URL, "/"))
-			}
-			a.ResourceModel.Delete(id)
+			a.cleanupResourceTree(c.Request.Context(), &r)
 			break
 		}
 	}
 	c.Redirect(http.StatusFound, "/admin/resources")
+}
+
+// cleanupResourceTree deletes a resource from storage and DB.  When the
+// resource is an HLS playlist (.m3u8) it also removes every associated .ts
+// segment and the original video file from the same directory.
+func (a *AdminHandler) cleanupResourceTree(ctx context.Context, r *models.Resource) {
+
+	// 1. Delete the main resource file from storage.
+	if r.Storage == "" || r.Storage == a.Cfg.StorageBackend {
+		a.Storage.Delete(ctx, strings.TrimPrefix(r.URL, "/"))
+	}
+
+	// 2. For m3u8 playlists, clean up related TS segments + original video.
+	if strings.HasSuffix(strings.ToLower(r.URL), ".m3u8") {
+		dir := filepath.Dir(r.URL)                                    // e.g. "/uploads/2026/07"
+		baseName := strings.TrimSuffix(filepath.Base(r.URL), ".m3u8") // e.g. "uuid"
+
+		// Look through ALL resources (cached list) for related files.
+		all, _ := a.ResourceModel.ListAll(0, 10000)
+		for _, rr := range all {
+			if rr.ID == r.ID {
+				continue
+			}
+			rrBase := filepath.Base(rr.URL)
+			rrDir := filepath.Dir(rr.URL)
+			// TS segment: same dir, matches baseName_*.ts
+			if rrDir == dir && strings.HasPrefix(rrBase, baseName+"_") && strings.HasSuffix(rrBase, ".ts") {
+				if rr.Storage == "" || rr.Storage == a.Cfg.StorageBackend {
+					a.Storage.Delete(ctx, strings.TrimPrefix(rr.URL, "/"))
+				}
+				a.ResourceModel.Delete(rr.ID)
+			}
+			// Original video: same dir, same baseName, video extension
+			if rrDir == dir && strings.HasPrefix(rrBase, baseName+".") {
+				ext := strings.ToLower(filepath.Ext(rrBase))
+				if media.IsVideoExt(ext) && !strings.HasSuffix(rrBase, ".m3u8") && !strings.HasSuffix(rrBase, ".ts") {
+					if rr.Storage == "" || rr.Storage == a.Cfg.StorageBackend {
+						a.Storage.Delete(ctx, strings.TrimPrefix(rr.URL, "/"))
+					}
+					a.ResourceModel.Delete(rr.ID)
+				}
+			}
+		}
+	}
+
+	// 3. Remove the DB record.
+	a.ResourceModel.Delete(r.ID)
 }
 
 // ---- File Upload ----
@@ -62,26 +110,136 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		return
 	}
 
-	// Generate unique filename (basename only, stored in DB without date folder)
+	// Generate unique filename (basename only)
 	dbFilename := uuid.New().String() + ext
-
-	// Upload via storage backend with year/month prefix
 	datePrefix := time.Now().Format("2006/01")
 	key := "uploads/" + datePrefix + "/" + dbFilename
-	url, err := a.Storage.Upload(c.Request.Context(), key, file, header.Size)
+
+	// Save uploaded file to a temporary location so we can probe / segment it.
+	tmpDir := os.TempDir()
+	tmpPath := filepath.Join(tmpDir, dbFilename)
+	tmpFile, err := os.Create(tmpPath)
 	if err != nil {
-		logger.ErrorWithContext(c, "failed to upload file", "name", dbFilename, "err", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败"})
+		logger.ErrorWithContext(c, "failed to create temp file", "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存临时文件失败"})
 		return
 	}
+	if _, err := io.Copy(tmpFile, file); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		logger.ErrorWithContext(c, "failed to write temp file", "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "写入临时文件失败"})
+		return
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpPath) // clean up when we are done
 
-	// 记录到资源表
-	mimeType := models.MIMEType(ext)
-	if _, err := a.ResourceModel.Create(dbFilename, url, a.Cfg.StorageBackend, header.Size, mimeType); err != nil {
-		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", dbFilename, "err", err)
+	// ---- Video segmentation (HLS) for files > 30 s ----
+	var (
+		finalURL    string
+		resourceURL string
+		mediaType   = "image"
+		isHLS       bool
+	)
+
+	if media.IsVideoExt(ext) {
+		mediaType = "video"
+		duration, durErr := media.GetVideoDuration(tmpPath)
+		if durErr == nil && duration > media.HLSThreshold {
+			baseName := strings.TrimSuffix(dbFilename, ext)
+
+			// Segment into a temp sub-directory, then upload every output
+			// file via the Storage backend (works identically for local and
+			// cloud storage).
+			outDir := filepath.Join(tmpDir, "hls_"+baseName)
+			m3u8Path, tsFiles, segErr := media.SegmentVideo(tmpPath, outDir, baseName)
+			if segErr != nil {
+				logger.ErrorWithContext(c, "video segmentation failed, falling back to direct upload", "err", segErr)
+				os.RemoveAll(outDir)
+			} else {
+				defer os.RemoveAll(outDir)
+
+				// Upload original file as well (kept for reference)
+				origF, _ := os.Open(tmpPath)
+				if origF != nil {
+					a.Storage.Upload(c.Request.Context(), key, origF, header.Size)
+					origF.Close()
+				}
+
+				// Upload m3u8
+				m3u8Name := baseName + ".m3u8"
+				m3u8Key := "uploads/" + datePrefix + "/" + m3u8Name
+				m3u8F, _ := os.Open(m3u8Path)
+				if m3u8F != nil {
+					a.Storage.Upload(c.Request.Context(), m3u8Key, m3u8F, 0)
+					m3u8F.Close()
+				}
+				resourceURL = "/" + m3u8Key
+
+				// Upload TS segments
+				var tsTotalSize int64
+				for _, ts := range tsFiles {
+					tsName := filepath.Base(ts)
+					tsKey := "uploads/" + datePrefix + "/" + tsName
+					tsF, _ := os.Open(ts)
+					if tsF != nil {
+						fi, _ := tsF.Stat()
+						if fi != nil {
+							tsTotalSize += fi.Size()
+						}
+						a.Storage.Upload(c.Request.Context(), tsKey, tsF, 0)
+						tsF.Close()
+					}
+					// Create a lightweight resource record for each TS
+					// segment so the cleanup logic can find them.
+					a.ResourceModel.Create(tsName, "/"+tsKey, a.Cfg.StorageBackend, 0, models.MIMEType(".ts"))
+				}
+
+				// Main resource record points to the m3u8 playlist.
+				m3u8Fi, _ := os.Stat(m3u8Path)
+				m3u8Size := int64(0)
+				if m3u8Fi != nil {
+					m3u8Size = m3u8Fi.Size()
+				}
+				a.ResourceModel.Create(m3u8Name, resourceURL, a.Cfg.StorageBackend, m3u8Size+tsTotalSize, models.MIMEType(".m3u8"))
+
+				finalURL = a.Storage.PublicURL(resourceURL)
+				isHLS = true
+				mediaType = "video_hls"
+			}
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"url": a.Storage.PublicURL(url), "rel": url})
+	// ---- Direct upload (short video / image / segmentation failure) ----
+	if !isHLS {
+		uploadF, openErr := os.Open(tmpPath)
+		if openErr != nil {
+			logger.ErrorWithContext(c, "failed to re-open temp file for upload", "err", openErr)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取文件失败"})
+			return
+		}
+		defer uploadF.Close()
+
+		var uploadErr error
+		finalURL, uploadErr = a.Storage.Upload(c.Request.Context(), key, uploadF, header.Size)
+		if uploadErr != nil {
+			logger.ErrorWithContext(c, "failed to upload file", "name", dbFilename, "err", uploadErr)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败"})
+			return
+		}
+		resourceURL = finalURL
+
+		mimeType := models.MIMEType(ext)
+		if _, err := a.ResourceModel.Create(dbFilename, finalURL, a.Cfg.StorageBackend, header.Size, mimeType); err != nil {
+			logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", dbFilename, "err", err)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"url":  finalURL,
+		"rel":  resourceURL,
+		"type": mediaType,
+	})
 }
 
 // AdminCleanupUploads deletes uploads that have been removed from the editor
@@ -114,21 +272,16 @@ func (a *AdminHandler) AdminCleanupUploads(c *gin.Context) {
 			continue // still linked to a post
 		}
 
-		// Delete from storage (derive full path from URL, which includes date subdirectories)
-		storageKey := strings.TrimPrefix(r.URL, "/")
 		if r.Storage != "" && r.Storage != a.Cfg.StorageBackend {
 			logger.Info("skip cleanup: resource on different backend",
 				"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", a.Cfg.StorageBackend)
 			deleted++
 			continue
 		}
-		if err := a.Storage.Delete(c.Request.Context(), storageKey); err != nil {
-			logger.ErrorWithContext(c, "failed to delete upload file from storage", "key", storageKey, "err", err)
-		} else {
-			a.ResourceModel.Delete(r.ID)
-			deleted++
-			logger.Info("cleaned up orphan upload", "filename", r.Filename)
-		}
+
+		a.cleanupResourceTree(c.Request.Context(), r)
+		deleted++
+		logger.Info("cleaned up orphan upload", "filename", r.Filename)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"deleted": deleted})

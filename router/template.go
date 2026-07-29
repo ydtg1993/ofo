@@ -51,6 +51,7 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 			lower := strings.ToLower(url)
 			return strings.Contains(lower, ".mp4") || strings.Contains(lower, ".webm") ||
 				strings.Contains(lower, ".ogg") || strings.Contains(lower, ".mov") ||
+				strings.Contains(lower, ".m3u8") ||
 				strings.Contains(lower, "/video/")
 		},
 		// 根据 category ID 查名称

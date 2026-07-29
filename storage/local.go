@@ -117,6 +117,9 @@ func (s *LocalStorage) GetMediaInfo(url string) (int, int, error) {
 		w, h, err = getMP4Dimensions(filePath)
 	case ".webm", ".mkv":
 		w, h, err = getWebMDimensions(filePath)
+	case ".m3u8", ".ts":
+		// HLS playlist / segments — no inherent dimensions.
+		return 0, 0, nil
 	default:
 		return 0, 0, nil
 	}
