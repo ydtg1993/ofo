@@ -130,16 +130,16 @@ func (a *AdminHandler) AdminQuickCreatePost(c *gin.Context) {
 
 	slug := slugifyStr(title)
 
-	// 内容：图片 + 文字
-	contentMD := caption
+	// 内容：仅图片，描述文字只作为标题和摘要，不写入正文
+	var contentMD string
 	if imageURL != "" {
-		contentMD = "![" + title + "](" + imageURL + ")\n\n" + caption
+		contentMD = "![" + title + "](" + imageURL + ")"
 	}
 	contentHTML := renderMarkdown(contentMD)
 	contentHTML = handlers.NormalizeContentURLs(contentHTML, a.Storage, a.Cfg)
 	excerpt := extractExcerptStr(caption, 200)
 
-	thumbnailURL := imageURL
+	thumbnailURL := "" // 快速发布不设封面
 
 	var categoryID *int
 	if categoryIDStr != "" {
