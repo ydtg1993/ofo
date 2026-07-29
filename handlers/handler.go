@@ -38,8 +38,6 @@ type PageData struct {
 	PostTags         []models.Tag
 	// Category/Tag filter name
 	FilterName string
-	// 阅读时长（根据分类计算）
-	ReadTime string
 	// 上一篇/下一篇导航
 	PrevPost *models.PostCard
 	NextPost *models.PostCard

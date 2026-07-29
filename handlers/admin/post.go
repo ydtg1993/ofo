@@ -91,6 +91,10 @@ func (a *AdminHandler) AdminQuickPublish(c *gin.Context) {
 	if err != nil {
 		logger.ErrorWithContext(c, "failed to load categories for quick publish", "err", err)
 	}
+	allTags, err := a.PostModel.AllTagsSimple()
+	if err != nil {
+		logger.ErrorWithContext(c, "failed to load tags for quick publish", "err", err)
+	}
 	allSeries, _ := a.SeriesModel.All()
 
 	c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
@@ -99,6 +103,7 @@ func (a *AdminHandler) AdminQuickPublish(c *gin.Context) {
 		IsNew:      true,
 		IsQuick:    true,
 		Categories: categories,
+		AllTags:    allTags,
 		AllSeries:  allSeries,
 	})
 }
@@ -148,6 +153,12 @@ func (a *AdminHandler) AdminQuickCreatePost(c *gin.Context) {
 		}
 	}
 
+	tagIDsStr := c.PostForm("tag_ids")
+	tagIDs, err := a.resolveTagIDs(tagIDsStr)
+	if err != nil {
+		tagIDs = nil
+	}
+
 	publishAt := parseDateTime(c.PostForm("publish_at"))
 	if publishAt == nil {
 		now := time.Now()
@@ -156,7 +167,7 @@ func (a *AdminHandler) AdminQuickCreatePost(c *gin.Context) {
 
 	contentHTML = handlers.NormalizeContentURLs(contentHTML, a.Storage, a.Cfg)
 	contentHTML = ResolveContentURLs(contentHTML, a.ResourceModel, a.Cfg)
-	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, false, publishAt, time.Now(), nil)
+	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, false, publishAt, time.Now(), tagIDs)
 	if err != nil {
 		categories, _ := a.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{

@@ -16,7 +16,7 @@
                     <header class="feed-card__header">
                         {{if $post.CategoryName}}
                         <a href="/category/{{$post.CategorySlug}}" class="feed-card__category">
-                            {{catEmoji $post.CategorySlug}} {{$post.CategoryName}} · {{readTime $post.CategorySlug}}
+                            {{catEmoji $post.CategorySlug}} {{$post.CategoryName}}
                         </a>
                         {{end}}
                         <time datetime="{{$post.CreatedAt | formatDateShort}}">{{$post.CreatedAt | formatDate}}</time>

@@ -150,19 +150,5 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 			}
 			return strings.Join(names, "\n")
 		},
-		"readTime": func(categorySlug string) string {
-			switch categorySlug {
-			case "quick-peek":
-				return "30秒"
-			case "bathroom-break":
-				return "3-5分钟"
-			case "lunch-break":
-				return "10-15分钟"
-			case "daily-highlight":
-				return "5-10分钟"
-			default:
-				return "约5分钟"
-			}
-		},
 	}
 }

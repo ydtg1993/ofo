@@ -70,9 +70,6 @@ func (h *Handler) Post(c *gin.Context) {
 		ogImage = post.ThumbnailURL
 	}
 
-	// 根据分类计算阅读时长
-	readTime := readTimeForCategory(categorySlug)
-
 	// 上一篇 / 下一篇导航
 	prevPost, nextPost, _ := h.PostModel.GetAdjacentPosts(slug)
 
@@ -89,7 +86,6 @@ func (h *Handler) Post(c *gin.Context) {
 		PostCategoryName: categoryName,
 		PostCategorySlug: categorySlug,
 		PostTags:         tags,
-		ReadTime:         readTime,
 		PrevPost:         prevPost,
 		NextPost:         nextPost,
 		CurrentPath:      "/post/" + slug,
@@ -100,20 +96,4 @@ func (h *Handler) Post(c *gin.Context) {
 		tmpl = "mobile_post"
 	}
 	c.HTML(http.StatusOK, tmpl, pd)
-}
-
-// readTimeForCategory 根据分类 slug 计算估算阅读时长。
-func readTimeForCategory(categorySlug string) string {
-	switch categorySlug {
-	case "quick-peek":
-		return "30秒"
-	case "bathroom-break":
-		return "3-5分钟"
-	case "lunch-break":
-		return "10-15分钟"
-	case "daily-highlight":
-		return "5-10分钟"
-	default:
-		return "约5分钟"
-	}
 }

@@ -71,11 +71,8 @@
         if (pathMatch) activeCategory = pathMatch[1];
 
         var catEmoji = { 'quick-peek': '⚡', 'bathroom-break': '☕', 'lunch-break': '🍱', 'daily-highlight': '🔥' };
-        var readTime = { 'quick-peek': '30秒', 'bathroom-break': '3-5分钟', 'lunch-break': '10-15分钟', 'daily-highlight': '5-10分钟' };
-
         function renderCard(post) {
             var emoji = catEmoji[post.CategorySlug] || '';
-            var time = readTime[post.CategorySlug] || '';
             var tagsHTML = post.Tags ? (isMobile
                 ? '<div class="mobile-card__tags">' + post.Tags.map(function (t) {
                     return '<a href="/tag/' + t.Slug + '" class="tag">' + t.Name + '</a>';
@@ -103,7 +100,7 @@
             if (isMobile) {
                 return '<article class="mobile-card" data-category="' + (post.CategorySlug || '') + '">' +
                     mediaHTML + '<div class="mobile-card__body">' +
-                    (post.CategoryName ? '<div class="mobile-card__meta">' + emoji + ' ' + post.CategoryName + (time ? ' · ' + time : '') + '</div>' : '') +
+                    (post.CategoryName ? '<div class="mobile-card__meta">' + emoji + ' ' + post.CategoryName + '</div>' : '') +
                     '<h2 class="mobile-card__title"><a href="/post/' + post.Slug + '">' + post.Title + '</a></h2>' +
                     '<div class="mobile-card__content mobile-card__content--truncated">' + (post.ContentHTML || post.Excerpt) + '</div>' +
                     '<div class="feed-card__more"><a href="/post/' + post.Slug + '" class="btn btn--small feed-card__more-btn">查看全部</a></div>' +
@@ -113,7 +110,7 @@
             return '<article class="feed-card neo-box" data-category="' + (post.CategorySlug || '') + '">' +
                 mediaHTML + '<div class="feed-card__body">' +
                 '<header class="feed-card__header">' +
-                (post.CategoryName ? '<a href="/category/' + post.CategorySlug + '" class="feed-card__category">' + emoji + ' ' + post.CategoryName + (time ? ' · ' + time : '') + '</a>' : '') +
+                (post.CategoryName ? '<a href="/category/' + post.CategorySlug + '" class="feed-card__category">' + emoji + ' ' + post.CategoryName + '</a>' : '') +
                 '<time datetime="' + post.CreatedAt + '">' + dateStr + '</time>' +
                 '</header>' +
                 '<h2 class="feed-card__title"><a href="/post/' + post.Slug + '">' + post.Title + '</a></h2>' +
