@@ -14,26 +14,28 @@ import (
 
 // ---- Editor Preview URL Resolution ----
 
-// reUploadURL matches /uploads/... URLs (with optional subdirectories like year/month)
-// in markdown or HTML content.
-var reUploadURL = regexp.MustCompile(`/uploads/(?:[^"'<>\s]+/)*[^"'<>\s]+`)
+// reUploadURL matches /uploads/... URLs — both relative and absolute (CDN-prefixed).
+var reUploadURL = regexp.MustCompile(`(?:https?://[^/"'\s]+)?/uploads/(?:[^"'<>\s]+/)*[^"'<>\s]+`)
 
 // ResolveContentURLs rewrites /uploads/... URLs in markdown/HTML content to display
 // URLs by looking up each URL in the resources table. Uses per-resource storage
 // backend (local/qiniu) to construct the correct preview URL.
-// Falls back to the global config if a resource record is not found.
+// CDN-prefixed URLs are normalized first to avoid double-prefixing.
 func ResolveContentURLs(content string, rm *models.ResourceModel, cfg *config.Config) string {
 	return reUploadURL.ReplaceAllStringFunc(content, func(match string) string {
-		r, err := rm.FindByURL(match)
-		if err != nil {
-			// Resource not tracked — fall back to config default
-			return handlers.DisplayURL(match, cfg)
+		// Normalize: strip CDN domain prefix if present
+		rel := match
+		if cfg.QiniuDomain != "" {
+			domain := strings.TrimRight(cfg.QiniuDomain, "/")
+			rel = strings.TrimPrefix(rel, domain)
 		}
-		// Rewrite based on the resource's actual storage backend
+		r, err := rm.FindByURL(rel)
+		if err != nil {
+			return handlers.DisplayURL(rel, cfg)
+		}
 		if r.Storage == "qiniu" && cfg.QiniuDomain != "" {
 			return strings.TrimRight(cfg.QiniuDomain, "/") + r.URL
 		}
-		// Local (or unknown storage): /static/uploads/...
 		return "/static" + r.URL
 	})
 }

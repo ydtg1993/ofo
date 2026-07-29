@@ -54,16 +54,6 @@ func main() {
 		defer sqlDB.Close()
 	}
 
-	// ---- 种子数据 ----
-	if cfg.SeedDB {
-		if err := database.Seed(db); err != nil {
-			logger.Error("Failed to seed data", "err", err)
-			os.Exit(1)
-		}
-	} else {
-		logger.Info("SeedDB is disabled, skipping seed data")
-	}
-
 	// ---- 依赖组装 ----
 	postModel := &models.PostModel{DB: db}
 	resourceModel := &models.ResourceModel{DB: db}

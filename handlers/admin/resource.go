@@ -81,7 +81,7 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", dbFilename, "err", err)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"url": a.Storage.PublicURL(url)})
+	c.JSON(http.StatusOK, gin.H{"url": a.Storage.PublicURL(url), "rel": url})
 }
 
 // AdminCleanupUploads deletes uploads that have been removed from the editor

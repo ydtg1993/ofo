@@ -149,10 +149,14 @@ func (a *AdminHandler) AdminQuickCreatePost(c *gin.Context) {
 	}
 
 	publishAt := parseDateTime(c.PostForm("publish_at"))
+	if publishAt == nil {
+		now := time.Now()
+		publishAt = &now
+	}
 
 	contentHTML = handlers.NormalizeContentURLs(contentHTML, a.Storage, a.Cfg)
 	contentHTML = ResolveContentURLs(contentHTML, a.ResourceModel, a.Cfg)
-	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, publishAt, time.Now(), nil)
+	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, true, false, publishAt, time.Now(), nil)
 	if err != nil {
 		categories, _ := a.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
@@ -262,11 +266,16 @@ func (a *AdminHandler) AdminCreatePost(c *gin.Context) {
 		tagIDs = nil
 	}
 
-	// 发布时间（默认当天）
+	// 发布时间（默认当天），定时发布未填则默认当前时间
 	createdAt := parseDate(c.PostForm("created_at"))
 	publishAt := parseDateTime(c.PostForm("publish_at"))
+	if publishAt == nil {
+		now := time.Now()
+		publishAt = &now
+	}
+	isHot := c.PostForm("is_hot") == "1"
 
-	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagIDs)
+	postID, err := a.PostModel.Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, isHot, publishAt, createdAt, tagIDs)
 	if err != nil {
 		categories, _ := a.PostModel.AllCategoriesSimple()
 		c.HTML(http.StatusOK, "admin_editor.html", AdminPageData{
@@ -341,11 +350,16 @@ func (a *AdminHandler) AdminUpdatePost(c *gin.Context) {
 		tagIDs = nil
 	}
 
-	// 发布时间（默认当天）
+	// 发布时间（默认当天），定时发布未填则默认当前时间
 	createdAt := parseDate(c.PostForm("created_at"))
 	publishAt := parseDateTime(c.PostForm("publish_at"))
+	if publishAt == nil {
+		now := time.Now()
+		publishAt = &now
+	}
+	isHot := c.PostForm("is_hot") == "1"
 
-	if err := a.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, publishAt, createdAt, tagIDs); err != nil {
+	if err := a.PostModel.Update(id, title, slug, contentMD, contentHTML, excerpt, thumbnailURL, categoryID, published, isHot, publishAt, createdAt, tagIDs); err != nil {
 		categories, _ := a.PostModel.AllCategoriesSimple()
 		tags, _ := a.PostModel.TagsForPost(id)
 		post, _ := a.PostModel.GetByID(id)

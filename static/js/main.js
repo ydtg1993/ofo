@@ -298,7 +298,7 @@
                     else if (ta) {
                         var ext = item.file.name.split('.').pop().toLowerCase();
                         var isV = ['mp4', 'webm', 'ogg', 'mov'].indexOf(ext) >= 0;
-                        var tag = isV ? '<video src="' + resp.url + '" controls></video>' : '![](' + resp.url + ')';
+                        var tag = isV ? '<video src="' + (resp.rel || resp.url) + '" controls></video>' : '![](' + (resp.rel || resp.url) + ')';
                         ta.value = ta.value.substring(0, ta.selectionStart) + tag + '\n' + ta.value.substring(ta.selectionEnd);
                     }
                     renderQueue();
@@ -327,20 +327,15 @@
         pre.innerHTML = '<div class="neo-box post-full__body">' + html + '</div>';
     }
 
-    // Cache the last resolved markdown for tab-switch preview
-    var resolvedMd = null;
-
     window.updatePreview = function () {
-        var ta = document.getElementById('content'), pre = document.getElementById('preview-content');
-        if (!ta || !pre) return;
-        // Use resolved content if available, otherwise raw textarea value
-        renderPreview(resolvedMd || ta.value);
+        var ta = document.getElementById('content');
+        if (!ta) return;
+        resolveAndRenderPreview(ta.value);
     };
 
     function resolveAndRenderPreview(md) {
         if (!md) return;
         if (md.indexOf('/uploads/') === -1) {
-            resolvedMd = null;
             renderPreview(md);
             return;
         }
@@ -351,22 +346,18 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            if (data.content) {
-                resolvedMd = data.content;
-                renderPreview(data.content);
-            }
+            if (data.content) renderPreview(data.content);
         })
-        .catch(function () { /* ignore */ });
+        .catch(function () { renderPreview(md); });
     }
 
     if (document.getElementById('content')) {
-        // 用户修改内容时清除缓存
+        var previewTimer = null;
         document.getElementById('content').addEventListener('input', function () {
-            resolvedMd = null;
-        });
-        // Blur 时才刷新预览
-        document.getElementById('content').addEventListener('blur', function () {
-            resolveAndRenderPreview(this.value);
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(function () {
+                resolveAndRenderPreview(this.value);
+            }.bind(this), 500);
         });
         // 编辑已有文章时初次加载预览
         var initialMd = document.getElementById('content').value;

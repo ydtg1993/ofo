@@ -38,6 +38,11 @@
                     {{if .Post}}{{if .Post.IsPublished}}checked{{end}}{{else}}checked{{end}}>
                 公开发布
             </label>
+            <label class="form-checkbox" style="margin-top:0.35rem;">
+                <input type="checkbox" name="is_hot" value="1"
+                    {{if .Post}}{{if .Post.IsHot}}checked{{end}}{{end}}>
+                🔥 热门（当月优先展示）
+            </label>
         </div>
     </div>
 

@@ -32,6 +32,7 @@ type Post struct {
 	CategoryID   *int       `gorm:"default:null"`
 	Category     *Category  `gorm:"foreignKey:CategoryID"`
 	IsPublished  bool       `gorm:"column:is_published;type:int;default:1"`
+	IsHot        bool       `gorm:"column:is_hot;type:int;default:0"`
 	ThumbnailURL string     `gorm:"column:thumbnail_url;size:512"`
 	PublishAt    *time.Time `gorm:"column:publish_at"`
 	CreatedAt    time.Time
@@ -115,7 +116,7 @@ func (m *PostModel) ListPublished(offset, limit int) ([]PostCard, int, error) {
 		Preload("Tags").
 		Where("is_published = ?", true).
 		Where("publish_at IS NULL OR publish_at <= ?", now).
-		Order("created_at DESC").
+		Order("is_hot DESC, created_at DESC").
 		Offset(offset).Limit(limit).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
@@ -165,7 +166,7 @@ func (m *PostModel) ListByCategory(slug string, offset, limit int) ([]PostCard, 
 		Where("c.slug = ?", slug).
 		Where("posts.is_published = ?", true).
 		Where("posts.publish_at IS NULL OR posts.publish_at <= ?", now).
-		Order("posts.created_at DESC").
+		Order("posts.is_hot DESC, posts.created_at DESC").
 		Offset(offset).Limit(limit).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
@@ -202,7 +203,7 @@ func (m *PostModel) ListByTag(slug string, offset, limit int) ([]PostCard, int, 
 		Where("t.slug = ?", slug).
 		Where("posts.is_published = ?", true).
 		Where("posts.publish_at IS NULL OR posts.publish_at <= ?", now).
-		Order("posts.created_at DESC").
+		Order("posts.is_hot DESC, posts.created_at DESC").
 		Offset(offset).Limit(limit).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
@@ -309,7 +310,7 @@ func (m *PostModel) ListPostsByTagID(tagID, offset, limit int) ([]PostCard, int,
 		Where("pt.tag_id = ?", tagID).
 		Where("posts.is_published = ?", true).
 		Where("posts.publish_at IS NULL OR posts.publish_at <= ?", now).
-		Order("posts.created_at DESC").
+		Order("posts.is_hot DESC, posts.created_at DESC").
 		Offset(offset).Limit(limit).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
@@ -353,7 +354,7 @@ func (m *PostModel) RecentPosts(n int) ([]Post, error) {
 	if err := m.DB.
 		Where("is_published = ?", true).
 		Where("publish_at IS NULL OR publish_at <= ?", now).
-		Order("created_at DESC").
+		Order("is_hot DESC, created_at DESC").
 		Limit(n).
 		Find(&posts).Error; err != nil {
 		return nil, err
@@ -366,7 +367,7 @@ func (m *PostModel) RecentPosts(n int) ([]Post, error) {
 // ListAll returns all posts (including drafts) for the admin dashboard.
 func (m *PostModel) ListAll() ([]Post, error) {
 	var posts []Post
-	if err := m.DB.Order("created_at DESC").Find(&posts).Error; err != nil {
+	if err := m.DB.Order("is_hot DESC, created_at DESC").Find(&posts).Error; err != nil {
 		return nil, err
 	}
 	return posts, nil
@@ -382,7 +383,7 @@ func (m *PostModel) CountAll() (int, error) {
 // ListAllPaginated returns posts (including drafts) with offset/limit.
 func (m *PostModel) ListAllPaginated(offset, limit int) ([]Post, error) {
 	var posts []Post
-	if err := m.DB.Order("created_at DESC").Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
+	if err := m.DB.Order("is_hot DESC, created_at DESC").Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
 		return nil, err
 	}
 	return posts, nil
@@ -398,7 +399,7 @@ func (m *PostModel) GetByID(id int) (*Post, error) {
 }
 
 // Create inserts a new post and returns its ID.
-func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID *int, published bool, publishAt *time.Time, createdAt time.Time, tagIDs []int) (int64, error) {
+func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID *int, published, isHot bool, publishAt *time.Time, createdAt time.Time, tagIDs []int) (int64, error) {
 	p := Post{
 		Title:        title,
 		Slug:         slug,
@@ -407,6 +408,7 @@ func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbna
 		ContentHTML:  contentHTML,
 		CategoryID:   categoryID,
 		IsPublished:  published,
+		IsHot:        isHot,
 		ThumbnailURL: thumbnailURL,
 		PublishAt:    publishAt,
 		CreatedAt:    createdAt,
@@ -427,7 +429,7 @@ func (m *PostModel) Create(title, slug, contentMD, contentHTML, excerpt, thumbna
 }
 
 // Update modifies an existing post.
-func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID *int, published bool, publishAt *time.Time, createdAt time.Time, tagIDs []int) error {
+func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt, thumbnailURL string, categoryID *int, published, isHot bool, publishAt *time.Time, createdAt time.Time, tagIDs []int) error {
 	p := Post{
 		ID:           id,
 		Title:        title,
@@ -437,6 +439,7 @@ func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt,
 		ContentHTML:  contentHTML,
 		CategoryID:   categoryID,
 		IsPublished:  published,
+		IsHot:        isHot,
 		ThumbnailURL: thumbnailURL,
 		PublishAt:    publishAt,
 		CreatedAt:    createdAt,
@@ -451,6 +454,7 @@ func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt,
 		"content_html":  p.ContentHTML,
 		"category_id":   p.CategoryID,
 		"is_published":  p.IsPublished,
+		"is_hot":        p.IsHot,
 		"thumbnail_url": p.ThumbnailURL,
 		"publish_at":    p.PublishAt,
 		"created_at":    p.CreatedAt,
@@ -551,7 +555,7 @@ func (m *PostModel) GetAdjacentPosts(currentSlug string) (*PostCard, *PostCard, 
 		Where("is_published = ?", true).
 		Where("publish_at IS NULL OR publish_at <= ?", now).
 		Where("created_at < ?", current.CreatedAt).
-		Order("created_at DESC").
+		Order("is_hot DESC, created_at DESC").
 		First(&prevPost).Error; err == nil {
 		pc := postToCard(&prevPost)
 		prev = &pc
