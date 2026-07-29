@@ -247,7 +247,7 @@ func (a *AdminHandler) AdminCreatePost(c *gin.Context) {
 	// Excerpt
 	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
 	if excerpt == "" {
-		excerpt = extractExcerptStr(contentMD, 200)
+		excerpt = title
 	}
 
 	var categoryID *int
@@ -326,7 +326,7 @@ func (a *AdminHandler) AdminUpdatePost(c *gin.Context) {
 	contentHTML = ResolveContentURLs(contentHTML, a.ResourceModel, a.Cfg)
 	excerpt := strings.TrimSpace(c.PostForm("excerpt"))
 	if excerpt == "" {
-		excerpt = extractExcerptStr(contentMD, 200)
+		excerpt = title
 	}
 
 	var categoryID *int

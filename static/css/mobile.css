@@ -256,6 +256,22 @@ img { max-width: 100%; height: auto; }
 .mobile-card__content table { font-size: 0.8rem; width: 100%; }
 .mobile-card__content pre { font-size: 0.75rem; overflow-x: auto; }
 
+.mobile-card__content--truncated {
+    max-height: 600px;
+    overflow: hidden;
+    position: relative;
+}
+.mobile-card__content--truncated::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(transparent, var(--bg-primary));
+    pointer-events: none;
+}
+
 .mobile-card__tags {
     display: flex;
     flex-wrap: wrap;

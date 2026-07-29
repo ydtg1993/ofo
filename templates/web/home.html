@@ -39,8 +39,11 @@
                         <a href="/post/{{$post.Slug}}">{{$post.Title}}</a>
                     </h2>
 
-                    <div class="feed-card__content">
+                    <div class="feed-card__content feed-card__content--truncated">
                         {{$post.ContentHTML | lazyImages}}
+                    </div>
+                    <div class="feed-card__more">
+                        <a href="/post/{{$post.Slug}}" class="btn btn--small feed-card__more-btn">查看全部</a>
                     </div>
 
                     {{if $post.Tags}}

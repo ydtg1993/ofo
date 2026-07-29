@@ -9,7 +9,7 @@
     --bg-primary:       #F0F4FF;
     --bg-secondary:     #FFFFFF;
     --text-primary:     #000000;
-    --text-secondary:   #444444;
+    --text-secondary:   #222222;
     --text-muted:       #666666;
     --border-color:     #000000;
     --border-width:     3px;
@@ -1598,6 +1598,35 @@ pre:hover .code-copy-btn,
     overflow-x: auto;
     font-size: 0.85rem;
     margin: 0.5rem 0;
+}
+.feed-card__content--truncated {
+    max-height: 800px;
+    overflow: hidden;
+    position: relative;
+}
+.feed-card__content--truncated::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background: linear-gradient(transparent, var(--bg-primary));
+    pointer-events: none;
+}
+.feed-card__more {
+    display: none;
+    text-align: center;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+}
+.feed-card__more--visible {
+    display: block;
+}
+.feed-card__more-btn {
+    width: 100%;
+    font-size: 0.85rem;
+    opacity: 0.85;
 }
 .feed-card__tags {
     display: flex;

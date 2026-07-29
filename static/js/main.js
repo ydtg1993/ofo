@@ -105,7 +105,8 @@
                     mediaHTML + '<div class="mobile-card__body">' +
                     (post.CategoryName ? '<div class="mobile-card__meta">' + emoji + ' ' + post.CategoryName + (time ? ' · ' + time : '') + '</div>' : '') +
                     '<h2 class="mobile-card__title"><a href="/post/' + post.Slug + '">' + post.Title + '</a></h2>' +
-                    '<div class="mobile-card__content">' + (post.ContentHTML || post.Excerpt) + '</div>' +
+                    '<div class="mobile-card__content mobile-card__content--truncated">' + (post.ContentHTML || post.Excerpt) + '</div>' +
+                    '<div class="feed-card__more"><a href="/post/' + post.Slug + '" class="btn btn--small feed-card__more-btn">查看全部</a></div>' +
                     tagsHTML + '</div></article>';
             }
             var dateStr = new Date(post.CreatedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -116,7 +117,8 @@
                 '<time datetime="' + post.CreatedAt + '">' + dateStr + '</time>' +
                 '</header>' +
                 '<h2 class="feed-card__title"><a href="/post/' + post.Slug + '">' + post.Title + '</a></h2>' +
-                '<div class="feed-card__content">' + (post.ContentHTML || post.Excerpt) + '</div>' +
+                '<div class="feed-card__content feed-card__content--truncated">' + (post.ContentHTML || post.Excerpt) + '</div>' +
+                '<div class="feed-card__more"><a href="/post/' + post.Slug + '" class="btn btn--small feed-card__more-btn">查看全部</a></div>' +
                 tagsHTML + '</div></article>';
         }
 
@@ -131,6 +133,7 @@
                 hasMore = data.page < data.total_pages;
                 if (!hasMore && loadMoreWrap) loadMoreWrap.style.display = 'none';
                 loading = false;
+                checkContentTruncation();
             }).catch(function () { loading = false; });
         }
 
@@ -320,20 +323,8 @@
     function renderPreview(md) {
         var pre = document.getElementById('preview-content');
         if (!pre) return;
-        var tab = document.querySelector('.preview-tab.active');
-        var mode = tab ? tab.dataset.preview : 'detail';
-        if (mode === 'card') {
-            var img = (md.match(/!\[.*?\]\((.*?)\)/) || [])[1] || '';
-            var title = (document.getElementById('title') || {}).value || '标题预览';
-            var excerpt = md.replace(/[#*`\[\]()!_]/g, '').replace(/\s+/g, ' ').substring(0, 150);
-            pre.innerHTML = '<article class="post-card neo-box post-card--has-thumb">' +
-                (img ? '<div class="post-card__thumb"><img src="' + img + '" alt=""></div>' : '') +
-                '<div class="post-card__body"><h2 class="post-card__title">' + title + '</h2>' +
-                '<p class="post-card__excerpt">' + excerpt + '</p></div></article>';
-        } else {
-            var html = looksLikePureHTML(md) ? md : marked.parse(md);
-            pre.innerHTML = '<div class="neo-box post-full__body">' + html + '</div>';
-        }
+        var html = looksLikePureHTML(md) ? md : marked.parse(md);
+        pre.innerHTML = '<div class="neo-box post-full__body">' + html + '</div>';
     }
 
     // Cache the last resolved markdown for tab-switch preview
@@ -721,3 +712,35 @@
         initDateTitles();
     })();
 })();
+
+	// ==========================================
+	// 内容截断检测 — 短内容去掉 max-height + fade，长内容显示"查看全部"
+	// ==========================================
+	function checkContentTruncation() {
+	    var contents = document.querySelectorAll('.feed-card__content--truncated, .mobile-card__content--truncated');
+	    contents.forEach(function (el) {
+	        var imgs = el.querySelectorAll('img');
+	        var pending = imgs.length;
+	        function check(el) {
+	            var cutoff = el.classList.contains('mobile-card__content--truncated') ? 600 : 800;
+	            var more = el.nextElementSibling;
+	            if (el.scrollHeight <= cutoff + 20) {
+	                el.classList.remove('feed-card__content--truncated', 'mobile-card__content--truncated');
+	                if (more && more.classList.contains('feed-card__more')) {
+	                    more.style.display = 'none';
+	                }
+	            } else {
+	                if (more && more.classList.contains('feed-card__more')) {
+	                    more.classList.add('feed-card__more--visible');
+	                }
+	            }
+	        }
+	        if (pending === 0) { check(el); return; }
+	        imgs.forEach(function (img) {
+	            if (img.complete) { pending--; if (pending === 0) check(el); }
+	            else { img.addEventListener('load', function () { pending--; if (pending === 0) check(el); }); img.addEventListener('error', function () { pending--; if (pending === 0) check(el); }); }
+	        });
+	    });
+	}
+	window.checkContentTruncation = checkContentTruncation;
+	document.addEventListener('DOMContentLoaded', checkContentTruncation);

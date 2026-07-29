@@ -646,4 +646,4 @@
         order: 1;
     }
 }
-.tag-chip--active,.tag-chip--active:hover{background:var(--accent);color:#fff;box-shadow:0 0 0 var(--shadow-color);transform:translate(2px,2px)}
+.tag-chip--active,.tag-chip--active:hover{background:var(--accent);color:black;box-shadow:0 0 0 var(--shadow-color);transform:translate(2px,2px)}
