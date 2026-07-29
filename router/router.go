@@ -37,7 +37,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		gin.Recovery(),                        // 2. Panic 恢复
 		middleware.Logger(),                   // 3. 请求日志
 		middleware.Timeout(60*time.Second),    // 4. 超时控制
-		middleware.SecurityHeaders(),          // 5. 安全响应头
+		middleware.SecurityHeaders(cfg),       // 5. 安全响应头
 		middleware.CORS(),                     // 6. 跨域支持
 		middleware.RateLimit(50, time.Second), // 7. IP 限流
 	)
