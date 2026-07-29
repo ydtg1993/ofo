@@ -45,7 +45,7 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 	// ==========================================
 	// 模板引擎配置
 	// ==========================================
-	r.SetFuncMap(templateFuncMap(cfg, h.Storage))
+	r.SetFuncMap(templateFuncMap(cfg, h.Storage, h.VideoSegmentModel))
 
 	tmplDir := filepath.Join(baseDir, "templates")
 	var tmplFiles []string

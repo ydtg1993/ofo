@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"html/template"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 // templateFuncMap returns the template.FuncMap used by all templates.
-func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap {
+func templateFuncMap(cfg *config.Config, store storage.Storage, vsModel *models.VideoSegmentModel) template.FuncMap {
 	return template.FuncMap{
 		// 静态资源版本号（缓存破坏）
 		"asset": func(path string) string {
@@ -77,11 +78,52 @@ func templateFuncMap(cfg *config.Config, store storage.Storage) template.FuncMap
 		"mediaID": func(url string) string {
 			return handlers.AddThumbMid(url, handlers.CurrentMediaMap(), store, cfg)
 		},
+		// 视频 card 预览图：从 video_segments 查 cover，渲染 <img>
+		// 替代之前的 <video> 标签，避免页面加载时浪费视频带宽。
+		"videoCoverImg": func(videoURL string, alt string) template.HTML {
+			ci, err := vsModel.FindCoverByResourceURL(videoURL)
+			if err != nil || ci == nil {
+				// Fallback: derive poster URL by naming convention.
+				dir := filepath.Dir(videoURL)
+				ext := filepath.Ext(videoURL)
+				base := strings.TrimSuffix(filepath.Base(videoURL), ext)
+				var posterPath string
+				if filepath.Base(dir) == base {
+					posterPath = dir + "/cover.jpg"
+				} else {
+					posterPath = dir + "/" + base + "_cover.jpg"
+				}
+				return template.HTML(fmt.Sprintf(
+					`<img src="%s" alt="%s" loading="lazy">`,
+					handlers.DisplayURL(posterPath, cfg), alt,
+				))
+			}
+			dims := ""
+			if ci.Width > 0 && ci.Height > 0 {
+				dims = fmt.Sprintf(` width="%d" height="%d" style="aspect-ratio:%d/%d"`,
+					ci.Width, ci.Height, ci.Width, ci.Height)
+			}
+			return template.HTML(fmt.Sprintf(
+				`<img src="%s" alt="%s" loading="lazy"%s>`,
+				handlers.DisplayURL(ci.URL, cfg), alt, dims,
+			))
+		},
 		// 视频缩略图：Blob 模式用 data-mid，直连模式用 src
 		"videoThumb": func(url string) template.HTML {
 			return template.HTML(admin.VideoThumb(url, store, cfg))
 		},
 		"displayURL": func(path string) string { return handlers.DisplayURL(path, cfg) },
+		"posterURL": func(videoURL string) string {
+			dir := filepath.Dir(videoURL)
+			ext := filepath.Ext(videoURL)
+			base := strings.TrimSuffix(filepath.Base(videoURL), ext)
+			if filepath.Base(dir) == base {
+				// HLS: video in own subdirectory → cover.jpg
+				return handlers.DisplayURL(dir+"/cover.jpg", cfg)
+			}
+			// Short/flat video → {base}_cover.jpg
+			return handlers.DisplayURL(dir+"/"+base+"_cover.jpg", cfg)
+		},
 		// 页面级媒体配置脚本（session cookie + AES 密钥）
 		// 仅 MediaProtection 启用时输出；否则返回空字符串
 		"mediaConfig": func() template.HTML {

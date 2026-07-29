@@ -84,17 +84,25 @@
             if (post.ThumbnailURL) {
                 var isV = /\.(mp4|webm|ogg|mov|m3u8)$/i.test(post.ThumbnailURL) || post.ThumbnailURL.indexOf('/video/') > -1;
                 var dims = '';
-                if (post.ThumbnailWidth && post.ThumbnailHeight) {
+                var imgURL = post.ThumbnailURL;
+                if (isV && post.CoverURL) {
+                    // Video with cover: render cover image instead of <video>
+                    imgURL = post.CoverURL;
+                    if (post.CoverWidth && post.CoverHeight) {
+                        dims = ' width="' + post.CoverWidth + '" height="' + post.CoverHeight + '" style="aspect-ratio:' + post.CoverWidth + '/' + post.CoverHeight + '"';
+                    }
+                    isV = false; // treat as image
+                } else if (post.ThumbnailWidth && post.ThumbnailHeight) {
                     dims = ' width="' + post.ThumbnailWidth + '" height="' + post.ThumbnailHeight + '" style="aspect-ratio:' + post.ThumbnailWidth + '/' + post.ThumbnailHeight + '"';
                 }
                 if (isMobile) {
                     mediaHTML = isV
                         ? '<div class="mobile-card__media"><video src="' + post.ThumbnailURL + '" preload="none" controls playsinline class="mobile-card__video"' + dims + '></video></div>'
-                        : '<div class="mobile-card__media"><img src="' + post.ThumbnailURL + '" alt="' + post.Title + '" loading="lazy"' + dims + '></div>';
+                        : '<div class="mobile-card__media"><img src="' + imgURL + '" alt="' + post.Title + '" loading="lazy"' + dims + '></div>';
                 } else {
                     mediaHTML = isV
                         ? '<div class="feed-card__media"><video src="' + post.ThumbnailURL + '" preload="none" controls playsinline class="feed-card__video"' + dims + '></video></div>'
-                        : '<div class="feed-card__media"><img src="' + post.ThumbnailURL + '" alt="' + post.Title + '" loading="lazy"' + dims + '></div>';
+                        : '<div class="feed-card__media"><img src="' + imgURL + '" alt="' + post.Title + '" loading="lazy"' + dims + '></div>';
                 }
             }
             if (isMobile) {
@@ -131,7 +139,7 @@
                 if (!hasMore && loadMoreWrap) loadMoreWrap.style.display = 'none';
                 loading = false;
                 checkContentTruncation();
-                initHLSVideos();
+                initVideoPlayers();
             }).catch(function () { loading = false; });
         }
 
@@ -385,8 +393,6 @@
     }
 
     window.cancelEditor = function () {
-        var urls = uploadQueue.filter(function (i) { return i.uploaded; }).map(function (i) { return i.file.name; });
-        if (urls.length) navigator.sendBeacon('/admin/upload/cleanup', JSON.stringify({ urls: urls }));
         window.location.href = '/admin';
     };
 
@@ -810,23 +816,101 @@
 	window.checkContentTruncation = checkContentTruncation;
 	document.addEventListener('DOMContentLoaded', checkContentTruncation);
 
-	// ---- HLS (.m3u8) video initialization ----
-	// When hls.js is loaded (via CDN), automatically upgrade .m3u8 <video> elements.
-	function initHLSVideos(container) {
-		if (typeof Hls === 'undefined') return; // hls.js not loaded — Safari handles m3u8 natively
-		var videos = (container || document).querySelectorAll('video');
-		for (var i = 0; i < videos.length; i++) {
-			var v = videos[i];
-			var src = v.src || (v.querySelector('source') || {}).src || '';
-			if (!/\.m3u8($|\?)/i.test(src)) continue;
-			if (v.hasAttribute('data-hls-init')) continue; // already initialised
-			if (Hls.isSupported()) {
+	// ---- Video player: click cover to load Plyr + hls.js ----
+	var plyrAssetsLoaded = false;
+	var playerInstances = [];
+
+	function loadScript(src) {
+		return new Promise(function (resolve, reject) {
+			var s = document.createElement('script');
+			s.src = src;
+			s.onload = resolve;
+			s.onerror = reject;
+			document.head.appendChild(s);
+		});
+	}
+
+	function loadPlayerAssets() {
+		if (plyrAssetsLoaded) return Promise.resolve();
+		return Promise.all([
+			loadScript('/static/vendor/plyr.js'),
+			loadScript('/static/vendor/hls.min.js')
+		]).then(function () { plyrAssetsLoaded = true; });
+	}
+
+	function wrapVideo(video) {
+		if (video.closest('.plyr-video-wrap')) return; // already wrapped
+		var wrap = document.createElement('div');
+		wrap.className = 'plyr-video-wrap';
+		video.parentNode.insertBefore(wrap, video);
+		wrap.appendChild(video);
+
+		// Build overlay with poster + play button.
+		var overlay = document.createElement('div');
+		overlay.className = 'plyr-video-overlay';
+
+		var posterURL = video.getAttribute('poster') || '';
+		if (posterURL) {
+			var img = document.createElement('img');
+			img.src = posterURL;
+			img.className = 'plyr-video-poster';
+			img.alt = '';
+			img.loading = 'lazy';
+			overlay.appendChild(img);
+		}
+
+		var btn = document.createElement('button');
+		btn.className = 'plyr-video-playbtn';
+		btn.setAttribute('aria-label', '播放视频');
+		btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>';
+		overlay.appendChild(btn);
+		wrap.appendChild(overlay);
+
+		// One-click init.
+		wrap.addEventListener('click', function onClick() {
+			wrap.removeEventListener('click', onClick);
+			initPlayer(video, wrap);
+		});
+	}
+
+	function initPlayer(video, wrap) {
+		loadPlayerAssets().then(function () {
+			var src = video.src || (video.querySelector('source') || {}).src || '';
+			var isM3U8 = /\.m3u8($|\?)/i.test(src);
+
+			var opts = {
+				controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+				clickToPlay: true,
+				disableContextMenu: false,
+				hideControls: true
+			};
+
+			if (isM3U8 && typeof Hls !== 'undefined' && Hls.isSupported()) {
 				var hls = new Hls();
 				hls.loadSource(src);
-				hls.attachMedia(v);
-				v.setAttribute('data-hls-init', '1');
+				hls.attachMedia(video);
+				video.setAttribute('data-hls-init', '1');
 			}
+
+			var player = new Plyr(video, opts);
+			playerInstances.push(player);
+
+			// Remove overlay, show controls, start playing.
+			var overlay = wrap.querySelector('.plyr-video-overlay');
+			if (overlay) overlay.remove();
+			video.setAttribute('controls', '');
+			player.play();
+		}).catch(function (err) {
+			console.warn('Failed to load video player:', err);
+		});
+	}
+
+	function initVideoPlayers(container) {
+		var videos = (container || document).querySelectorAll('video');
+		for (var i = 0; i < videos.length; i++) {
+			wrapVideo(videos[i]);
 		}
 	}
-	document.addEventListener('DOMContentLoaded', function () { initHLSVideos(); });
-	window.initHLSVideos = initHLSVideos; // re-call after infinite-scroll inserts new cards
+
+	document.addEventListener('DOMContentLoaded', function () { initVideoPlayers(); });
+	window.initVideoPlayers = initVideoPlayers;

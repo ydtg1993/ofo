@@ -108,3 +108,26 @@ func SegmentVideo(inputPath, outputDir, baseName string) (string, []string, erro
 
 	return m3u8Path, tsFiles, nil
 }
+
+// GenerateVideoPoster extracts a single frame from a video file and saves it as
+// a JPEG image. It uses ffmpeg to seek to 1 second (to skip black intro frames)
+// and capture one frame at medium quality.
+//
+// Parameters:
+//   - inputPath:  path to the source video file
+//   - outputPath: path where the poster JPEG will be written
+func GenerateVideoPoster(inputPath, outputPath string) error {
+	cmd := exec.Command("ffmpeg",
+		"-ss", "1", // seek to 1 second to skip black frames
+		"-i", inputPath,
+		"-vframes", "1",
+		"-q:v", "2",
+		"-y", // overwrite output
+		outputPath,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ffmpeg poster generation failed: %w\n%s", err, string(out))
+	}
+	return nil
+}

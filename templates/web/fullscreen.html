@@ -6,7 +6,7 @@
                 {{if $post.ThumbnailURL}}
                 <div class="feed-card__media">
                     {{if isVideoURL $post.ThumbnailURL}}
-                    <video src="{{displayURL $post.ThumbnailURL}}" preload="none" controls playsinline class="feed-card__video"></video>
+                    {{videoCoverImg $post.ThumbnailURL $post.Title}}
                     {{else}}
                     <img src="{{displayURL $post.ThumbnailURL}}" alt="{{$post.Title}}" loading="lazy">
                     {{end}}

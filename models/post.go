@@ -71,11 +71,15 @@ type PostCard struct {
 	// ThumbnailWidth/Height are populated by the API layer from storage metadata.
 	ThumbnailWidth  int `json:",omitempty"`
 	ThumbnailHeight int `json:",omitempty"`
-	CategoryName    string
-	CategorySlug    string
-	PublishAt       *time.Time
-	CreatedAt       time.Time
-	Tags            []Tag
+	// CoverURL/Width/Height are populated for video thumbnails from video_segments.
+	CoverURL     string `json:",omitempty"`
+	CoverWidth   int    `json:",omitempty"`
+	CoverHeight  int    `json:",omitempty"`
+	CategoryName string
+	CategorySlug string
+	PublishAt    *time.Time
+	CreatedAt    time.Time
+	Tags         []Tag
 }
 
 // Pagination holds page navigation info.

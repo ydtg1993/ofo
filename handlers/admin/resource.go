@@ -3,6 +3,9 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"os"
@@ -11,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"ofo/handlers"
 	"ofo/logger"
 	"ofo/media"
 	"ofo/models"
@@ -45,16 +47,21 @@ func (a *AdminHandler) AdminDeleteResource(c *gin.Context) {
 
 // cleanupResourceTree deletes a resource from storage and DB.  When the
 // resource is an HLS playlist (.m3u8) it also removes every associated .ts
-// segment via the video_segments table.
+// segment via the video_segments table, plus the cover.jpg poster.
 func (a *AdminHandler) cleanupResourceTree(ctx context.Context, r *models.Resource) {
+	url := r.URL
+	ext := strings.ToLower(filepath.Ext(url))
+	dir := filepath.Dir(url)
+	base := strings.TrimSuffix(filepath.Base(url), filepath.Ext(url))
 
 	// 1. Delete the main resource file from storage.
 	if r.Storage == "" || r.Storage == a.Cfg.StorageBackend {
-		a.Storage.Delete(ctx, strings.TrimPrefix(r.URL, "/"))
+		a.Storage.Delete(ctx, strings.TrimPrefix(url, "/"))
 	}
 
-	// 2. For m3u8 playlists, clean up related TS segments from the dedicated table.
-	if strings.HasSuffix(strings.ToLower(r.URL), ".m3u8") {
+	// 2. For HLS playlists (.m3u8), clean up TS segments + cover.jpg.
+	if ext == ".m3u8" {
+		// Delete TS segments from the dedicated table.
 		vs, err := a.VideoSegmentModel.FindByResourceID(r.ID)
 		if err == nil && vs != nil {
 			segments, _ := vs.SegmentsList()
@@ -63,9 +70,19 @@ func (a *AdminHandler) cleanupResourceTree(ctx context.Context, r *models.Resour
 			}
 			a.VideoSegmentModel.DeleteByResourceID(r.ID)
 		}
+		// HLS cover: uploads/2026/07/{uuid}/cover.jpg
+		a.Storage.Delete(ctx, strings.TrimPrefix(dir+"/cover.jpg", "/"))
 	}
 
-	// 3. Remove the DB record.
+	// 3. For short videos (.mp4 / .webm / .mov / .ogg), clean up cover + video_segments row.
+	if media.IsVideoExt(ext) {
+		// Short video cover: uploads/2026/07/{uuid}_cover.jpg
+		a.Storage.Delete(ctx, strings.TrimPrefix(dir+"/"+base+"_cover.jpg", "/"))
+		// Remove video_segments row (created for cover storage).
+		a.VideoSegmentModel.DeleteByResourceID(r.ID)
+	}
+
+	// 4. Remove the DB record.
 	a.ResourceModel.Delete(r.ID)
 }
 
@@ -134,20 +151,23 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		resourceURL string
 		mediaType   = "image"
 		isHLS       bool
+		hlsDir      string
+		resID       int64
+		baseName    string
 	)
 
 	if media.IsVideoExt(ext) {
 		mediaType = "video"
+		baseName = strings.TrimSuffix(dbFilename, ext)
 		duration, durErr := media.GetVideoDuration(tmpPath)
 		if durErr == nil && duration > media.HLSThreshold {
-			baseName := strings.TrimSuffix(dbFilename, ext)
 
 			sendProgress(c, "probing", "检测到长视频（"+strconv.Itoa(int(duration))+"秒），准备切片...", 0, 0)
 
 			// HLS files go into a dedicated subdirectory:
 			//   uploads/2026/07/{uuid}/{uuid}.m3u8
 			//   uploads/2026/07/{uuid}/{uuid}_000.ts
-			hlsDir := "uploads/" + datePrefix + "/" + baseName
+			hlsDir = "uploads/" + datePrefix + "/" + baseName
 
 			sendProgress(c, "segmenting", "正在切片...", 0, 0)
 			outDir := filepath.Join(tmpDir, "hls_"+baseName)
@@ -195,7 +215,7 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 				if m3u8Fi != nil {
 					m3u8Size = m3u8Fi.Size()
 				}
-				resID, _ := a.ResourceModel.Create(m3u8Name, resourceURL, a.Cfg.StorageBackend, m3u8Size+tsTotalSize, models.MIMEType(".m3u8"))
+				resID, _ = a.ResourceModel.Create(m3u8Name, resourceURL, a.Cfg.StorageBackend, m3u8Size+tsTotalSize, models.MIMEType(".m3u8"))
 
 				// Store TS paths in the dedicated video_segments table (JSON array).
 				a.VideoSegmentModel.Create(int(resID), tsKeys)
@@ -228,8 +248,50 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		resourceURL = finalURL
 
 		mimeType := models.MIMEType(ext)
-		if _, err := a.ResourceModel.Create(dbFilename, finalURL, a.Cfg.StorageBackend, header.Size, mimeType); err != nil {
-			logger.ErrorWithContext(c, "failed to record uploaded resource in database", "name", dbFilename, "err", err)
+		resID, _ = a.ResourceModel.Create(dbFilename, finalURL, a.Cfg.StorageBackend, header.Size, mimeType)
+	}
+
+	// ---- Generate video poster + store cover dimensions ----
+	if media.IsVideoExt(ext) && resID > 0 {
+		posterTmpPath := filepath.Join(tmpDir, "cover.jpg")
+		if err := media.GenerateVideoPoster(tmpPath, posterTmpPath); err != nil {
+			logger.Warn("failed to generate video poster, skipping", "video", dbFilename, "err", err)
+		} else {
+			defer os.Remove(posterTmpPath)
+
+			var posterKey string
+			if isHLS {
+				posterKey = hlsDir + "/cover.jpg"
+			} else {
+				posterKey = "uploads/" + datePrefix + "/" + baseName + "_cover.jpg"
+			}
+
+			posterF, openErr := os.Open(posterTmpPath)
+			if openErr == nil {
+				if _, upErr := a.Storage.Upload(c.Request.Context(), posterKey, posterF, 0); upErr != nil {
+					logger.Warn("failed to upload video poster", "key", posterKey, "err", upErr)
+				}
+				posterF.Close()
+			}
+
+			// Read cover dimensions from the generated JPEG and store in DB.
+			w, h := getImageDimensions(posterTmpPath)
+			coverInfo := &models.CoverInfo{
+				URL:    "/" + posterKey,
+				Width:  w,
+				Height: h,
+			}
+			if isHLS {
+				// Update existing video_segments row with cover info.
+				if err := a.VideoSegmentModel.UpsertCover(int(resID), coverInfo); err != nil {
+					logger.Warn("failed to save cover info for HLS", "err", err)
+				}
+			} else {
+				// Create video_segments row (empty segments) with cover.
+				if err := a.VideoSegmentModel.UpsertCover(int(resID), coverInfo); err != nil {
+					logger.Warn("failed to save cover info for short video", "err", err)
+				}
+			}
 		}
 	}
 
@@ -245,47 +307,16 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 	c.Writer.Flush()
 }
 
-// AdminCleanupUploads deletes uploads that have been removed from the editor
-// (i.e., uploaded during an editing session but the user clicked "Cancel").
-// Accepts JSON: {"urls": ["url1", "url2", ...]}
-// Only deletes resources that are NOT linked to any post (safety check).
-func (a *AdminHandler) AdminCleanupUploads(c *gin.Context) {
-	var body struct {
-		URLs []string `json:"urls"`
+// getImageDimensions reads the pixel width and height of a local image file.
+func getImageDimensions(path string) (int, int) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0
 	}
-	if err := c.ShouldBindJSON(&body); err != nil || len(body.URLs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing or invalid urls"})
-		return
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0, 0
 	}
-
-	deleted := 0
-	for _, url := range body.URLs {
-		if url == "" {
-			continue
-		}
-		relPath := handlers.URLToRelativePath(url, a.Storage, a.Cfg)
-		r, err := a.ResourceModel.FindByURL(relPath)
-		if err != nil {
-			continue // not found or already cleaned up
-		}
-
-		// Safety: only delete if no post references this resource
-		noLinks, _ := a.ResourceModel.HasNoLinks(r.ID)
-		if !noLinks {
-			continue // still linked to a post
-		}
-
-		if r.Storage != "" && r.Storage != a.Cfg.StorageBackend {
-			logger.Info("skip cleanup: resource on different backend",
-				"filename", r.Filename, "resourceStorage", r.Storage, "currentBackend", a.Cfg.StorageBackend)
-			deleted++
-			continue
-		}
-
-		a.cleanupResourceTree(c.Request.Context(), r)
-		deleted++
-		logger.Info("cleaned up orphan upload", "filename", r.Filename)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"deleted": deleted})
+	return cfg.Width, cfg.Height
 }

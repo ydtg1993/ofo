@@ -3,12 +3,21 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ofo/logger"
 	"ofo/models"
 
 	"github.com/gin-gonic/gin"
 )
+
+// isVideoURL reports whether a URL points to a video file.
+func isVideoURL(url string) bool {
+	lower := strings.ToLower(url)
+	return strings.Contains(lower, ".mp4") || strings.Contains(lower, ".webm") ||
+		strings.Contains(lower, ".ogg") || strings.Contains(lower, ".mov") ||
+		strings.Contains(lower, ".m3u8") || strings.Contains(lower, "/video/")
+}
 
 // APIPosts returns a paginated JSON list of published posts.
 // Supports optional ?category=slug filter.
@@ -73,6 +82,14 @@ func (h *Handler) APIPosts(c *gin.Context) {
 	for i := range posts {
 		if posts[i].ThumbnailURL == "" {
 			continue
+		}
+		// 视频封面：从 video_segments 查 cover 信息
+		if isVideoURL(posts[i].ThumbnailURL) {
+			if ci, err := h.VideoSegmentModel.FindCoverByResourceURL(posts[i].ThumbnailURL); err == nil && ci != nil {
+				posts[i].CoverURL = ci.URL
+				posts[i].CoverWidth = ci.Width
+				posts[i].CoverHeight = ci.Height
+			}
 		}
 		dimURL := posts[i].ThumbnailURL
 		if IsStorageOrMediaURL(dimURL, h.Storage) {

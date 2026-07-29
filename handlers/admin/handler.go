@@ -52,8 +52,8 @@ func SetupRoutes(r *gin.Engine, h *handlers.Handler) {
 		protected.GET("/resources", a.AdminResources)                   // 资源管理
 		protected.POST("/resources/:id/delete", a.AdminDeleteResource)  // 删除资源
 		protected.POST("/upload", a.AdminUpload)                        // 文件上传
-		protected.POST("/upload/cleanup", a.AdminCleanupUploads)        // 清理未关联的上传文件
-		protected.POST("/resolve-content", a.AdminResolveContent)       // 编辑器预览 URL 解析
-		protected.GET("/logout", a.AdminLogout)                         // 退出登录
+
+		protected.POST("/resolve-content", a.AdminResolveContent) // 编辑器预览 URL 解析
+		protected.GET("/logout", a.AdminLogout)                   // 退出登录
 	}
 }

@@ -23,7 +23,6 @@
     <!-- JSON-LD 结构化数据 -->
     {{template "jsonld" .}}
 
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="{{asset "/static/js/main.js"}}"></script>
     {{mediaMap}}
     {{if .Cfg.MediaProtection}}<script src="{{asset "/static/js/media-blob.js"}}"></script>{{end}}
