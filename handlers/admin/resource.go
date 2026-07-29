@@ -45,44 +45,31 @@ func (a *AdminHandler) AdminDeleteResource(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/resources")
 }
 
-// cleanupResourceTree deletes a resource from storage and DB.  When the
-// resource is an HLS playlist (.m3u8) it also removes every associated .ts
-// segment via the video_segments table, plus the cover.jpg poster.
+// cleanupResourceTree deletes a resource from storage and DB.  For videos
+// (which live in their own subdirectory) the entire directory is removed in
+// one shot — video file, HLS segments, and cover.jpg.
 func (a *AdminHandler) cleanupResourceTree(ctx context.Context, r *models.Resource) {
 	url := r.URL
 	ext := strings.ToLower(filepath.Ext(url))
-	dir := filepath.Dir(url)
-	base := strings.TrimSuffix(filepath.Base(url), filepath.Ext(url))
+	isVideo := media.IsVideoExt(ext) || ext == ".m3u8"
 
-	// 1. Delete the main resource file from storage.
 	if r.Storage == "" || r.Storage == a.Cfg.StorageBackend {
-		a.Storage.Delete(ctx, strings.TrimPrefix(url, "/"))
-	}
-
-	// 2. For HLS playlists (.m3u8), clean up TS segments + cover.jpg.
-	if ext == ".m3u8" {
-		// Delete TS segments from the dedicated table.
-		vs, err := a.VideoSegmentModel.FindByResourceID(r.ID)
-		if err == nil && vs != nil {
-			segments, _ := vs.SegmentsList()
-			for _, segKey := range segments {
-				a.Storage.Delete(ctx, segKey)
-			}
-			a.VideoSegmentModel.DeleteByResourceID(r.ID)
+		if isVideo {
+			// Delete the entire {uuid}/ directory.
+			dir := filepath.Dir(url)
+			a.Storage.DeletePrefix(ctx, strings.TrimPrefix(dir, "/"))
+		} else {
+			// Image or other single file.
+			a.Storage.Delete(ctx, strings.TrimPrefix(url, "/"))
 		}
-		// HLS cover: uploads/2026/07/{uuid}/cover.jpg
-		a.Storage.Delete(ctx, strings.TrimPrefix(dir+"/cover.jpg", "/"))
 	}
 
-	// 3. For short videos (.mp4 / .webm / .mov / .ogg), clean up cover + video_segments row.
-	if media.IsVideoExt(ext) {
-		// Short video cover: uploads/2026/07/{uuid}_cover.jpg
-		a.Storage.Delete(ctx, strings.TrimPrefix(dir+"/"+base+"_cover.jpg", "/"))
-		// Remove video_segments row (created for cover storage).
+	// Clean up video_segments row if present.
+	if isVideo {
 		a.VideoSegmentModel.DeleteByResourceID(r.ID)
 	}
 
-	// 4. Remove the DB record.
+	// Remove the DB record.
 	a.ResourceModel.Delete(r.ID)
 }
 
@@ -159,6 +146,8 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 	if media.IsVideoExt(ext) {
 		mediaType = "video"
 		baseName = strings.TrimSuffix(dbFilename, ext)
+		// Videos always use a subdirectory: uploads/2026/07/{uuid}/{uuid}.mp4
+		key = "uploads/" + datePrefix + "/" + baseName + "/" + dbFilename
 		duration, durErr := media.GetVideoDuration(tmpPath)
 		if durErr == nil && duration > media.HLSThreshold {
 
@@ -263,7 +252,7 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 			if isHLS {
 				posterKey = hlsDir + "/cover.jpg"
 			} else {
-				posterKey = "uploads/" + datePrefix + "/" + baseName + "_cover.jpg"
+				posterKey = "uploads/" + datePrefix + "/" + baseName + "/cover.jpg"
 			}
 
 			posterF, openErr := os.Open(posterTmpPath)

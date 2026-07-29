@@ -62,6 +62,16 @@ func (s *LocalStorage) Delete(_ context.Context, key string) error {
 	return err
 }
 
+// DeletePrefix removes a directory and everything under it.
+func (s *LocalStorage) DeletePrefix(_ context.Context, prefix string) error {
+	path := filepath.Join(s.baseDir, prefix)
+	err := os.RemoveAll(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
 // Get opens a file for reading. The caller must close the returned reader.
 func (s *LocalStorage) Get(_ context.Context, key string) (io.ReadCloser, error) {
 	path := filepath.Join(s.baseDir, key)

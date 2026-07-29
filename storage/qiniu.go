@@ -121,6 +121,16 @@ func (s *QiniuStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+// DeletePrefix removes all objects under the given prefix by using Qiniu's
+// Directory API which deletes every object sharing the prefix in one call.
+func (s *QiniuStorage) DeletePrefix(ctx context.Context, prefix string) error {
+	err := s.bucketObj.Directory(prefix, "/").Delete(ctx)
+	if err != nil {
+		logger.Warn("qiniu delete prefix", "prefix", prefix, "err", err)
+	}
+	return nil
+}
+
 // Get downloads file content from the CDN. Used for dimension extraction.
 func (s *QiniuStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	url := s.domain + "/" + key

@@ -7,6 +7,7 @@ import (
 
 	"ofo/config"
 	"ofo/handlers"
+	"ofo/models"
 	"ofo/storage"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -150,6 +151,45 @@ var reVideoTag = regexp.MustCompile(`<video\s([^>]*?)>`)
 
 // reVideoSrc extracts the src attribute value from a <video> tag.
 var reVideoSrc = regexp.MustCompile(`src\s*=\s*"([^"]*)"`)
+
+// DeferVideoSrc replaces src="..." with data-src="..." in every <video> tag
+// so the browser does NOT start loading video data on page load.  The real
+// src is restored by JS when the user clicks to play.
+func DeferVideoSrc(html string) string {
+	return reVideoSrc.ReplaceAllString(html, `data-src="$1"`)
+}
+
+// InjectVideoPoster adds a poster attribute to <video> tags by looking up the
+// cover image from video_segments.  Must be called AFTER DeferVideoSrc since
+// it reads the data-src attribute.
+func InjectVideoPoster(html string, vsModel *models.VideoSegmentModel, displayFn func(string) string) string {
+	return reVideoTag.ReplaceAllStringFunc(html, func(match string) string {
+		// Already has poster? skip.
+		if strings.Contains(match, "poster=") {
+			return match
+		}
+		// Extract data-src (set by DeferVideoSrc) or src.
+		m := regexp.MustCompile(`(?:data-src|src)\s*=\s*"([^"]*)"`).FindStringSubmatch(match)
+		if m == nil {
+			return match
+		}
+		videoURL := m[1]
+		// Normalize to DB relative path: strip scheme+host and /static prefix.
+		if idx := strings.Index(videoURL, "://"); idx != -1 {
+			rest := videoURL[idx+3:]
+			if idx2 := strings.Index(rest, "/"); idx2 != -1 {
+				videoURL = rest[idx2:]
+			}
+		}
+		videoURL = strings.TrimPrefix(videoURL, "/static")
+		ci, err := vsModel.FindCoverByResourceURL(videoURL)
+		if err != nil || ci == nil || ci.URL == "" {
+			return match
+		}
+		posterAttr := fmt.Sprintf(` poster="%s"`, displayFn(ci.URL))
+		return strings.Replace(match, ">", posterAttr+">", 1)
+	})
+}
 
 // InjectVideoDimensions adds width and height attributes to <video> tags
 // whose src points to a storage-managed file, reading dimensions via the

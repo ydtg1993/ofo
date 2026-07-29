@@ -17,6 +17,10 @@ type Storage interface {
 	// Delete removes a file by its key. Must not error if the object does not exist.
 	Delete(ctx context.Context, key string) error
 
+	// DeletePrefix removes all files under the given prefix/directory.
+	// Must not error if no objects match.
+	DeletePrefix(ctx context.Context, prefix string) error
+
 	// Get returns a reader for the object content.
 	// Used for dimension extraction fallback when the storage backend doesn't
 	// provide a dedicated metadata API.

@@ -76,6 +76,11 @@ func Setup(cfg *config.Config, h *handlers.Handler, baseDir string) *gin.Engine 
 		cached.Static("", filepath.Join(baseDir, "static", "js"))
 	}
 	{
+		cached := r.Group("/static/vendor")
+		cached.Use(middleware.CacheControl(365 * 24 * time.Hour))
+		cached.Static("", filepath.Join(baseDir, "static", "vendor"))
+	}
+	{
 		cached := r.Group("/static/resources")
 		cached.Use(middleware.CacheControl(365 * 24 * time.Hour))
 		cached.Static("", filepath.Join(baseDir, "static", "resources"))

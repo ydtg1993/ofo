@@ -65,6 +65,8 @@ func templateFuncMap(cfg *config.Config, store storage.Storage, vsModel *models.
 			html = admin.InjectLazyLoading(html)
 			html = admin.InjectImageDimensions(html, store)
 			html = admin.InjectVideoDimensions(html, store)
+			html = admin.DeferVideoSrc(html)                                                                            // strip src → data-src, prevent eager load
+			html = admin.InjectVideoPoster(html, vsModel, func(p string) string { return handlers.DisplayURL(p, cfg) }) // inject poster from video_segments
 			if cfg.MediaProtection {
 				return template.HTML(handlers.BuildMediaMapWith(html, store, cfg, handlers.CurrentMediaMap()))
 			}
@@ -83,15 +85,13 @@ func templateFuncMap(cfg *config.Config, store storage.Storage, vsModel *models.
 		"videoCoverImg": func(videoURL string, alt string) template.HTML {
 			ci, err := vsModel.FindCoverByResourceURL(videoURL)
 			if err != nil || ci == nil {
-				// Fallback: derive poster URL by naming convention.
+				// Fallback: derive cover by naming convention.
 				dir := filepath.Dir(videoURL)
 				ext := filepath.Ext(videoURL)
 				base := strings.TrimSuffix(filepath.Base(videoURL), ext)
-				var posterPath string
+				posterPath := dir + "/" + base + "_cover.jpg"
 				if filepath.Base(dir) == base {
 					posterPath = dir + "/cover.jpg"
-				} else {
-					posterPath = dir + "/" + base + "_cover.jpg"
 				}
 				return template.HTML(fmt.Sprintf(
 					`<img src="%s" alt="%s" loading="lazy">`,
@@ -115,13 +115,12 @@ func templateFuncMap(cfg *config.Config, store storage.Storage, vsModel *models.
 		"displayURL": func(path string) string { return handlers.DisplayURL(path, cfg) },
 		"posterURL": func(videoURL string) string {
 			dir := filepath.Dir(videoURL)
+			// All videos now use {uuid}/cover.jpg; fallback to flat {uuid}_cover.jpg for legacy.
 			ext := filepath.Ext(videoURL)
 			base := strings.TrimSuffix(filepath.Base(videoURL), ext)
 			if filepath.Base(dir) == base {
-				// HLS: video in own subdirectory → cover.jpg
 				return handlers.DisplayURL(dir+"/cover.jpg", cfg)
 			}
-			// Short/flat video → {base}_cover.jpg
 			return handlers.DisplayURL(dir+"/"+base+"_cover.jpg", cfg)
 		},
 		// 页面级媒体配置脚本（session cookie + AES 密钥）

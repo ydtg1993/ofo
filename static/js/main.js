@@ -874,6 +874,20 @@
 	}
 
 	function initPlayer(video, wrap) {
+		// Restore src from data-src (deferred by server to prevent eager load).
+		var deferred = video.getAttribute('data-src');
+		if (deferred && !video.src) {
+			video.src = deferred;
+			video.removeAttribute('data-src');
+		}
+
+		// Copy poster from overlay to video element so Plyr displays it.
+		var posterImg = wrap.querySelector('.plyr-video-poster');
+		var posterURL = posterImg ? posterImg.src : (video.getAttribute('poster') || '');
+		if (posterURL && !video.getAttribute('poster')) {
+			video.setAttribute('poster', posterURL);
+		}
+
 		loadPlayerAssets().then(function () {
 			var src = video.src || (video.querySelector('source') || {}).src || '';
 			var isM3U8 = /\.m3u8($|\?)/i.test(src);
@@ -892,14 +906,13 @@
 				video.setAttribute('data-hls-init', '1');
 			}
 
-			var player = new Plyr(video, opts);
-			playerInstances.push(player);
-
-			// Remove overlay, show controls, start playing.
+			// Remove custom overlay so Plyr's own UI takes over.
 			var overlay = wrap.querySelector('.plyr-video-overlay');
 			if (overlay) overlay.remove();
+
+			var player = new Plyr(video, opts);
+			playerInstances.push(player);
 			video.setAttribute('controls', '');
-			player.play();
 		}).catch(function (err) {
 			console.warn('Failed to load video player:', err);
 		});
