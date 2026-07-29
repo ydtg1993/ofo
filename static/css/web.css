@@ -526,6 +526,11 @@ li { margin-bottom: 0.35rem; }
 }
 
 /* ---- Single Post ---- */
+.post-full {
+    min-width: 700px;
+    max-width: 990px;
+    margin: 0 auto;
+}
 .post-full__header {
     margin-bottom: 1.5rem;
 }
@@ -1468,7 +1473,7 @@ pre:hover .code-copy-btn,
 
 /* 信息流卡片 */
 .feed-card {
-    width: 700px;
+    min-width: 700px;
     max-width: 888px;
     margin-bottom: 2rem;
     overflow: hidden;

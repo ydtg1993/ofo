@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"ofo/handlers"
 	"ofo/logger"
 	"ofo/media"
 	"ofo/models"
@@ -28,8 +29,21 @@ func (a *AdminHandler) AdminResources(c *gin.Context) {
 	total, _ := a.ResourceModel.CountAll()
 	pg := adminPagination(c, total, 20)
 	resources, _ := a.ResourceModel.ListAll((pg.CurrentPage-1)*pg.PerPage, pg.PerPage)
+
+	// Build cover URL map for video resources (lookup from video_segments table).
+	videoCovers := make(map[int]string)
+	for _, r := range resources {
+		if strings.HasPrefix(r.MimeType, "video/") || strings.HasSuffix(strings.ToLower(r.URL), ".m3u8") {
+			ci, err := a.VideoSegmentModel.FindCoverByResourceURL(r.URL)
+			if err == nil && ci != nil && ci.URL != "" {
+				videoCovers[r.ID] = handlers.DisplayURL(ci.URL, a.Cfg)
+			}
+		}
+	}
+
 	c.HTML(http.StatusOK, "admin_resources.html", AdminPageData{
 		Title: "资源管理", Cfg: a.Cfg, Resources: resources, Pagination: pg, ShowResources: true,
+		VideoCovers: videoCovers,
 	})
 }
 

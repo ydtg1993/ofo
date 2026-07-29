@@ -400,11 +400,12 @@
         return /^\s*<[a-zA-Z]/.test(s) && !/[#>\-\*\d]/.test(s.replace(/```[\s\S]*?```/g, ''));
     }
 
-    function renderPreview(md) {
+    function renderPreview(html) {
         var pre = document.getElementById('preview-content');
         if (!pre) return;
-        var html = looksLikePureHTML(md) ? md : marked.parse(md);
         pre.innerHTML = '<div class="neo-box post-full__body">' + html + '</div>';
+        // Initialize video players in preview (same Plyr wrapper as frontend)
+        initVideoPlayers(pre);
     }
 
     window.updatePreview = function () {
@@ -415,10 +416,8 @@
 
     function resolveAndRenderPreview(md) {
         if (!md) return;
-        if (md.indexOf('/uploads/') === -1) {
-            renderPreview(md);
-            return;
-        }
+        // Always go through server to apply the full video/image transformation
+        // pipeline (DeferVideoSrc, InjectVideoPoster, dimension injection, etc.)
         fetch('/admin/resolve-content', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -428,7 +427,11 @@
         .then(function (data) {
             if (data.content) renderPreview(data.content);
         })
-        .catch(function () { renderPreview(md); });
+        .catch(function () {
+            // Fallback: render markdown locally without transformations
+            var html = looksLikePureHTML(md) ? md : marked.parse(md);
+            renderPreview(html);
+        });
     }
 
     if (document.getElementById('content')) {

@@ -26,6 +26,7 @@ type AdminPageData struct {
 	ShowSeriesPosts   bool
 	ShowResources     bool
 	Resources         []models.Resource
+	VideoCovers       map[int]string // resource ID → cover display URL (for video resources)
 	SeriesList        []models.Series
 	Series            *models.Series
 	AllSeries         []models.Series
