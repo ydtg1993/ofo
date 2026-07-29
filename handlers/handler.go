@@ -8,12 +8,13 @@ import (
 
 // Handler holds shared dependencies for all HTTP handlers.
 type Handler struct {
-	PostModel     *models.PostModel
-	ResourceModel *models.ResourceModel
-	SeriesModel   *models.SeriesModel
-	Cfg           *config.Config
-	BaseDir       string
-	Storage       storage.Storage
+	PostModel         *models.PostModel
+	ResourceModel     *models.ResourceModel
+	SeriesModel       *models.SeriesModel
+	VideoSegmentModel *models.VideoSegmentModel
+	Cfg               *config.Config
+	BaseDir           string
+	Storage           storage.Storage
 }
 
 // PageData is the top-level data passed to every template.

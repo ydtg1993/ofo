@@ -58,6 +58,7 @@ func main() {
 	postModel := &models.PostModel{DB: db}
 	resourceModel := &models.ResourceModel{DB: db}
 	seriesModel := &models.SeriesModel{DB: db}
+	videoSegmentModel := &models.VideoSegmentModel{DB: db}
 
 	// ---- 初始化存储后端 ----
 	var store storage.Storage
@@ -85,12 +86,13 @@ func main() {
 	}
 
 	h := &handlers.Handler{
-		PostModel:     postModel,
-		ResourceModel: resourceModel,
-		SeriesModel:   seriesModel,
-		Cfg:           cfg,
-		BaseDir:       baseDir,
-		Storage:       store,
+		PostModel:         postModel,
+		ResourceModel:     resourceModel,
+		SeriesModel:       seriesModel,
+		VideoSegmentModel: videoSegmentModel,
+		Cfg:               cfg,
+		BaseDir:           baseDir,
+		Storage:           store,
 	}
 
 	// ---- 路由 & 中间件 & 启动 ----

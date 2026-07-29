@@ -31,6 +31,7 @@ func Init(dsn string) (*gorm.DB, error) {
 		&models.Resource{},
 		&models.Series{},
 		&models.PostSeries{},
+		&models.VideoSegment{},
 	); err != nil {
 		return nil, err
 	}
