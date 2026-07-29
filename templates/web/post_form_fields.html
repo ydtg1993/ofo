@@ -93,13 +93,11 @@
     <div class="form-group">
         <label class="form-label">标签</label>
         <input type="hidden" id="tag_ids" name="tag_ids" value="{{if .Tags}}{{range $i, $t := .Tags}}{{if $i}},{{end}}{{$t.ID}}{{end}}{{end}}">
-        {{if .AllTags}}
         <div class="tag-chips" id="tag-chips" style="display:flex;flex-wrap:wrap;gap:0.35rem;">
             {{range .AllTags}}
             <button type="button" class="tag-chip{{if tagSelected . $.Tags}} tag-chip--active{{end}}" data-tag-id="{{.ID}}" onclick="toggleTag(this)" title="点击切换">{{.Name}}</button>
             {{end}}
         </div>
-        {{end}}
         <div style="display:flex;gap:0.35rem;margin-top:0.5rem;">
             <input type="text" id="new-tag-input" class="form-input" placeholder="输入新标签名，回车添加" style="flex:1;max-width:200px;"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();addNewTag()}">

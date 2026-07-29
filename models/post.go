@@ -18,7 +18,7 @@ type Category struct {
 	Name  string `gorm:"size:100;not null;uniqueIndex"`
 	Slug  string `gorm:"size:100;not null;uniqueIndex"`
 	Posts []Post `gorm:"foreignKey:CategoryID"`
-	Count int    `gorm:"-"` // populated from query, not stored in DB
+	Count int    `gorm:"->"` // populated from query, not stored in DB
 }
 
 // Post represents a full blog post (GORM model).
@@ -48,7 +48,7 @@ type Tag struct {
 	Name  string `gorm:"size:100;not null;uniqueIndex"`
 	Slug  string `gorm:"size:100;not null;uniqueIndex"`
 	Posts []Post `gorm:"many2many:post_tags"`
-	Count int    `gorm:"-"` // populated from query, not stored in DB
+	Count int    `gorm:"->"` // populated from query, not stored in DB
 }
 
 // PostSeries is the explicit join table for posts<->series with sort_order.

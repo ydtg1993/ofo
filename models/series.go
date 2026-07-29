@@ -12,7 +12,7 @@ type Series struct {
 	Name      string `gorm:"size:100;not null"`
 	Slug      string `gorm:"size:100;not null;uniqueIndex"`
 	CreatedAt time.Time
-	PostCount int          `gorm:"-"` // populated from query, not stored in DB
+	PostCount int          `gorm:"->"` // populated from query, not stored in DB
 	PostItems []PostSeries `gorm:"foreignKey:SeriesID"`
 }
 
