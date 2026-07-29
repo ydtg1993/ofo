@@ -899,7 +899,7 @@
 			var isM3U8 = /\.m3u8($|\?)/i.test(src);
 
 			var opts = {
-				controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+				controls: ['play', 'progress', 'current-time', 'mute', 'captions', 'pip', 'airplay', 'fullscreen'],
 				clickToPlay: true,
 				disableContextMenu: false,
 				hideControls: true,
@@ -920,6 +920,52 @@
 			var player = new Plyr(video, opts);
 			playerInstances.push(player);
 			video.setAttribute('controls', '');
+
+			// Custom vertical volume slider on mute-button click.
+			setTimeout(function () {
+				var muteBtn = wrap.querySelector('[data-plyr="mute"]');
+				if (!muteBtn) return;
+
+				var volSlider = document.createElement('input');
+				volSlider.type = 'range';
+				volSlider.min = 0;
+				volSlider.max = 100;
+				volSlider.value = player.volume * 100;
+				volSlider.className = 'plyr-vol-vertical';
+				volSlider.style.cssText = 'display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);-webkit-appearance:slider-vertical;width:24px;height:80px;margin-bottom:4px;z-index:20;';
+				muteBtn.parentNode.appendChild(volSlider);
+
+				var hideSlider = function () { volSlider.style.display = 'none'; };
+
+				muteBtn.addEventListener('click', function (e) {
+					if (volSlider.style.display === 'none') {
+						volSlider.style.display = '';
+						volSlider.focus();
+						// Defer close-listener so current click doesn't immediately dismiss.
+						setTimeout(function () {
+							document.addEventListener('click', closeOnOutside, { once: true });
+						}, 0);
+					} else {
+						hideSlider();
+					}
+				});
+
+				var closeOnOutside = function (e) {
+					if (e.target !== muteBtn && e.target !== volSlider) hideSlider();
+				};
+
+				volSlider.addEventListener('input', function () {
+					player.volume = volSlider.value / 100;
+				});
+
+				player.on('volumechange', function () {
+					if (volSlider.style.display !== 'none') {
+						volSlider.value = player.volume * 100;
+					}
+				});
+
+				volSlider.addEventListener('click', function (e) { e.stopPropagation(); });
+			}, 100);
 
 			// Pause → show original-style play button on the video.
 			var resumeBtn = document.createElement('button');
@@ -945,6 +991,23 @@
 				resumeBtn.style.display = '';
 			});
 
+			// Pause when video scrolls out of view.
+			var observer = new IntersectionObserver(function (entries) {
+				var entry = entries[0];
+				if (!entry.isIntersecting && !video.paused) {
+					player.pause();
+				}
+			}, { threshold: 0.1 });
+			observer.observe(wrap);
+
+			// Pause when switching to another tab.
+			var onVisibility = function () {
+				if (document.hidden) {
+					player.pause();
+				}
+			};
+			document.addEventListener('visibilitychange', onVisibility);
+	
 			// Start playing immediately — one click from cover to playback.
 			player.play().catch(function () {
 				// Browser may block autoplay; show resume button.
