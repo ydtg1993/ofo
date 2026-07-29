@@ -234,6 +234,7 @@
                     ? '<span style="color:green;flex-shrink:0;">✓ 完成</span>'
                     : '<div class="upload-item__progress"><div class="upload-item__bar" style="width:' + pct + '%"></div></div>' +
                       '<span class="upload-item__pct">' + pct + '%</span>' +
+                      (item.status ? '<span class="upload-item__status">' + item.status + '</span>' : '') +
                       '<button class="btn btn--small btn--danger queue-remove-btn" data-idx="' + i + '">×</button>');
             list.appendChild(d);
         });
@@ -241,7 +242,12 @@
         var status = document.getElementById('editor-queue-status');
         if (status) {
             var done = uploadQueue.filter(function (x) { return x.uploaded; }).length;
-            status.textContent = '已上传 ' + done + '/' + uploadQueue.length;
+            var active = uploadQueue.filter(function (x) { return !x.uploaded && (x.progress || 0) > 0; }).length;
+            if (active > 0 && done < uploadQueue.length) {
+                status.textContent = '处理中... ' + done + '/' + uploadQueue.length;
+            } else {
+                status.textContent = '已上传 ' + done + '/' + uploadQueue.length;
+            }
         }
         list.querySelectorAll('.queue-remove-btn').forEach(function (b) {
             b.addEventListener('click', function () { removeFromQueue(parseInt(this.dataset.idx)); });
@@ -271,7 +277,6 @@
         var isResourcesPage = !document.getElementById('content') && !document.getElementById('image_url');
         (function next(idx) {
             if (idx >= pending.length) {
-                // 资源管理页上传完成后自动刷新
                 if (isResourcesPage) {
                     setTimeout(function () { window.location.reload(); }, 800);
                 }
@@ -280,39 +285,104 @@
             var item = pending[idx];
             var fd = new FormData(); fd.append('file', item.file);
             var xhr = new XMLHttpRequest(); xhr.open('POST', '/admin/upload');
+
+            // Phase 1: file bytes → server (0–50%)
             xhr.upload.onprogress = function (e) {
                 if (e.lengthComputable) {
-                    item.progress = (e.loaded / e.total) * 100;
+                    item.progress = Math.round((e.loaded / e.total) * 50);
+                    item.status = '上传文件中...';
                     renderQueue();
                 }
             };
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    item.uploaded = true;
-                    var resp = JSON.parse(xhr.responseText);
-                    var ta = document.getElementById('content');
-                    var imgUrl = document.getElementById('image_url');
-                    if (imgUrl) { imgUrl.value = resp.url; }
-                    else if (ta) {
-                        var ext = item.file.name.split('.').pop().toLowerCase();
-                        var isV = ['mp4', 'webm', 'ogg', 'mov'].indexOf(ext) >= 0;
-                        var isHLS = resp.type === 'video_hls';
-                        var tag;
-                        if (isV) {
-                            tag = '<video src="' + (resp.rel || resp.url) + '" controls></video>';
+
+            // Phase 2: server processing progress (50–100%)
+            var lastLineIdx = 0;
+            xhr.onprogress = function () {
+                // Parse newline-delimited JSON events from the response stream.
+                var text = xhr.responseText;
+                var newText = text.substring(lastLineIdx);
+                var lines = newText.split('\n');
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (!line) continue;
+                    try {
+                        var evt = JSON.parse(line);
+                        if (evt.phase === 'done') {
+                            item.uploaded = true;
+                            item.progress = 100;
+                            item.status = '完成';
+                            item.result = evt;
+                            insertUploadTag(item, evt);
+                        } else if (evt.phase === 'uploading' && evt.total > 0) {
+                            item.progress = 50 + Math.round((evt.current / evt.total) * 50);
+                            item.status = evt.msg || '上传中...';
                         } else {
-                            tag = '![](' + (resp.rel || resp.url) + ')';
+                            item.status = evt.msg || evt.phase || '处理中...';
                         }
-                        ta.value = ta.value.substring(0, ta.selectionStart) + tag + '\n' + ta.value.substring(ta.selectionEnd);
-                    }
-                    renderQueue();
+                        lastLineIdx += line.length + 1; // +1 for \n
+                    } catch (e) { /* partial line, wait for more data */ }
                 }
+                renderQueue();
+            };
+
+            xhr.onload = function () {
+                // If no streaming events were received (short video / image),
+                // fall back: parse the whole response as a single JSON object.
+                if (!item.uploaded && xhr.status === 200 && xhr.responseText) {
+                    try {
+                        // Check if the response is our multi-line format or plain JSON.
+                        var lines = xhr.responseText.trim().split('\n');
+                        var last = lines[lines.length - 1];
+                        var resp = JSON.parse(last);
+                        if (resp.phase === 'done') {
+                            item.uploaded = true;
+                            item.progress = 100;
+                            item.status = '完成';
+                            item.result = resp;
+                            insertUploadTag(item, resp);
+                        } else {
+                            // Fallback: plain JSON response (legacy).
+                            item.uploaded = true;
+                            item.progress = 100;
+                            item.status = '完成';
+                            item.result = resp;
+                            insertUploadTag(item, resp);
+                        }
+                    } catch (e2) {
+                        // Last resort: try parsing entire response as JSON.
+                        try {
+                            var resp = JSON.parse(xhr.responseText);
+                            item.uploaded = true;
+                            item.progress = 100;
+                            item.status = '完成';
+                            item.result = resp;
+                            insertUploadTag(item, resp);
+                        } catch (e3) {}
+                    }
+                }
+                if (item.uploaded) renderQueue();
                 next(idx + 1);
             };
             xhr.onerror = function () { next(idx + 1); };
             xhr.send(fd);
         })(0);
     };
+
+    function insertUploadTag(item, resp) {
+        var ta = document.getElementById('content');
+        var imgUrl = document.getElementById('image_url');
+        if (imgUrl) { imgUrl.value = resp.url; return; }
+        if (!ta) return;
+        var ext = item.file.name.split('.').pop().toLowerCase();
+        var isV = ['mp4', 'webm', 'ogg', 'mov'].indexOf(ext) >= 0;
+        var tag;
+        if (isV) {
+            tag = '<video src="' + (resp.rel || resp.url) + '" controls></video>';
+        } else {
+            tag = '![](' + (resp.rel || resp.url) + ')';
+        }
+        ta.value = ta.value.substring(0, ta.selectionStart) + tag + '\n' + ta.value.substring(ta.selectionEnd);
+    }
 
     window.cancelEditor = function () {
         var urls = uploadQueue.filter(function (i) { return i.uploaded; }).map(function (i) { return i.file.name; });

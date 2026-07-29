@@ -1468,6 +1468,8 @@ pre:hover .code-copy-btn,
 
 /* 信息流卡片 */
 .feed-card {
+    width: 700px;
+    max-width: 888px;
     margin-bottom: 2rem;
     overflow: hidden;
 }
@@ -1542,6 +1544,9 @@ pre:hover .code-copy-btn,
     font-size: 1rem;
     line-height: 1.7;
     color: var(--text-secondary);
+    overflow: hidden;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .feed-card__content img {
     max-width: 100%;
@@ -1579,7 +1584,9 @@ pre:hover .code-copy-btn,
     margin-bottom: 0.5rem;
 }
 .feed-card__content table {
+    display: block;
     width: 100%;
+    overflow-x: auto;
     border-collapse: collapse;
     margin: 0.75rem 0;
     font-size: 0.9rem;
@@ -1669,6 +1676,8 @@ pre:hover .code-copy-btn,
     }
 
     .feed-card {
+        width: 100%;
+        max-width: 100%;
         scroll-snap-align: start;
         min-height: calc(100vh - 110px);
         display: flex;
@@ -1780,6 +1789,8 @@ pre:hover .code-copy-btn,
 }
 
 .swipe-feed .feed-card {
+    width: 100%;
+    max-width: 100%;
     scroll-snap-align: start;
     min-height: 100vh;
     display: flex;

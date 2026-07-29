@@ -45,7 +45,7 @@
                     {{$displayURL := displayURL .URL}}
                     <tr>
                         <td class="sticker-table__preview">
-                            {{if hasPrefix .MimeType "video/"}}
+                            {{if isVideoURL .URL}}
                                 <video src="{{$displayURL}}" preload="metadata" muted style="width:80px;height:60px;object-fit:cover;" onclick="previewMedia('{{$displayURL}}', true)" title="点击预览"></video>
                             {{else}}
                                 <img src="{{$displayURL}}" alt="{{.Filename}}" loading="lazy" style="width:80px;height:60px;object-fit:cover;" onclick="previewMedia('{{$displayURL}}', false)" title="点击预览">

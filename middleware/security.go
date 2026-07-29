@@ -17,8 +17,8 @@ func SecurityHeaders(cfg *config.Config) gin.HandlerFunc {
 	}
 
 	csp := fmt.Sprintf(
-		"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:%s; media-src 'self' blob:%s; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
-		cdnHost, cdnHost,
+		"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:%s; media-src 'self' blob:%s; font-src 'self'; connect-src 'self' blob:%s; frame-ancestors 'none';",
+		cdnHost, cdnHost, cdnHost,
 	)
 
 	return func(c *gin.Context) {

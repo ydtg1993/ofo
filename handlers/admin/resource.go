@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -70,6 +71,20 @@ func (a *AdminHandler) cleanupResourceTree(ctx context.Context, r *models.Resour
 
 // ---- File Upload ----
 
+// sendProgress writes a JSON progress event followed by a newline, then
+// flushes so the client receives it immediately (chunked transfer).
+func sendProgress(c *gin.Context, phase string, msg string, current, total int) {
+	data, _ := json.Marshal(map[string]interface{}{
+		"phase":   phase,
+		"msg":     msg,
+		"current": current,
+		"total":   total,
+	})
+	c.Writer.Write(data)
+	c.Writer.Write([]byte("\n"))
+	c.Writer.Flush()
+}
+
 func (a *AdminHandler) AdminUpload(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -127,11 +142,14 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		if durErr == nil && duration > media.HLSThreshold {
 			baseName := strings.TrimSuffix(dbFilename, ext)
 
+			sendProgress(c, "probing", "检测到长视频（"+strconv.Itoa(int(duration))+"秒），准备切片...", 0, 0)
+
 			// HLS files go into a dedicated subdirectory:
 			//   uploads/2026/07/{uuid}/{uuid}.m3u8
 			//   uploads/2026/07/{uuid}/{uuid}_000.ts
 			hlsDir := "uploads/" + datePrefix + "/" + baseName
 
+			sendProgress(c, "segmenting", "正在切片...", 0, 0)
 			outDir := filepath.Join(tmpDir, "hls_"+baseName)
 			m3u8Path, tsFiles, segErr := media.SegmentVideo(tmpPath, outDir, baseName)
 			if segErr != nil {
@@ -139,6 +157,8 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 				os.RemoveAll(outDir)
 			} else {
 				defer os.RemoveAll(outDir)
+
+				sendProgress(c, "uploading", "正在上传 m3u8...", 0, len(tsFiles)+1)
 
 				// Upload m3u8
 				m3u8Name := baseName + ".m3u8"
@@ -153,7 +173,7 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 				// Upload TS segments + collect their storage keys
 				var tsKeys []string
 				var tsTotalSize int64
-				for _, ts := range tsFiles {
+				for i, ts := range tsFiles {
 					tsName := filepath.Base(ts)
 					tsKey := hlsDir + "/" + tsName
 					tsF, _ := os.Open(ts)
@@ -166,6 +186,7 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 						tsF.Close()
 					}
 					tsKeys = append(tsKeys, tsKey)
+					sendProgress(c, "uploading", "上传切片 "+(strconv.Itoa(i+1))+"/"+strconv.Itoa(len(tsFiles))+"...", i+1, len(tsFiles)+1)
 				}
 
 				// Create resource record for the m3u8 playlist.
@@ -196,6 +217,7 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		}
 		defer uploadF.Close()
 
+		sendProgress(c, "uploading", "正在上传...", 0, 0)
 		var uploadErr error
 		finalURL, uploadErr = a.Storage.Upload(c.Request.Context(), key, uploadF, header.Size)
 		if uploadErr != nil {
@@ -211,11 +233,16 @@ func (a *AdminHandler) AdminUpload(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"url":  finalURL,
-		"rel":  resourceURL,
-		"type": mediaType,
+	// Send final result as the last progress event.
+	result, _ := json.Marshal(map[string]interface{}{
+		"phase": "done",
+		"url":   finalURL,
+		"rel":   resourceURL,
+		"type":  mediaType,
 	})
+	c.Writer.Write(result)
+	c.Writer.Write([]byte("\n"))
+	c.Writer.Flush()
 }
 
 // AdminCleanupUploads deletes uploads that have been removed from the editor

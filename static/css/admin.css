@@ -491,6 +491,16 @@
     flex-shrink: 0;
 }
 
+.upload-item__status {
+    font-size: 0.78rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    max-width: 14em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* 表格内预览 */
 .sticker-table__preview {
     width: 80px;
