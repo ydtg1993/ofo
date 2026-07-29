@@ -13,7 +13,7 @@ import (
 
 // Resource represents an uploaded file tracked in the database.
 type Resource struct {
-	ID          int    `gorm:"primaryKey;type:int;autoIncrement"`
+	ID          int    `gorm:"primaryKey;autoIncrement"`
 	Filename    string `gorm:"size:255;not null"`
 	URL         string `gorm:"size:512;not null"`
 	FileSize    int64  `gorm:"column:file_size;default:0"`

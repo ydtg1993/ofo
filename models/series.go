@@ -8,7 +8,7 @@ import (
 
 // Series represents a named collection of posts with ordering.
 type Series struct {
-	ID        int    `gorm:"primaryKey;type:int;autoIncrement"`
+	ID        int    `gorm:"primaryKey;autoIncrement"`
 	Name      string `gorm:"size:100;not null"`
 	Slug      string `gorm:"size:100;not null;uniqueIndex"`
 	CreatedAt time.Time
@@ -56,7 +56,7 @@ func (m *SeriesModel) Create(name, slug string) (int64, error) {
 
 // Update renames a series.
 func (m *SeriesModel) Update(id int, name, slug string) error {
-	return m.DB.Model(&Series{ID: id}).Updates(map[string]interface{}{
+	return m.DB.Model(&Series{ID: id}).Updates(map[string]any{
 		"name": name,
 		"slug": slug,
 	}).Error

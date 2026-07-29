@@ -14,7 +14,7 @@ import (
 
 // Category represents a blog post category (GORM model).
 type Category struct {
-	ID    int    `gorm:"primaryKey;type:int;autoIncrement"`
+	ID    int    `gorm:"primaryKey;autoIncrement"`
 	Name  string `gorm:"size:100;not null;uniqueIndex"`
 	Slug  string `gorm:"size:100;not null;uniqueIndex"`
 	Posts []Post `gorm:"foreignKey:CategoryID"`
@@ -23,7 +23,7 @@ type Category struct {
 
 // Post represents a full blog post (GORM model).
 type Post struct {
-	ID           int        `gorm:"primaryKey;type:int;autoIncrement"`
+	ID           int        `gorm:"primaryKey;autoIncrement"`
 	Title        string     `gorm:"size:255;not null"`
 	Slug         string     `gorm:"size:255;not null;uniqueIndex"`
 	Excerpt      string     `gorm:"type:text;not null"`
@@ -31,7 +31,7 @@ type Post struct {
 	ContentHTML  string     `gorm:"column:content_html;type:mediumtext;not null"`
 	CategoryID   *int       `gorm:"default:null"`
 	Category     *Category  `gorm:"foreignKey:CategoryID"`
-	IsPublished  bool       `gorm:"column:is_published;default:1"`
+	IsPublished  bool       `gorm:"column:is_published;type:int;default:1"`
 	ThumbnailURL string     `gorm:"column:thumbnail_url;size:512"`
 	PublishAt    *time.Time `gorm:"column:publish_at"`
 	CreatedAt    time.Time
@@ -43,7 +43,7 @@ type Post struct {
 
 // Tag represents a blog post tag (GORM model).
 type Tag struct {
-	ID    int    `gorm:"primaryKey;type:int;autoIncrement"`
+	ID    int    `gorm:"primaryKey;autoIncrement"`
 	Name  string `gorm:"size:100;not null;uniqueIndex"`
 	Slug  string `gorm:"size:100;not null;uniqueIndex"`
 	Posts []Post `gorm:"many2many:post_tags"`
@@ -52,8 +52,8 @@ type Tag struct {
 
 // PostSeries is the explicit join table for posts<->series with sort_order.
 type PostSeries struct {
-	PostID    int `gorm:"primaryKey;type:int"`
-	SeriesID  int `gorm:"primaryKey;type:int"`
+	PostID    int `gorm:"primaryKey"`
+	SeriesID  int `gorm:"primaryKey"`
 	SortOrder int `gorm:"column:sort_order;default:0"`
 }
 
@@ -267,7 +267,7 @@ func (m *PostModel) GetTagByID(id int) (*Tag, error) {
 
 // UpdateTag renames a tag.
 func (m *PostModel) UpdateTag(id int, name, slug string) error {
-	return m.DB.Model(&Tag{ID: id}).Updates(map[string]interface{}{
+	return m.DB.Model(&Tag{ID: id}).Updates(map[string]any{
 		"name": name,
 		"slug": slug,
 	}).Error
@@ -443,7 +443,7 @@ func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt,
 	}
 
 	// Save updates all fields; GORM uses zero-value checks so use Updates for full control
-	if err := m.DB.Model(&Post{ID: id}).Updates(map[string]interface{}{
+	if err := m.DB.Model(&Post{ID: id}).Updates(map[string]any{
 		"title":         p.Title,
 		"slug":          p.Slug,
 		"excerpt":       p.Excerpt,
@@ -454,6 +454,7 @@ func (m *PostModel) Update(id int, title, slug, contentMD, contentHTML, excerpt,
 		"thumbnail_url": p.ThumbnailURL,
 		"publish_at":    p.PublishAt,
 		"created_at":    p.CreatedAt,
+		"updated_at":    time.Now(),
 	}).Error; err != nil {
 		return err
 	}
@@ -487,7 +488,7 @@ func (m *PostModel) CreateCategory(name, slug string) error {
 
 // UpdateCategory updates a category's name and slug.
 func (m *PostModel) UpdateCategory(id int, name, slug string) error {
-	return m.DB.Model(&Category{ID: id}).Updates(map[string]interface{}{
+	return m.DB.Model(&Category{ID: id}).Updates(map[string]any{
 		"name": name,
 		"slug": slug,
 	}).Error
